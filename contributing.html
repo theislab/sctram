@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html class="writer-html5" lang="en">
+<html class="writer-html5" lang="en" data-content_root="./">
 <head>
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
@@ -18,10 +18,11 @@
   
         <script src="_static/jquery.js?v=5d32c60e"></script>
         <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js?v=f6245a2f"></script>
-        <script src="_static/doctools.js?v=888ff710"></script>
-        <script src="_static/sphinx_highlight.js?v=4825356b"></script>
-        <script src="_static/dark_mode_js/default_dark.js?v=fd565c74"></script>
+        <script src="_static/documentation_options.js?v=d45e8c67"></script>
+        <script src="_static/doctools.js?v=9a2dae69"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script src="_static/dark_mode_js/default_light.js?v=c2e647ce"></script>
         <script src="_static/dark_mode_js/theme_switcher.js?v=358d3910"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
@@ -40,10 +41,8 @@
           
           <a href="index.html" class="icon icon-home">
             sctram
+              <img src="_static/logo.png" class="logo" alt="Logo"/>
           </a>
-              <div class="version">
-                0.0.1
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -54,7 +53,6 @@
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="readme.html">sctram</a></li>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="usage.html">Usage</a></li>
 <li class="toctree-l1"><a class="reference internal" href="reference.html">Reference</a></li>
@@ -96,9 +94,9 @@
            <div itemprop="articleBody">
              
   <section id="contributor-guide">
-<h1>Contributor Guide<a class="headerlink" href="#contributor-guide" title="Permalink to this heading"></a></h1>
+<h1>Contributor Guide<a class="headerlink" href="#contributor-guide" title="Link to this heading"></a></h1>
 <p>Thank you for your interest in improving this project.
-This project is open-source under the <a class="reference external" href="https://opensource.org/licenses/BSD">BSD license</a> and
+This project is open-source under the <a class="reference external" href="https://opensource.org/licenses/BSD-3-Clause">BSD license</a> and
 highly welcomes contributions in the form of bug reports, feature requests, and pull requests.</p>
 <p>Here is a list of important resources for contributors:</p>
 <ul class="simple">
@@ -108,15 +106,21 @@ highly welcomes contributions in the form of bug reports, feature requests, and 
 <li><p><a class="reference external" href="CODE_OF_CONDUCT.rst">Code of Conduct</a></p></li>
 </ul>
 <section id="how-to-report-a-bug">
-<h2>How to report a bug<a class="headerlink" href="#how-to-report-a-bug" title="Permalink to this heading"></a></h2>
+<h2>How to report a bug<a class="headerlink" href="#how-to-report-a-bug" title="Link to this heading"></a></h2>
 <p>Report bugs on the <a class="reference external" href="https://github.com/theislab/sctram/issues">Issue Tracker</a>.</p>
 </section>
 <section id="how-to-request-a-feature">
-<h2>How to request a feature<a class="headerlink" href="#how-to-request-a-feature" title="Permalink to this heading"></a></h2>
+<h2>How to request a feature<a class="headerlink" href="#how-to-request-a-feature" title="Link to this heading"></a></h2>
 <p>Request features on the <a class="reference external" href="https://github.com/theislab/sctram/issues">Issue Tracker</a>.</p>
 </section>
 <section id="how-to-set-up-your-development-environment">
-<h2>How to set up your development environment<a class="headerlink" href="#how-to-set-up-your-development-environment" title="Permalink to this heading"></a></h2>
+<h2>How to set up your development environment<a class="headerlink" href="#how-to-set-up-your-development-environment" title="Link to this heading"></a></h2>
+<p>You should the <code class="docutils literal notranslate"><span class="pre">Pandoc</span></code> installation already to include tutorial Jupter notebooks into the documentation:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>brew<span class="w"> </span>install<span class="w"> </span>pandoc<span class="w">  </span><span class="c1"># MacOS</span>
+<span class="gp">$ </span>sudo<span class="w"> </span>apt-get<span class="w"> </span>install<span class="w"> </span>-y<span class="w"> </span>pandoc<span class="w">  </span><span class="c1"># Ubuntu</span>
+<span class="gp">$ </span>choco<span class="w"> </span>install<span class="w"> </span>pandoc<span class="w">  </span><span class="c1"># Windows</span>
+</pre></div>
+</div>
 <p>You need Python 3.8+ and the following tools:</p>
 <ul class="simple">
 <li><p><a class="reference external" href="https://python-poetry.org/">Poetry</a></p></li>
@@ -137,9 +141,10 @@ or the command-line interface:</p>
 <span class="gp">$ </span>poetry<span class="w"> </span>run<span class="w"> </span>sctram
 </pre></div>
 </div>
+<p>Please, also have a look at <a class="reference internal" href="installation.html"><span class="doc">Installation</span></a> to learn any other required packages needed such as <code class="docutils literal notranslate"><span class="pre">HDF5</span></code>.</p>
 </section>
 <section id="how-to-test-the-project">
-<h2>How to test the project<a class="headerlink" href="#how-to-test-the-project" title="Permalink to this heading"></a></h2>
+<h2>How to test the project<a class="headerlink" href="#how-to-test-the-project" title="Link to this heading"></a></h2>
 <p>Run the full test suite:</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>nox
 </pre></div>
@@ -157,14 +162,14 @@ For example, invoke the unit test suite like this:</p>
 and are written using the <a class="reference external" href="https://pytest.readthedocs.io/">pytest</a> testing framework.</p>
 </section>
 <section id="how-to-build-and-view-the-documentation">
-<h2>How to build and view the documentation<a class="headerlink" href="#how-to-build-and-view-the-documentation" title="Permalink to this heading"></a></h2>
+<h2>How to build and view the documentation<a class="headerlink" href="#how-to-build-and-view-the-documentation" title="Link to this heading"></a></h2>
 <p>This project uses <a class="reference external" href="https://www.sphinx-doc.org/en/master/">Sphinx</a> together with several extensions to build the documentation.
 It further requires <a class="reference external" href="https://pandoc.org/">Pandoc</a> to translate various formats.</p>
 <p>To install all required dependencies for the documentation run:</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>docs/requirements.txt
 </pre></div>
 </div>
-<p>Please note that sctram itself must also be installed. To build the documentation run:</p>
+<p>Please note that <cite>scTRAM</cite> itself must also be installed. To build the documentation run:</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>make<span class="w"> </span>html
 </pre></div>
 </div>
@@ -172,7 +177,7 @@ It further requires <a class="reference external" href="https://pandoc.org/">Pan
 Simply open them with your favorite browser.</p>
 </section>
 <section id="how-to-submit-changes">
-<h2>How to submit changes<a class="headerlink" href="#how-to-submit-changes" title="Permalink to this heading"></a></h2>
+<h2>How to submit changes<a class="headerlink" href="#how-to-submit-changes" title="Link to this heading"></a></h2>
 <p>Open a <a class="reference external" href="https://github.com/theislab/sctram/pulls">pull request</a> to submit changes to this project against the <code class="docutils literal notranslate"><span class="pre">development</span></code> branch.</p>
 <p>Your pull request needs to meet the following guidelines for acceptance:</p>
 <ul class="simple">
