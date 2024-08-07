@@ -22,7 +22,7 @@ Follow the steps.
     ```
 
     Also:
-    
+
     ```bash
     brew install pandoc
     ```
@@ -33,7 +33,7 @@ Follow the steps.
     > All mamba commands can be replaced by `conda`.
 
     ```bash
-    mamba env create -f reproducibility/environments/sctram_poetry_3_9_env.yaml 
+    mamba env create -f reproducibility/environments/sctram_poetry_3_9_env.yaml
     # TODO: extend the environments for python 3.10, 3.11, 3.12
     ```
 
@@ -43,12 +43,12 @@ Follow the steps.
     mamba env remove -n sctram_poetry_3_9_env; mamba clean -avvvy
     ```
 
-    If you use an Apple Silicon processor, you have to be sure that you have the HDF5 installation already. That 
-    is why HDF5 library is added to the conda environment. 
+    If you use an Apple Silicon processor, you have to be sure that you have the HDF5 installation already. That
+    is why HDF5 library is added to the conda environment.
 
 4. Install the poetry environments.
 
-    Have a look at this [website](https://python-poetry.org/docs/managing-environments/) for further info for `poetry`.  
+    Have a look at this [website](https://python-poetry.org/docs/managing-environments/) for further info for `poetry`.
 
     ```bash
     conda activate sctram_poetry_3_9_env; cd /Users/kemalinecik/git_nosync/sctram; poetry lock; poetry install; conda deactivate; cd
@@ -62,3 +62,10 @@ Follow the steps.
     conda activate sctram_poetry_3_9_env; cd /Users/kemalinecik/git_nosync/sctram/docs; rm -rf _build; poetry run make html; open _build/html/index.html; conda deactivate; cd
     ```
 
+    ```bash
+    conda activate sctram_poetry_3_9_env; cd /Users/kemalinecik/git_nosync/sctram; poetry run pytest --typeguard-packages=sctram; conda deactivate; cd
+    ```
+
+    ```bash
+    conda activate sctram_poetry_3_9_env; cd /Users/kemalinecik/git_nosync/sctram; safety check --full-report --file=.nox/safety-3-9/tmp/requirements.txt; conda deactivate; cd
+    ```
