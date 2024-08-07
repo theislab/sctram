@@ -29,15 +29,18 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx_click",
     "sphinx_rtd_dark_mode",
+    "nbsphinx",
 ]
 
-default_dark_mode = True
+# If this option is true (the default option), users will start in dark mode when first visiting the site.
+# If this option is false, users will start in light mode when they first visit the site.
+default_dark_mode = False  #
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
 
 # The suffix(es) of source filenames.
-source_suffix = ".rst"
+source_suffix = {".rst": "restructuredtext"}
 
 # The master toctree document.
 master_doc = "index"
@@ -61,12 +64,12 @@ release = "0.0.1"
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = "en"
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This patterns also effect to html_static_path and html_extra_path
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "**.ipynb_checkpoints"]
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = "sphinx"
@@ -81,6 +84,11 @@ todo_include_todos = False
 # a list of builtin themes.
 #
 html_theme = "sphinx_rtd_theme"
+html_logo = "_logo/logo.png"
+html_theme_options = {
+    "logo_only": False,
+    "display_version": False,
+}
 
 # Theme options are theme-specific and customize the look and feel of a
 # theme further.  For a list of options available for each theme, see the
@@ -168,3 +176,6 @@ texinfo_documents = [
 html_css_files = [
     "custom_cookietemple.css",
 ]
+
+autoclass_content = "both"  # add init into the file class description
+add_module_names = False  # Prevent sphinx from displaying the full path to the class

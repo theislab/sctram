@@ -1,13 +1,10 @@
-.. include:: ../README.rst
-===========================
-Welcome to sctram's documentation!
-==========================================================
+.. include:: readme.rst
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    :caption: Contents:
+   :hidden:
 
-   readme
    installation
    usage
    reference
@@ -16,7 +13,7 @@ Welcome to sctram's documentation!
    code_of_conduct
 
 Indices and tables
-==================
+------------------
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`

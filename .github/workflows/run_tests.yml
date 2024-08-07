@@ -13,47 +13,47 @@ jobs:
             matrix:
                 include:
                     - {
-                          python-version: 3.8,
+                          python-version: 3.9,
                           os: ubuntu-latest,
                           session: "pre-commit",
                       }
                     - {
-                          python-version: 3.8,
+                          python-version: 3.9,
                           os: ubuntu-latest,
                           session: "safety",
                       }
                     - {
-                          python-version: 3.8,
+                          python-version: 3.9,
                           os: ubuntu-latest,
                           session: "mypy",
                       }
                     - {
-                          python-version: 3.8,
+                          python-version: 3.9,
                           os: ubuntu-latest,
                           session: "tests",
                       }
                     - {
-                          python-version: 3.8,
+                          python-version: 3.9,
                           os: windows-latest,
                           session: "tests",
                       }
                     - {
-                          python-version: 3.8,
+                          python-version: 3.9,
                           os: macos-latest,
                           session: "tests",
                       }
                     - {
-                          python-version: 3.8,
+                          python-version: 3.9,
                           os: ubuntu-latest,
                           session: "typeguard",
                       }
                     - {
-                          python-version: 3.8,
+                          python-version: 3.9,
                           os: ubuntu-latest,
                           session: "xdoctest",
                       }
                     - {
-                          python-version: 3.8,
+                          python-version: 3.9,
                           os: ubuntu-latest,
                           session: "docs-build",
                       }
@@ -63,7 +63,7 @@ jobs:
 
         steps:
             - name: Check out the repository
-              uses: actions/checkout@v2.3.4
+              uses: actions/checkout@v4
 
             - name: Set up Python ${{ matrix.python-version }}
               uses: actions/setup-python@v2.2.2
@@ -98,7 +98,7 @@ jobs:
                   print("::set-output name=result::{}".format(result))
 
             - name: Restore pre-commit cache
-              uses: actions/cache@v2.1.7
+              uses: actions/cache@v4.0.2
               if: matrix.session == 'pre-commit'
               with:
                   path: ~/.cache/pre-commit
@@ -106,8 +106,23 @@ jobs:
                   restore-keys: |
                       ${{ steps.pre-commit-cache.outputs.result }}-
 
-            - name: Run Nox
-              run: nox --force-color --python=${{ matrix.python-version }}
+            - name: Run Nox (ubuntu)
+              if: matrix.os == 'ubuntu-latest'
+              run: |
+                  sudo apt-get install -y pandoc
+                  nox --force-color --python=${{ matrix.python-version }}
+
+            - name: Run Nox (windows)
+              if: matrix.os == 'windows-latest'
+              run: |
+                  choco install pandoc
+                  nox --force-color --python=${{ matrix.python-version }}
+
+            - name: Run Nox (macos)
+              if: matrix.os == 'macos-latest'
+              run: |
+                  brew install pandoc
+                  nox --force-color --python=${{ matrix.python-version }}
 
             - name: Upload coverage data
               if: always() && matrix.session == 'tests'
@@ -128,7 +143,7 @@ jobs:
         needs: tests
         steps:
             - name: Check out the repository
-              uses: actions/checkout@v3
+              uses: actions/checkout@v4
 
             - name: Set up Python 3.8
               uses: actions/setup-python@v3

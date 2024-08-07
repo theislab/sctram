@@ -3,8 +3,10 @@ Reference
 
 .. contents::
     :local:
+    :depth: 3
     :backlinks: none
 
-
-.. automodule:: sctram.__main__
-   :members:
+.. automodule:: sctram._doctest
+    :members:
+    :private-members:
+    :show-inheritance:

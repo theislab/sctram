@@ -6,8 +6,6 @@ updates:
           interval: weekly
       open-pull-requests-limit: 3
       target-branch: development
-      labels:
-          - DEPENDABOT
       commit-message:
           prefix: "[DEPENDABOT]"
 
@@ -17,29 +15,23 @@ updates:
           interval: weekly
       open-pull-requests-limit: 3
       target-branch: development
-      labels:
-          - DEPENDABOT
       commit-message:
           prefix: "[DEPENDABOT]"
 
-    - package-ecosystem: pip
-      directory: "/docs"
-      schedule:
-          interval: weekly
-      open-pull-requests-limit: 3
-      target-branch: development
-      labels:
-          - DEPENDABOT
-      commit-message:
-          prefix: "[DEPENDABOT]"
+    # - package-ecosystem: pip
+    #   directory: "/docs"
+    #   schedule:
+    #       interval: weekly
+    #   open-pull-requests-limit: 3
+    #   target-branch: development
+    #   commit-message:
+    #       prefix: "[DEPENDABOT]"
 
-    - package-ecosystem: pip
-      directory: "/"
-      schedule:
-          interval: weekly
-      open-pull-requests-limit: 3
-      target-branch: development
-      labels:
-          - DEPENDABOT
-      commit-message:
-          prefix: "[DEPENDABOT]"
+    # - package-ecosystem: pip
+    #   directory: "/"
+    #   schedule:
+    #       interval: weekly
+    #   open-pull-requests-limit: 3
+    #   target-branch: development
+    #   commit-message:
+    #       prefix: "[DEPENDABOT]"

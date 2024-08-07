@@ -8,16 +8,22 @@ Installation
 Stable release
 --------------
 
-To install sctram, run this command in your terminal:
+To install scTRAM, run this command in your terminal:
 
 .. code-block:: console
 
     $ pip install sctram
 
-This is the preferred method to install sctram, as it will always install the most recent stable release.
+This is the preferred method to install scTRAM, as it will always install the most recent stable release.
 
 If you don't have `pip`_ installed, this `Python installation guide`_ can guide
 you through the process.
+
+If you use an Apple Silicon processor, you have to be sure that you have the ``HDF5`` installation already:
+
+.. code-block:: console
+
+    $ conda install hdf5
 
 .. _pip: https://pip.pypa.io
 .. _Python installation guide: http://docs.python-guide.org/en/latest/starting/installation/
@@ -26,7 +32,7 @@ you through the process.
 From sources
 ------------
 
-The sources for sctram can be downloaded from the `Github repo`_.
+The sources for scTRAM can be downloaded from the `Github repo`_.
 Please note that you require `poetry`_ to be installed.
 
 You can either clone the public repository:

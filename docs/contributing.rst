@@ -12,7 +12,7 @@ Here is a list of important resources for contributors:
 - `Issue Tracker`_
 - `Code of Conduct`_
 
-.. _BSD license: https://opensource.org/licenses/BSD
+.. _BSD license: https://opensource.org/licenses/BSD-3-Clause
 .. _Source Code: https://github.com/theislab/sctram
 .. _Documentation: https://sctram.readthedocs.io/
 .. _Issue Tracker: https://github.com/theislab/sctram/issues
@@ -31,6 +31,14 @@ Request features on the `Issue Tracker`_.
 
 How to set up your development environment
 ------------------------------------------
+
+You should the ``Pandoc`` installation already to include tutorial Jupter notebooks into the documentation:
+
+.. code-block:: console
+
+    $ brew install pandoc  # MacOS
+    $ sudo apt-get install -y pandoc  # Ubuntu
+    $ choco install pandoc  # Windows
 
 You need Python 3.8+ and the following tools:
 
@@ -58,10 +66,12 @@ or the command-line interface:
    $ poetry run python
    $ poetry run sctram
 
+Please, also have a look at Installation_ to learn any other required packages needed such as ``HDF5``.
+
 .. _Poetry: https://python-poetry.org/
 .. _Nox: https://nox.thea.codes/
 .. _nox-poetry: https://nox-poetry.readthedocs.io/
-
+.. _Installation: installation.rst
 
 How to test the project
 -----------------------
@@ -102,7 +112,7 @@ To install all required dependencies for the documentation run:
 
     $ pip install -r docs/requirements.txt
 
-Please note that sctram itself must also be installed. To build the documentation run:
+Please note that `scTRAM` itself must also be installed. To build the documentation run:
 
 .. code:: console
 

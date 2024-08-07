@@ -1,7 +1,7 @@
-sctram
-===========================
+**scTRAM**
+===========
 
-|PyPI| |Python Version| |License| |Read the Docs| |Build| |Tests| |Codecov| |pre-commit| |Black|
+|PyPI| |PyPIDownloads| |Python Version| |License| |Read the Docs| |Build| |Tests| |Codecov| |pre-commit| |Black|
 
 .. |PyPI| image:: https://img.shields.io/pypi/v/sctram.svg
    :target: https://pypi.org/project/sctram/
@@ -10,7 +10,7 @@ sctram
    :target: https://pypi.org/project/sctram
    :alt: Python Version
 .. |License| image:: https://img.shields.io/github/license/theislab/sctram
-   :target: https://opensource.org/licenses/BSD
+   :target: https://opensource.org/licenses/BSD-3-Clause
    :alt: License
 .. |Read the Docs| image:: https://img.shields.io/readthedocs/sctram/latest.svg?label=Read%20the%20Docs
    :target: https://sctram.readthedocs.io/
@@ -30,38 +30,26 @@ sctram
 .. |Black| image:: https://img.shields.io/badge/code%20style-black-000000.svg
    :target: https://github.com/psf/black
    :alt: Black
+.. |PyPIDownloads| image:: https://pepy.tech/badge/sctram
+   :target: https://pepy.tech/project/sctram
+   :alt: downloads
+
+.. image:: https://raw.githubusercontent.com/theislab/sctram/development/docs/_logo/logo.png
+    :width: 350
+    :alt: Logo
 
 
-Features
---------
-
-* TODO
-
-
-Installation
+Key Features
 ------------
 
-You can install *sctram* via pip_ from PyPI_:
-
-.. code:: console
-
-   $ pip install sctram
-
+* TODO
+* TODO
 
 Usage
 -----
 
-Please see the `Command-line Reference <Usage_>`_ for details.
+Please see the `Documentation <Documentation_>`_ for details.
 
-
-Credits
--------
-
-This package was created with cookietemple_ using Cookiecutter_ based on Hypermodern_Python_Cookiecutter_.
-
-.. _cookietemple: https://cookietemple.com
-.. _Cookiecutter: https://github.com/audreyr/cookiecutter
 .. _PyPI: https://pypi.org/
-.. _Hypermodern_Python_Cookiecutter: https://github.com/cjolowicz/cookiecutter-hypermodern-python
 .. _pip: https://pip.pypa.io/
-.. _Usage: https://sctram.readthedocs.io/en/latest/usage.html
+.. _Documentation: https://sctram.readthedocs.io/en/latest/index.html
