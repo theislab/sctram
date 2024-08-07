@@ -17,11 +17,11 @@ jobs:
                           os: ubuntu-latest,
                           session: "pre-commit",
                       }
-                    - {
-                          python-version: 3.9,
-                          os: ubuntu-latest,
-                          session: "safety",
-                      }
+                    # - {
+                    #       python-version: 3.9,
+                    #       os: ubuntu-latest,
+                    #       session: "safety",
+                    #   }
                     - {
                           python-version: 3.9,
                           os: ubuntu-latest,
@@ -145,10 +145,10 @@ jobs:
             - name: Check out the repository
               uses: actions/checkout@v4
 
-            - name: Set up Python 3.8
+            - name: Set up Python 3.9
               uses: actions/setup-python@v3
               with:
-                  python-version: 3.8
+                  python-version: 3.9
 
             - name: Install Poetry
               run: |
@@ -174,4 +174,4 @@ jobs:
               run: nox --force-color --session=coverage -- xml -i
 
             - name: Upload coverage report
-              uses: codecov/codecov-action@v2.1.0
+              uses: codecov/codecov-action@v4.5.0

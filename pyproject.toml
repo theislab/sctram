@@ -62,7 +62,7 @@ pre-commit-hooks = ">=4.0.1"
 sphinx-rtd-theme = ">=0.5.0"
 sphinx-click = ">=3.0.0"
 Pygments = ">=2.8.1"
-# types-pkg-resources, which was unceremoniously disappeared from the Python supply chain. insted `types-setuptools`
+# types-pkg-resources, which was unceremoniously disappeared from the Python supply chain. instead `types-setuptools`
 types-setuptools = ">=71.1.0"
 types-requests = ">=2.25.2"
 types-attrs = ">=19.1.0"
