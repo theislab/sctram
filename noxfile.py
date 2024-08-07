@@ -18,7 +18,7 @@ except ImportError:
     sys.exit(1)
 
 package = "sctram"
-python_versions = ["3.8", "3.9"]
+python_versions = ["3.9", "3.10", "3.11", "3.12"]
 nox.options.sessions = (
     "pre-commit",
     "safety",
