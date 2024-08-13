@@ -60,16 +60,16 @@ dependencies:
     - anndata=0.10.8
     - mudata=0.3.0
     - omnipath
-    - umap-learn>=0.5.0  # scib dependency
-    - pydot  # scib dependency
-    - llvmlite  # scib dependency
-    - deprecated  # scib dependency
-    - plottable  # scib-metrics dependency
-    - pynndescent  # scib-metrics dependency
-    - rich  # scib-metrics dependency
-    - chex  # scib-metrics dependency
+    - umap-learn>=0.5.0 # scib dependency
+    - pydot # scib dependency
+    - llvmlite # scib dependency
+    - deprecated # scib dependency
+    - plottable # scib-metrics dependency
+    - pynndescent # scib-metrics dependency
+    - rich # scib-metrics dependency
+    - chex # scib-metrics dependency
     - pip:
-        # - rapids-singlecell==0.9.6 # Should be commented out for MAC Silicon
-        - scib-metrics==0.5.1
-        - scib==1.1.5
-        - louvain==0.8.2
+          # - rapids-singlecell==0.9.6 # Should be commented out for MAC Silicon
+          - scib-metrics==0.5.1
+          - scib==1.1.5
+          - louvain==0.8.2
