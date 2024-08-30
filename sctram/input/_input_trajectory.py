@@ -4,6 +4,6 @@ import networkx as nx
 
 
 class InputTrajectory(nx.DiGraph):
-    """_summary_."""
+    """_summary_."""  # TODO
 
     pass

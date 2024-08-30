@@ -3,7 +3,6 @@
 from collections.abc import Iterable
 from typing import Dict, List, Union
 
-
 # Custom Typings
 InputGraphDictWithoutEdge = Dict[str, Iterable[tuple[str, str]]]
 InputGraphDictNoneEdge = Dict[str, Iterable[tuple[str, str, None]]]

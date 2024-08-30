@@ -145,4 +145,4 @@ dmypy.json
 *.DS_Store
 
 # development
-.dev/
+__temp__/
