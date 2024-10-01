@@ -92,6 +92,11 @@ show_error_codes = true
 show_error_context = true
 ignore_missing_imports = true
 
+[tool.docformatter]
+recursive = true
+wrap-summaries = 120
+wrap-descriptions = 120
+
 [tool.coverage.paths]
 source = ["sctram", "*/site-packages"]
 
