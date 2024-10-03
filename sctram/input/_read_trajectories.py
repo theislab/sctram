@@ -125,7 +125,16 @@ def raise_error(response):
         raise ValueError(response)
 
 
-def read(
+def read_yaml():
+    """_summary_.
+
+    Raises:
+        NotImplementedError: _description_
+    """
+    raise NotImplementedError
+
+
+def read_dict(
     ground_truth_trajectories: InputGraphPossibleTypes,
     additional_nodes: Optional[Iterable[str]] = None,
     node_attributes: Optional[dict[str, dict[str, Any]]] = None,
