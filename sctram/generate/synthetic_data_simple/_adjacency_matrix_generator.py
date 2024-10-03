@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
+from typing import Dict, List, Optional, Tuple
+
 import networkx as nx
 import numpy as np
-from typing import Optional, Tuple, List, Dict
 
 
 class AdjacencyMatrixGenerator:
-    
+
     @staticmethod
     def generate_complex_adjacency_matrix_with_labels(
         total_nodes: int,
@@ -143,11 +144,15 @@ class AdjacencyMatrixGenerator:
                 depth = structure.get("depth", 3)
                 expected_nodes = sum([2**i for i in range(depth + 1)])
                 if num_nodes < expected_nodes:
-                    raise ValueError(f"A balanced binary tree of depth {depth} requires at least {expected_nodes} nodes.")
+                    raise ValueError(
+                        f"A balanced binary tree of depth {depth} requires at least {expected_nodes} nodes."
+                    )
                 subgraph_nodes = list(range(current_node, current_node + num_nodes))
                 subg = nx.balanced_tree(r=2, h=depth)
                 if subg.number_of_nodes() > num_nodes:
-                    raise ValueError(f"Binary tree with depth {depth} exceeds the number of nodes specified ({num_nodes}).")
+                    raise ValueError(
+                        f"Binary tree with depth {depth} exceeds the number of nodes specified ({num_nodes})."
+                    )
                 mapping = {i: node for i, node in enumerate(subgraph_nodes)}
                 subg = nx.relabel_nodes(subg, mapping)
                 G.add_edges_from(subg.edges())
@@ -193,8 +198,8 @@ class AdjacencyMatrixGenerator:
         # Assign weights to inter-structure edges based on associations
         processed_pairs = set()  # To avoid processing the same pair twice
         for structure in structures:
-            struct_name = structure['name']
-            associated_structures = structure.get('associated', [])
+            struct_name = structure["name"]
+            associated_structures = structure.get("associated", [])
             struct_nodes = structure_name_to_nodes.get(struct_name, [])
 
             for assoc_struct_name in associated_structures:
@@ -250,7 +255,9 @@ class AdjacencyMatrixGenerator:
             m = kwargs.get("m", max(1, num_nodes // 100))  # Number of edges to attach from a new node
             g = nx.barabasi_albert_graph(n=num_nodes, m=m, seed=kwargs.get("seed", None))
         elif graph_type == "watts_strogatz":
-            k = kwargs.get("k", max(2, num_nodes // 10))  # Each node is connected to k nearest neighbors in ring topology
+            k = kwargs.get(
+                "k", max(2, num_nodes // 10)
+            )  # Each node is connected to k nearest neighbors in ring topology
             p = kwargs.get("p", 0.1)  # Probability of rewiring each edge
             g = nx.watts_strogatz_graph(n=num_nodes, k=k, p=p, seed=kwargs.get("seed", None))
         elif graph_type == "stochastic_block":
@@ -296,4 +303,3 @@ class AdjacencyMatrixGenerator:
         adjacency_matrix = np.clip(adjacency_matrix, 0.0, 1.0)
 
         return adjacency_matrix
-

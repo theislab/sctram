@@ -158,8 +158,3 @@ class CentroidCalculator:
         laplacian_eigenmaps = LaplacianEigenmaps(n_components=self.num_features)
         centroids = laplacian_eigenmaps.fit_transform(self.adjacency_matrix)
         return centroids
-
-
-
-
-
