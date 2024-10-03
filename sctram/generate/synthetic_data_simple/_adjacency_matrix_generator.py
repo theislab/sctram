@@ -7,19 +7,29 @@ import numpy as np
 
 
 class AdjacencyMatrixGenerator:
+    """Class to keep two different functions generating adjacency matrix."""
+
+    @staticmethod
+    def _verify_structures(structures: List[Dict]) -> bool:
+        for key in ["name", "type", "num_nodes", "associated"]:
+            for structure in structures:
+                if key not in structure.keys():
+                    return False
+        return True
 
     @staticmethod
     def generate_complex_adjacency_matrix_with_labels(
         total_nodes: int,
         structures: List[Dict],
-        connected_weight_range: Tuple[float, float] = (0.7, 1.0),
-        associated_weight_range: Tuple[float, float] = (0.4, 0.6),
-        unconnected_weight_range: Tuple[float, float] = (0.0, 0.1),
+        connected_weight_range: Tuple[float, float] = (0.6, 0.8),
+        associated_weight_range: Tuple[float, float] = (0.3, 0.4),
+        unconnected_weight_range: Tuple[float, float] = (0.01, 0.1),
         inter_structure_connection_prob: float = 0.05,
         seed: Optional[int] = None,
     ):
-        """
-        Generate a complex weighted adjacency matrix with specified graph structures, labels, and association-based edge weights.
+        """Generate a complex weighted adjacency matrix.
+
+        Generates with specified graph structures, labels, and association-based edge weights.
 
         Args:
             total_nodes (int): Total number of nodes in the graph.
@@ -29,11 +39,14 @@ class AdjacencyMatrixGenerator:
                 - 'num_nodes' (int): Number of nodes in this structure.
                 - 'associated' (list of str): List of names of structures this structure is associated with.
                 - Additional parameters depending on the structure type.
-            connected_weight_range (tuple, optional): Range for weights of intra-structure edges.
-            associated_weight_range (tuple, optional): Range for weights of inter-structure edges between associated structures.
-            unconnected_weight_range (tuple, optional): Range for weights of edges not within or between associated structures.
-            inter_structure_connection_prob (float, optional): Probability of connecting nodes between associated structures.
+            connected_weight_range (tuple): Range for weights of intra-structure edges.
+            associated_weight_range (tuple): Range for weights of inter-structure edges between associated structures.
+            unconnected_weight_range (tuple): Range for weights of edges not within or between associated structures.
+            inter_structure_connection_prob (float): Probability of connecting nodes between associated structures.
             seed (int, optional): Seed for random number generators for reproducibility. Defaults to None.
+
+        Raises:
+            ValueError: If total node required for the structures is less than given total nodes.
 
         Returns:
             adjacency_matrix (np.ndarray): The generated weighted adjacency matrix with weights between 0 and 1.
@@ -43,6 +56,8 @@ class AdjacencyMatrixGenerator:
             np.random.seed(seed)
 
         # Validate input
+        if not AdjacencyMatrixGenerator._verify_structures(structures):
+            raise ValueError("Missing keys in `structures` parameter. See implementation details.")
         total_structure_nodes = sum(structure["num_nodes"] for structure in structures)
         if total_structure_nodes > total_nodes:
             raise ValueError(
@@ -50,8 +65,8 @@ class AdjacencyMatrixGenerator:
             )
 
         # Initialize the graph
-        G = nx.Graph()
-        G.add_nodes_from(range(total_nodes))  # Nodes are labeled from 0 to total_nodes - 1
+        g = nx.Graph()
+        g.add_nodes_from(range(total_nodes))  # Nodes are labeled from 0 to total_nodes - 1
 
         labels = ["other"] * total_nodes  # Initialize all labels as 'other'
 
@@ -61,9 +76,9 @@ class AdjacencyMatrixGenerator:
         structure_name_to_nodes = {}
 
         for structure in structures:
-            struct_name = structure.get("name")
-            struct_type = structure.get("type", "").lower()
-            num_nodes = structure.get("num_nodes")
+            struct_name = structure["name"]
+            struct_type = structure["type"].lower()
+            num_nodes = structure["num_nodes"]
 
             if not struct_name:
                 raise ValueError("Each structure must have a 'name' key.")
@@ -78,7 +93,7 @@ class AdjacencyMatrixGenerator:
                 subg = nx.cycle_graph(n=num_nodes)
                 mapping = {i: node for i, node in enumerate(subgraph_nodes)}
                 subg = nx.relabel_nodes(subg, mapping)
-                G.add_edges_from(subg.edges())
+                g.add_edges_from(subg.edges())
                 for node in subgraph_nodes:
                     labels[node] = "loop"
                 structure_name_to_nodes[struct_name] = subgraph_nodes
@@ -91,7 +106,7 @@ class AdjacencyMatrixGenerator:
                 subg = nx.path_graph(n=num_nodes)
                 mapping = {i: node for i, node in enumerate(subgraph_nodes)}
                 subg = nx.relabel_nodes(subg, mapping)
-                G.add_edges_from(subg.edges())
+                g.add_edges_from(subg.edges())
                 for node in subgraph_nodes:
                     labels[node] = "linear"
                 structure_name_to_nodes[struct_name] = subgraph_nodes
@@ -105,7 +120,7 @@ class AdjacencyMatrixGenerator:
                     raise ValueError(f"A bifurcation must have at least {min_nodes} nodes for {branches} branches.")
                 subgraph_nodes = list(range(current_node, current_node + num_nodes))
                 root = subgraph_nodes[0]
-                G.add_node(root)
+                g.add_node(root)
                 labels[root] = "bifurcation_root"
                 nodes_per_branch = (num_nodes - 1) // branches
                 for b in range(branches):
@@ -117,9 +132,9 @@ class AdjacencyMatrixGenerator:
                     branch_nodes = subgraph_nodes[start:end]
                     if len(branch_nodes) == 0:
                         continue
-                    G.add_edge(root, branch_nodes[0])
+                    g.add_edge(root, branch_nodes[0])
                     for i in range(len(branch_nodes) - 1):
-                        G.add_edge(branch_nodes[i], branch_nodes[i + 1])
+                        g.add_edge(branch_nodes[i], branch_nodes[i + 1])
                     for node in branch_nodes:
                         labels[node] = "bifurcation_branch"
                 structure_name_to_nodes[struct_name] = subgraph_nodes
@@ -132,7 +147,7 @@ class AdjacencyMatrixGenerator:
                 center = subgraph_nodes[0]
                 leaves = subgraph_nodes[1:]
                 for leaf in leaves:
-                    G.add_edge(center, leaf)
+                    g.add_edge(center, leaf)
                 labels[center] = "star_center"
                 for leaf in leaves:
                     labels[leaf] = "star_leaf"
@@ -155,7 +170,7 @@ class AdjacencyMatrixGenerator:
                     )
                 mapping = {i: node for i, node in enumerate(subgraph_nodes)}
                 subg = nx.relabel_nodes(subg, mapping)
-                G.add_edges_from(subg.edges())
+                g.add_edges_from(subg.edges())
                 for node in subgraph_nodes:
                     labels[node] = "tree"
                 structure_name_to_nodes[struct_name] = subgraph_nodes
@@ -170,9 +185,9 @@ class AdjacencyMatrixGenerator:
                     raise ValueError(f"For grid structure, num_nodes must equal rows * cols ({rows * cols}).")
                 subgraph_nodes = list(range(current_node, current_node + num_nodes))
                 subg = nx.grid_2d_graph(rows, cols)
-                mapping = {(i, j): subgraph_nodes[i * cols + j] for i, j in subg.nodes()}
-                subg = nx.relabel_nodes(subg, mapping)
-                G.add_edges_from(subg.edges())
+                mapping_tuple_to_nodes = {(i, j): subgraph_nodes[i * cols + j] for i, j in subg.nodes()}
+                subg = nx.relabel_nodes(subg, mapping_tuple_to_nodes)
+                g.add_edges_from(subg.edges())
                 for node in subgraph_nodes:
                     labels[node] = "grid"
                 structure_name_to_nodes[struct_name] = subgraph_nodes
@@ -190,7 +205,7 @@ class AdjacencyMatrixGenerator:
         adjacency_matrix += adjacency_matrix.T - np.diag(adjacency_matrix.diagonal())  # Mirror upper to lower
 
         # Assign weights to intra-structure edges
-        for u, v in G.edges():
+        for u, v in g.edges():
             weight = np.random.uniform(low=connected_weight_range[0], high=connected_weight_range[1])
             adjacency_matrix[u, v] = weight
             adjacency_matrix[v, u] = weight  # Ensure symmetry
@@ -199,7 +214,7 @@ class AdjacencyMatrixGenerator:
         processed_pairs = set()  # To avoid processing the same pair twice
         for structure in structures:
             struct_name = structure["name"]
-            associated_structures = structure.get("associated", [])
+            associated_structures = structure["associated"]
             struct_nodes = structure_name_to_nodes.get(struct_name, [])
 
             for assoc_struct_name in associated_structures:
@@ -229,8 +244,7 @@ class AdjacencyMatrixGenerator:
 
     @staticmethod
     def generate_random_adjacency_matrix(graph_type="erdos_renyi", num_nodes=100, weighted=True, **kwargs):
-        """
-        Generate a complex adjacency matrix for testing purposes with weights between 0 and 1.
+        """Generate a complex adjacency matrix for testing purposes with weights between 0 and 1.
 
         Args:
             graph_type (str): The type of graph to generate. Options are:
@@ -243,7 +257,12 @@ class AdjacencyMatrixGenerator:
                 - 'custom': Provide your own NetworkX graph via kwargs['graph']
             num_nodes (int): Number of nodes in the graph
             weighted (bool): If True, assign random weights between 0 and 1 to edges.
-            **kwargs: Additional keyword arguments specific to the graph type.
+            kwargs: Additional keyword arguments specific to the graph type.
+
+        Raises:
+            ValueError: When unknown `graph_type` is given.
+            ValueError: When `custom` is given as `graph_type`, the user should provide a NetworkX graph
+                        via 'graph' keyword argument.
 
         Returns:
             np.ndarray: Adjacency matrix of the generated graph with weights between 0 and 1

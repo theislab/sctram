@@ -8,6 +8,8 @@ from sklearn.manifold import MDS, Isomap, SpectralEmbedding
 
 
 class LaplacianEigenmaps:
+    """Laplacian Eigenmaps."""
+
     def __init__(self, n_components):
         """Initializes the Laplacian Eigenmaps model.
 
@@ -16,10 +18,10 @@ class LaplacianEigenmaps:
         """
         self.n_components = n_components
 
-    def fit_transform(self, X):
+    def fit_transform(self, x):
         """Compute the low-dimensional embedding."""
         # Compute the normalized Laplacian matrix
-        laplacian_matrix = laplacian(X, normed=True)
+        laplacian_matrix = laplacian(x, normed=True)
         # Compute the first `n_components + 1` smallest eigenvalues and eigenvectors
         _, eigvecs = eigsh(laplacian_matrix, k=self.n_components + 1, which="SM")
         # Discard the first eigenvector (corresponding to the zero eigenvalue)
@@ -35,8 +37,12 @@ class CentroidCalculator:
     ) -> None:
         """Initializes the CentroidCalculator.
 
+        Raises:
+            ValueError: When inputs are not given correctly. See implementation details.
+
         Args:
-            centroid_method (str): The method used for centroid calculation. Choices are 'mds', 'spectral', 'isomap', 'kernel_pca', and 'laplacian'.
+            centroid_method (str): The method used for centroid calculation.
+                Choices are 'mds', 'spectral', 'isomap', 'kernel_pca', and 'laplacian'.
             adjacency_matrix (np.ndarray): The adjacency matrix representing the graph (or any square matrix).
             num_features (int): The number of dimensions for the reduced space.
             random_state (int): A seed value to ensure reproducibility.
@@ -62,26 +68,40 @@ class CentroidCalculator:
 
         'mds': Multidimensional Scaling (MDS)
             - Preserves the pairwise distance between nodes as well as possible in the lower-dimensional space.
-            - Useful for visualizing similarity or dissimilarity data, such as in social networks where edges represent similarity in attributes.
+            - Useful for visualizing similarity or dissimilarity data, such as in
+              social networks where edges represent similarity in attributes.
 
         'spectral': Spectral Embedding
-            - Utilizes the graph Laplacian to perform a low-dimensional embedding, emphasizing the clustering of nodes in the graph based on their connectivity.
-            - Best used for graphs where you expect to find a clear clustering structure or communities, such as in citation networks or community detection tasks.
+            - Utilizes the graph Laplacian to perform a low-dimensional embedding, emphasizing the
+              clustering of nodes in the graph based on their connectivity.
+            - Best used for graphs where you expect to find a clear clustering structure or communities,
+              such as in citation networks or community detection tasks.
 
         'isomap': Isometric Mapping
-            - Seeks to preserve the geodesic distances in the original high-dimensional space. It is effectively an MDS that uses geodesic distances instead of Euclidean ones.
-            - Ideal for data where global manifold structure is important, such as in data that lie on a curved manifold, offering a perspective that maintains global properties.
+            - Seeks to preserve the geodesic distances in the original high-dimensional space.
+              It is effectively an MDS that uses geodesic distances instead of Euclidean ones.
+            - Ideal for data where global manifold structure is important, such as in data that lie
+              on a curved manifold, offering a perspective that maintains global properties.
 
         'kernel_pca': Kernel PCA
-            - Extends PCA to nonlinear dimensionality reduction through the use of kernels, capable of capturing complex structures in the data.
-            - Suitable for data where nonlinear relationships are significant, such as in image processing or any complex network structures where linear projections fail to capture the essence of data relations.
+            - Extends PCA to nonlinear dimensionality reduction through the use of
+              kernels, capable of capturing complex structures in the data.
+            - Suitable for data where nonlinear relationships are significant, such as in image
+              processing or any complex network structures where linear projections fail to capture
+              the essence of data relations.
 
         'laplacian': Laplacian Eigenmaps
-            - Focuses on preserving local node relationships and is particularly sensitive to the choice of neighborhood or the graph construction.
-            - Effective for data where local relationships are more significant than global relationships, such as in spectral clustering or when data has a very irregular structure.
+            - Focuses on preserving local node relationships and is particularly sensitive
+              to the choice of neighborhood or the graph construction.
+            - Effective for data where local relationships are more significant than global
+              relationships, such as in spectral clustering or when data has a very irregular structure.
+
+        Raises:
+            ValueError: When unknown centroid method is given as `centroid_method`
 
         Returns:
-            np.ndarray: The centroids in the reduced space, capturing essential relationships as specified by the method.
+            np.ndarray: The centroids in the reduced space, capturing essential
+                        relationships as specified by the method.
         """
         if self.centroid_method == "mds":
             return self._create_centroids_mds()

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from typing import Optional
+
 import numpy as np
 import pandas as pd
 from scipy.spatial.distance import cdist
@@ -19,22 +21,21 @@ class SpacePopulator:
         cluster_distribution_z: float = 1.96,
         edge_distribution: str = "reverse_gaussian",
         edge_noise_distribution_z: float = 1.96,
-        edge_distribution_params: dict = None,
-        random_state: int = None,
+        edge_distribution_params: Optional[dict] = None,
+        random_state: Optional[int] = None,
     ):
-        """
-        Initializes the DataGenerator.
+        """Initializes the DataGenerator.
 
         Args:
             centroids (np.ndarray): Centroid coordinates.
             adjacency_matrix (np.ndarray): Adjacency matrix with edge weights.
             labels (np.ndarray): Labels for each centroid/node.
             total_points (int): Total number of data points to generate.
-            centroid_proportion (float, optional): Proportion of points around centroids. Defaults to 0.3.
-            cluster_distribution (str, optional): Distribution for cluster points. Defaults to 'gaussian'.
-            cluster_distribution_z (float, optional): Desired z-score for dispersion around centroids. Defaults to 1.96.
-            edge_distribution (str, optional): Distribution for edge points. Defaults to 'reverse_gaussian'.
-            edge_noise_distribution_z (float, optional): Desired z-score for dispersion along edges. Defaults to 1.96.
+            centroid_proportion (float): Proportion of points around centroids. Defaults to 0.3.
+            cluster_distribution (str): Distribution for cluster points. Defaults to 'gaussian'.
+            cluster_distribution_z (float): Desired z-score for dispersion around centroids. Defaults to 1.96.
+            edge_distribution (str): Distribution for edge points. Defaults to 'reverse_gaussian'.
+            edge_noise_distribution_z (float): Desired z-score for dispersion along edges. Defaults to 1.96.
             edge_distribution_params (dict, optional): Parameters for edge distribution. Defaults to None.
             random_state (int, optional): Seed for reproducibility. Defaults to None.
         """
@@ -94,9 +95,13 @@ class SpacePopulator:
             np.random.seed(self.random_state)
 
     def _calculate_cluster_and_edge_std(self):
-        """
+        """Calculates the standard deviations for generating points around centroids and along edges.
+
         Calculates the standard deviations for generating points around centroids
         and along edges based on the desired z-scores and centroid dispersion.
+
+        Raises:
+            ValueError: When cluster_std or edge_std is smaller than 0 somehow.
 
         Returns:
             tuple: (cluster_std, edge_std)
@@ -118,8 +123,7 @@ class SpacePopulator:
         return cluster_std, edge_std
 
     def generate_data(self):
-        """
-        Generates the dataset based on the centroids, adjacency matrix, and labels.
+        """Generates the dataset based on the centroids, adjacency matrix, and labels.
 
         Returns:
             tuple: (features np.ndarray, annotations pandas DataFrame)
@@ -162,11 +166,13 @@ class SpacePopulator:
         return features, annotations
 
     def _generate_points_around_centroids(self, num_points: int) -> pd.DataFrame:
-        """
-        Generates data points around each centroid using the specified distribution.
+        """Generates data points around each centroid using the specified distribution.
 
         Args:
             num_points (int): Total number of points to generate.
+
+        Raises:
+            ValueError: When `cluster_distribution` is not among implemented ones.
 
         Returns:
             pd.DataFrame: DataFrame containing generated data points and annotations.
@@ -220,8 +226,7 @@ class SpacePopulator:
         return data_points
 
     def _generate_points_between_centroids(self, num_points: int) -> pd.DataFrame:
-        """
-        Generates data points along the edges between centroids, with density proportional to edge weights.
+        """Generates data points along the edges between centroids, with density proportional to edge weights.
 
         Args:
             num_points (int): Total number of points to generate.
@@ -346,11 +351,18 @@ class SpacePopulator:
     def _generate_edge_coefficients(
         edge_distribution: str, edge_distribution_params: dict, num_edge_points: int
     ) -> np.ndarray:
-        """
-        Generates interpolation coefficients for edge points based on the specified distribution.
+        """Generates interpolation coefficients for edge points based on the specified distribution.
+
+        Note that the method is made static, so that the user can plot the distribution functions with
+        varying a parameter to have some insights about the distribution and the eventual results.
 
         Args:
+            edge_distribution (str): Normally, identical to `self.edge_distribution`.
+            edge_distribution_params (dict): Normally, identical to `self.edge_distribution_params`.
             num_edge_points (int): Number of points to generate.
+
+        Raises:
+            ValueError: if an edge_distribution given that is not defined yet.
 
         Returns:
             np.ndarray: Coefficients for interpolation.
@@ -419,8 +431,7 @@ class SpacePopulator:
         return coefficients
 
     def _adjust_total_points(self, data_points: pd.DataFrame) -> pd.DataFrame:
-        """
-        Adjusts the number of data points to exactly match total_points.
+        """Adjusts the number of data points to exactly match total_points.
 
         Args:
             data_points (pd.DataFrame): Combined data points.
