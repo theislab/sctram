@@ -38,6 +38,8 @@ numpy = ">=1.17.4"
 networkx = ">=2.4"
 requests = ">=2.22.0"
 tqdm = ">=4.37.0"
+gdown = ">=3.8.3"
+scanpy = ">=1.4.4.post1"
 
 [tool.poetry.dev-dependencies]
 click = ">=8.0.0"
