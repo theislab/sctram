@@ -7,8 +7,8 @@ import anndata as ad
 import scanpy as sc
 from scanpy import settings
 
-from sctram.generate.real._download import download_dataset
 from sctram.generate.real._constants import DATASETS
+from sctram.generate.real._download import download_dataset
 
 
 def _inherit_docstring(source):
