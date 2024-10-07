@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from abc import ABC, abstractmethod
 import logging
+from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Union
 
 import numpy as np
@@ -12,10 +12,10 @@ from anndata import AnnData
 
 class TrajectoryInferenceBase(ABC):
     """Abstract base class for trajectory inference methods.
-    
+
     This class includes common initialization and data preparation steps.
     Subclasses should implement the specific calculation and return logic.
-    
+
     This class supports three initialization methods:
 
         1. **AnnData with Precomputed Neighbors**:
@@ -44,7 +44,7 @@ class TrajectoryInferenceBase(ABC):
     ):
         """Initializes the base trajectory inference method with common parameters.
 
-        Parameters:
+        Args:
             neighbors_params (Optional[Dict[str, Any]]): Parameters for `sc.pp.neighbors`.
             method_params (Optional[Dict[str, Any]]): Parameters for the specific trajectory method.
             random_state (Optional[int]): Random state for reproducibility.
@@ -58,9 +58,7 @@ class TrajectoryInferenceBase(ABC):
         if not self.logger.handlers:
             # Prevent adding multiple handlers in interactive environments
             handler = logging.StreamHandler()
-            formatter = logging.Formatter(
-                '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-            )
+            formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
             handler.setFormatter(formatter)
             self.logger.addHandler(handler)
             self.logger.setLevel(logging.INFO)
@@ -76,34 +74,33 @@ class TrajectoryInferenceBase(ABC):
         connectivities: Optional[Union[np.ndarray, pd.DataFrame]] = None,
         distances: Optional[Union[np.ndarray, pd.DataFrame]] = None,
         neighbour_key: Optional[str] = None,
-        return_mode: Optional[str] = None
+        return_mode: Optional[str] = None,
     ) -> Any:
         """Computes the trajectory inference based on the provided inputs.
 
         This method prepares the AnnData object and calls the specific calculation.
 
-        Parameters:
-            adata (Optional[AnnData]): An AnnData object containing the dataset. It can be used directly 
+        Args:
+            adata (Optional[AnnData]): An AnnData object containing the dataset. It can be used directly
                 if it contains precomputed neighbors or will require neighbor computation if not.
-            embedding (Optional[Union[np.ndarray, pd.DataFrame]]): A low-dimensional representation of the data, 
+            embedding (Optional[Union[np.ndarray, pd.DataFrame]]): A low-dimensional representation of the data,
                 typically resulting from dimensionality reduction techniques such as PCA, or an autoencoder latent space.
             labels (Optional[Union[np.ndarray, pd.Series]]): The labels or identifiers for each data point in
                 the embedding. These are used to group data points during the PAGA computation.
             connectivities (Optional[Union[np.ndarray, pd.DataFrame]]): A precomputed connectivity matrix specifying the
                 connectivity relationships between data points, used if neighbors are not computed within this function.
-            distances (Optional[Union[np.ndarray, pd.DataFrame]]): A precomputed distance matrix specifying the distances 
+            distances (Optional[Union[np.ndarray, pd.DataFrame]]): A precomputed distance matrix specifying the distances
                 between data points, which can be used alongside connectivities to define neighborhood relationships.
-            neighbour_key (Optional[str]): The key under which precomputed neighbors are stored within the `adata.uns` 
+            neighbour_key (Optional[str]): The key under which precomputed neighbors are stored within the `adata.uns`
                 dictionary if using an AnnData object that already contains neighbor information.
-            return_mode (Optional[str]): Decide the returned object. Either anndata or the result of the calculation. 
-                The key `anndata` used as for outputing anndata. Other keys are calculation specific. When `None`, 
+            return_mode (Optional[str]): Decide the returned object. Either anndata or the result of the calculation.
+                The key `anndata` used as for outputing anndata. Other keys are calculation specific. When `None`,
                 nothing is returned. The user needs to call `get_result` separately.
 
         Returns:
             Any: The result of the specific trajectory inference method.
-            
+
         Raises:
-            ValueError: If input validation fails.
             RuntimeError: If trajectory inference fails.
         """
         try:
@@ -124,7 +121,7 @@ class TrajectoryInferenceBase(ABC):
                 sc.settings.seed = self.random_state
 
             # Ensure neighbors are computed
-            if 'neighbors' not in self.adata_prepared.uns:
+            if "neighbors" not in self.adata_prepared.uns:
                 self.logger.info("Computing neighbors.")
                 sc.pp.neighbors(self.adata_prepared, **self.neighbors_params)
             else:
@@ -142,7 +139,7 @@ class TrajectoryInferenceBase(ABC):
 
         except Exception as e:
             self.logger.error(f"Error in trajectory inference: {e}")
-            raise RuntimeError(f"Error in trajectory inference: {e}")
+            raise RuntimeError(f"Error in trajectory inference: {e}") from e
 
     def _initialize_adata(
         self,
@@ -157,7 +154,7 @@ class TrajectoryInferenceBase(ABC):
 
         This includes handling different initialization methods.
 
-        Parameters:
+        Args:
             adata (Optional[AnnData]): An AnnData object.
             embedding (Optional[Union[np.ndarray, pd.DataFrame]]): Embedding data.
             labels (Optional[Union[np.ndarray, pd.Series]]): Labels.
@@ -167,41 +164,32 @@ class TrajectoryInferenceBase(ABC):
 
         Returns:
             AnnData: Prepared AnnData object.
+
+        Raises:
+            ValueError: If input validation fails.
         """
         input_methods = {
-            'adata_with_neighbors': adata is not None and neighbour_key is not None,
-            'adata_without_neighbors': adata is not None and neighbour_key is None,
-            'embedding_labels': embedding is not None and labels is not None,
+            "adata_with_neighbors": adata is not None and neighbour_key is not None,
+            "adata_without_neighbors": adata is not None and neighbour_key is None,
+            "embedding_labels": embedding is not None and labels is not None,
         }
 
         methods_used = sum(input_methods.values())
 
         if methods_used == 0:
-            raise ValueError(
-                "No valid input provided. Provide either an AnnData object or both embedding and labels."
-            )
+            raise ValueError("No valid input provided. Provide either an AnnData object or both embedding and labels.")
         elif methods_used > 1:
-            raise ValueError(
-                "Multiple input methods provided. Please provide inputs using only one method at a time."
-            )
+            raise ValueError("Multiple input methods provided. Please provide inputs using only one method at a time.")
 
-        if input_methods['adata_with_neighbors']:
+        if input_methods["adata_with_neighbors"]:
             adata_prepared = self._initialize_from_adata_with_neighbors(
-                adata=adata,
-                labels=labels,
-                neighbour_key=neighbour_key
+                adata=adata, labels=labels, neighbour_key=neighbour_key
             )
-        elif input_methods['adata_without_neighbors']:
-            adata_prepared = self._initialize_from_adata_without_neighbors(
-                adata=adata,
-                labels=labels
-            )
-        elif input_methods['embedding_labels']:
+        elif input_methods["adata_without_neighbors"]:
+            adata_prepared = self._initialize_from_adata_without_neighbors(adata=adata, labels=labels)
+        elif input_methods["embedding_labels"]:
             adata_prepared = self._initialize_from_embedding_labels(
-                embedding=embedding,
-                labels=labels,
-                connectivities=connectivities,
-                distances=distances
+                embedding=embedding, labels=labels, connectivities=connectivities, distances=distances
             )
         else:
             raise ValueError("Invalid initialization method.")
@@ -216,13 +204,16 @@ class TrajectoryInferenceBase(ABC):
     ) -> AnnData:
         """Initializes AnnData from an existing AnnData with precomputed neighbors.
 
-        Parameters:
+        Args:
             adata (AnnData): Input AnnData object.
             labels (Optional[Union[np.ndarray, pd.Series]]): Labels to add to `adata.obs['labels']`.
             neighbour_key (Optional[str]): Key in `adata.uns` where precomputed neighbors are stored.
 
         Returns:
             AnnData: Prepared AnnData object.
+
+        Raises:
+            ValueError: If input validation fails.
         """
         self.logger.debug("Initializing from AnnData with precomputed neighbors.")
         adata_prepared = adata.copy()
@@ -232,18 +223,14 @@ class TrajectoryInferenceBase(ABC):
 
         # Handle precomputed neighbors
         if neighbour_key:
-            self.logger.debug(f"Using precomputed neighbors from key '{neighbour_key}'.")
+            self.logger.debug(f"Using precomputed neighbors from key {neighbour_key!r}.")
             if neighbour_key not in adata_prepared.uns:
-                raise ValueError(
-                    f"Neighbours key '{neighbour_key}' not found in AnnData.uns."
-                )
+                raise ValueError(f"Neighbours key {neighbour_key!r} not found in AnnData.uns.")
             # Move neighbors to standard 'neighbors' key
-            adata_prepared.uns['neighbors'] = adata_prepared.uns.pop(neighbour_key)
+            adata_prepared.uns["neighbors"] = adata_prepared.uns.pop(neighbour_key)
         else:
-            if 'neighbors' not in adata_prepared.uns:
-                self.logger.warning(
-                    "No precomputed neighbors provided. Neighbors will be computed."
-                )
+            if "neighbors" not in adata_prepared.uns:
+                self.logger.warning("No precomputed neighbors provided. Neighbors will be computed.")
 
         self.logger.debug("AnnData initialized successfully from AnnData with neighbors.")
         return adata_prepared
@@ -255,7 +242,7 @@ class TrajectoryInferenceBase(ABC):
     ) -> AnnData:
         """Initializes AnnData from an existing AnnData without precomputed neighbors.
 
-        Parameters:
+        Args:
             adata (AnnData): Input AnnData object.
             labels (Optional[Union[np.ndarray, pd.Series]]): Labels to add to `adata.obs['labels']`.
 
@@ -268,7 +255,7 @@ class TrajectoryInferenceBase(ABC):
         # Handle labels
         adata_prepared = self._add_labels_to_adata(adata_prepared, labels)
 
-        if 'neighbors' not in adata_prepared.uns:
+        if "neighbors" not in adata_prepared.uns:
             self.logger.info("No precomputed neighbors found in AnnData. Neighbors will be computed.")
         else:
             self.logger.debug("Using existing neighbors from AnnData.")
@@ -285,7 +272,7 @@ class TrajectoryInferenceBase(ABC):
     ) -> AnnData:
         """Initializes AnnData from raw embedding and labels, with optional neighbors.
 
-        Parameters:
+        Args:
             embedding (Union[np.ndarray, pd.DataFrame]): Low-dimensional representation.
             labels (Union[np.ndarray, pd.Series]): Cell labels.
             connectivities (Optional[Union[np.ndarray, pd.DataFrame]]): Connectivity matrix.
@@ -300,30 +287,25 @@ class TrajectoryInferenceBase(ABC):
         # Handle precomputed neighbors
         if connectivities is not None or distances is not None:
             self.logger.debug("Adding precomputed neighbors to AnnData.")
-            adata = self._add_precomputed_neighbors(
-                adata,
-                connectivities=connectivities,
-                distances=distances
-            )
+            adata = self._add_precomputed_neighbors(adata, connectivities=connectivities, distances=distances)
         else:
             self.logger.info("No precomputed neighbors provided. Neighbors will be computed.")
 
         self.logger.debug("AnnData initialized successfully from embedding and labels.")
         return adata
 
-    def _add_labels_to_adata(
-        self,
-        adata: AnnData,
-        labels: Optional[Union[np.ndarray, pd.Series]]
-    ) -> AnnData:
+    def _add_labels_to_adata(self, adata: AnnData, labels: Optional[Union[np.ndarray, pd.Series]]) -> AnnData:
         """Adds labels to the AnnData object.
 
-        Parameters:
+        Args:
             adata (AnnData): AnnData object.
             labels (Optional[Union[np.ndarray, pd.Series]]): Labels to add.
 
         Returns:
             AnnData: Updated AnnData object.
+
+        Raises:
+            ValueError: If input validation fails.
         """
         if labels is not None:
             self.logger.debug("Adding provided labels to AnnData object.")
@@ -337,12 +319,10 @@ class TrajectoryInferenceBase(ABC):
             if len(adata) != len(labels):
                 raise ValueError("The number of cells in AnnData and labels must match.")
 
-            adata.obs['labels'] = labels.values
+            adata.obs["labels"] = labels.values
         else:
-            if 'labels' not in adata.obs:
-                raise ValueError(
-                    "Labels not found in AnnData object. Please provide labels separately."
-                )
+            if "labels" not in adata.obs:
+                raise ValueError("Labels not found in AnnData object. Please provide labels separately.")
             self.logger.debug("Using existing labels from AnnData object.")
 
         return adata
@@ -354,12 +334,15 @@ class TrajectoryInferenceBase(ABC):
     ) -> AnnData:
         """Creates an AnnData object from embedding and labels.
 
-        Parameters:
+        Args:
             embedding (Union[np.ndarray, pd.DataFrame]): Low-dimensional representation.
             labels (Union[np.ndarray, pd.Series]): Cell labels.
 
         Returns:
             AnnData: Created AnnData object.
+
+        Raises:
+            ValueError: If input validation fails.
         """
         self.logger.debug("Creating AnnData object from embedding.")
         if isinstance(embedding, pd.DataFrame):
@@ -383,7 +366,7 @@ class TrajectoryInferenceBase(ABC):
         if len(adata) != len(labels):
             raise ValueError("The number of embeddings and labels must match.")
 
-        adata.obs['labels'] = labels.values
+        adata.obs["labels"] = labels.values
 
         self.logger.debug("AnnData object created successfully from embedding and labels.")
         return adata
@@ -396,13 +379,16 @@ class TrajectoryInferenceBase(ABC):
     ) -> AnnData:
         """Adds precomputed neighbors to the AnnData object.
 
-        Parameters:
+        Args:
             adata (AnnData): AnnData object.
             connectivities (Optional[Union[np.ndarray, pd.DataFrame]]): Connectivity matrix.
             distances (Optional[Union[np.ndarray, pd.DataFrame]]): Distance matrix.
 
         Returns:
             AnnData: Updated AnnData object.
+
+        Raises:
+            ValueError: If input validation fails.
         """
         if connectivities is not None:
             self.logger.debug("Adding connectivity matrix to AnnData.")
@@ -416,7 +402,7 @@ class TrajectoryInferenceBase(ABC):
             if connectivities.shape[0] != len(adata):
                 raise ValueError("Connectivity matrix size must match number of cells.")
 
-            adata.obsp['connectivities'] = connectivities
+            adata.obsp["connectivities"] = connectivities
 
         if distances is not None:
             self.logger.debug("Adding distance matrix to AnnData.")
@@ -430,26 +416,20 @@ class TrajectoryInferenceBase(ABC):
             if distances.shape[0] != len(adata):
                 raise ValueError("Distance matrix size must match number of cells.")
 
-            adata.obsp['distances'] = distances
+            adata.obsp["distances"] = distances
         else:
-            if 'distances' not in adata.obsp:
-                self.logger.warning(
-                    "Distances not provided. Creating a placeholder distance matrix."
-                )
-                adata.obsp['distances'] = np.zeros((len(adata), len(adata)))
+            if "distances" not in adata.obsp:
+                self.logger.warning("Distances not provided. Creating a placeholder distance matrix.")
+                adata.obsp["distances"] = np.zeros((len(adata), len(adata)))
 
         # Ensure both connectivities and distances are present
-        if 'connectivities' not in adata.obsp:
-            self.logger.warning(
-                "Connectivities not provided. Creating a placeholder connectivity matrix."
-            )
-            adata.obsp['connectivities'] = np.ones((len(adata), len(adata)))  # Placeholder
+        if "connectivities" not in adata.obsp:
+            self.logger.warning("Connectivities not provided. Creating a placeholder connectivity matrix.")
+            adata.obsp["connectivities"] = np.ones((len(adata), len(adata)))  # Placeholder
 
-        if 'distances' not in adata.obsp:
-            self.logger.warning(
-                "Distances not provided. Creating a placeholder distance matrix."
-            )
-            adata.obsp['distances'] = np.zeros((len(adata), len(adata)))  # Placeholder
+        if "distances" not in adata.obsp:
+            self.logger.warning("Distances not provided. Creating a placeholder distance matrix.")
+            adata.obsp["distances"] = np.zeros((len(adata), len(adata)))  # Placeholder
 
         self.logger.debug("Precomputed neighbors added successfully.")
         return adata
@@ -462,9 +442,9 @@ class TrajectoryInferenceBase(ABC):
     @abstractmethod
     def get_result(self, return_mode: str) -> Any:
         """Retrieves the result of the trajectory inference.
-        
-        Parameters:
-            return_mode (str): Decide the returned object. Either anndata or the result of the calculation. The key 
+
+        Args:
+            return_mode (str): Decide the returned object. Either anndata or the result of the calculation. The key
                 `anndata` used to get the anndata with calculations. Other keys are calculation specific.
         """
         pass

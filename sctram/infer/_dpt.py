@@ -9,13 +9,13 @@ from anndata import AnnData
 from sctram.infer._base import TrajectoryInferenceBase
 
 
-class DPTInference(TrajectoryInferenceBase):    
+class DPTInference(TrajectoryInferenceBase):
     """DPT (Diffusion Pseudotime) trajectory inference method.
-    
-    This subclass of TrajectoryInferenceBase provides specific functionality 
+
+    This subclass of TrajectoryInferenceBase provides specific functionality
     for trajectory inference using the DPT method, which is based on partitioning
     a graph of cells to identify and abstract the trajectories in single-cell data.
-    
+
     Inherits From:
         TrajectoryInferenceBase: Provides base functionality for trajectory inference methods.
 
@@ -33,35 +33,37 @@ class DPTInference(TrajectoryInferenceBase):
     ):
         """Initializes the DPT method with optional parameters.
 
-        Parameters:
+        Args:
             neighbors_params (Optional[Dict[str, Any]]): Parameters for `sc.pp.neighbors`.
             dpt_params (Optional[Dict[str, Any]]): Parameters for `sc.tl.dpt`.
             random_state (Optional[int]): Random state for reproducibility.
         """
-        super().__init__(
-            neighbors_params=neighbors_params,
-            method_params=dpt_params,
-            random_state=random_state
-        )
+        super().__init__(neighbors_params=neighbors_params, method_params=dpt_params, random_state=random_state)
 
     def _calculate(self):
         """Performs the DPT calculation."""
         sc.tl.dpt(self.adata_prepared, **self.method_params)
-    
+
     def get_result(self, return_mode: str) -> Union[AnnData, np.ndarray]:
         """Retrieves the result of the DPT trajectory inference.
-        
-        Parameters:
-            return_mode (str): Decide the returned object. Either anndata or the result of the calculation. The key 
+
+        Args:
+            return_mode (str): Decide the returned object. Either anndata or the result of the calculation. The key
                 `anndata` used to get the anndata with calculations. Other keys are calculation specific.
-                
+
         Raises:
             ValueError: If input validation fails.
+            RuntimeError: It needs that the trajectories are calculated already with `infer_trajectory` method,
+
+        Returns:
+            Union[AnnData, np.ndarray]: The result of the specific trajectory inference method.
         """
-        if return_mode == "anndata":
+        if self.adata_prepared is None:
+            raise RuntimeError("First run `infer_trajectory`.")
+        elif return_mode == "anndata":
             return self.adata_prepared
         elif return_mode == "vector":
-            pseudotime = self.adata_prepared.obs['dpt_pseudotime'].values
+            pseudotime = self.adata_prepared.obs["dpt_pseudotime"].values
             return pseudotime
         else:
             raise ValueError("Invalid 'return_mode'.")
