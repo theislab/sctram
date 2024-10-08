@@ -51,22 +51,17 @@ class DPTInference(TrajectoryInferenceBase):
                     - `label` (str): The specific label to select the root from.
                     - `method` (str): The method to select the root within the specified label. Supported methods:
                         - `'min_diffmap'`: Select the cell with the minimum value in a specified DiffMap component.
-                        - `'max_diffmap'`: Select the cell with the maximum value in a specified DiffMap component.
                         - `'centroid'`: Select the cell closest to the centroid of the cluster.
                         - `'density'`: Select the cell in the cluster with the highest density.
                         - `'random'`: Select a random cell from the cluster.
                     - `outlier_definition_z` (float, optional): Decide whether or not ignore outliers in calculations.
                         If `None`, then all datapoints are taken into consideration.
                     - Additional method-specific parameters:
-                        - For `'min_diffmap'` and `'max_diffmap'`:
+                        - For `'min_diffmap'`:
                             - `component` (int, optional): The Diffusion Map component to use. Defaults to 0.
                         - For `centroid`:
                             - `centroid_embedding` (str): 'X' or a key from `adata.obsm` to be used to calculate 
                                 the centroids. Defaults to 'X'.
-                        - For `density`:
-                            - `radius` (Optional[Union[float, str]]): To compute local density as the number of 
-                                neighbors within a certain radius using `distances` matrix. If `None` or `"adjust"`, 
-                                then the method will try to adjust it to make average density to be in [15, 30].
             random_state (Optional[int]): Random state for reproducibility.
         """
         super().__init__(
@@ -240,8 +235,7 @@ class DPTInference(TrajectoryInferenceBase):
         method_params = {k: v for k, v in label_dict.items() if k not in required_keys}
         component_default = 0
         invalid_method_error = (
-            "Invalid method for setting root. Choose from 'min_diffmap', "
-            "'max_diffmap', 'centroid', 'density', or 'random'."
+            "Invalid method for setting root. Choose from 'min_diffmap', 'centroid', 'density', or 'random'."
         )
         
         if label_key not in self.adata_prepared.obs:
@@ -273,7 +267,7 @@ class DPTInference(TrajectoryInferenceBase):
             return _embedding[subset]
 
         if outlier_definition_z is not None:
-            if method in ['min_diffmap', 'max_diffmap', 'density']:
+            if method in ['min_diffmap', 'density']:
                 # Extract the specified Diffusion Map component for the cluster
                 component = _get_comp()
                 embedding = self.adata_prepared.obsm[x_diffmap_key][cluster_indices, component]
@@ -348,15 +342,7 @@ class DPTInference(TrajectoryInferenceBase):
             root_ix = master_indices[root_sub_ix]
             info = f"Root set to cell index {root_ix} based on minimum in DiffMap component {component} within label '{label}'."
             return root_ix, info
-
-        elif method == 'max_diffmap':
-            component = _get_comp()
-            cluster_diffmap = self.adata_prepared.obsm[x_diffmap_key][master_indices, component]
-            root_sub_ix = np.argmax(cluster_diffmap)
-            root_ix = master_indices[root_sub_ix]
-            info = f"Root set to cell index {root_ix} based on maximum in DiffMap component {component} within label '{label}'."
-            return root_ix, info
-
+        
         elif method == 'centroid':
             embedding = _get_centroid_emb(subset=master_indices)  # shape: (n_master_cells, n_features)
             centroid = np.mean(embedding, axis=0)
@@ -374,19 +360,14 @@ class DPTInference(TrajectoryInferenceBase):
             distances_matrix = self.adata_prepared.obsp['distances'][np.ix_(master_indices, master_indices)].toarray()
 
             # Compute local density as the number of neighbors within a certain radius
-            # Currently using a fixed radius; this can be parameterized as needed.
-            radius = method_params.get("radius", None)
-            if radius is None or radius == "adjust":
-                radius = self._adjust_radius_for_density(distances_matrix, max_iterations=100)
+            densities_ = self._adjust_radius_for_density(distances_matrix, max_iterations=100)
+            densities = densities_.sum(axis=0)
+            self.adata_prepared.uns["_sctram_densities"] = densities_
 
-            # Extract the distances for the master_indices
-            density = np.sum(distances_matrix < radius, axis=1)
-            if np.all(density == 0):
-                self.logger.warning(
-                    f"No neighbors found within radius {radius} for any cell in label '{label}'. "
-                    "Density-based root selection may not be meaningful."
-                )
-            root_sub_ix = np.argmin(density)
+            if np.all(densities == 0):
+                RuntimeError("Unexpected behavior.")
+            
+            root_sub_ix = np.argmax(densities)
             root_ix = master_indices[root_sub_ix]
             info = f"Root set to cell index {root_ix} with highest density within label '{label}'."
             return root_ix, info
@@ -403,10 +384,10 @@ class DPTInference(TrajectoryInferenceBase):
     def _adjust_radius_for_density(
         self, 
         distances_matrix: np.ndarray, 
-        max_iterations: int = 100, 
-        error_margin: float = 3, 
-        initial_step_ratio: float = 0.1
-    ) -> float:
+        max_iterations: int = 1000, 
+        error_margin: float = 1, 
+        initial_step_ratio: float = 0.01
+    ) -> np.ndarray:
         """Dynamically adjusts the radius to achieve a desired range of average neighbors per cell.
 
         Args:
@@ -417,48 +398,53 @@ class DPTInference(TrajectoryInferenceBase):
             initial_step_ratio (float): Initial step size as a fraction of the radius. Defaults to 0.1.
 
         Returns:
-            float: Adjusted radius that yields an average number of neighbors within the target range.
+            np.ndarray: A matrix of stacked neighbours count with varying radius.
 
         Raises:
             RuntimeError: If a suitable radius cannot be found within the specified number of iterations.
         """
+        # [Insert the revised function code here]
         distances_matrix_ = distances_matrix.copy()
         distances_matrix_[distances_matrix_ == 0.0] = np.nan
-        radius = np.nanmean(distances_matrix_) * 3  # Initial guess for the radius
-        step = radius * initial_step_ratio  # Initial step size based on the radius
-        target_neighbors = self.adata_prepared.uns["neighbors"]["params"]["n_neighbors"] / 4
+        radius = np.nanmean(distances_matrix_)  # arbitrary
+        step = radius * initial_step_ratio
+        target_neighbors = 5  # arbitrary
+        # target_neighbors = self.adata_prepared.uns["neighbors"]["params"]["n_neighbors"] / 10  # arbitrary
+        previous_error = None
 
+        result = []
         for iteration in range(max_iterations):
-            
-            neighbors_count = distances_matrix.shape[0] - np.sum(distances_matrix < radius, axis=1)
-            avg_neighbors = np.mean(neighbors_count)
+            neighbors_count = np.sum(distances_matrix_ < radius, axis=1)
+            avg_neighbors = np.nanmean(neighbors_count)
             error = target_neighbors - avg_neighbors
+            result.append(neighbors_count)
 
-            print(f"Iteration {iteration + 1}: Radius = {radius:.4f}, Error = {error:.4f}, Step = {step:.4f}")
-            print(target_neighbors)
-            print(avg_neighbors)
-    
-            # Check if the current average is within the acceptable range
+            # print(f"Iteration {iteration + 1}: Radius = {radius:.4f}, Error = {error:.4f}, Step = {step:.4f}")
+            # print(f"Target Neighbors: {target_neighbors}\nAverage Neighbors: {avg_neighbors}")
+
             if abs(error) <= error_margin:
                 self.logger.info(
                     f"Suitable radius found: {radius:.4f} with average neighbors {avg_neighbors:.4f}, "
                     f"iteration {iteration + 1}."
                 )
-                return radius
+                return np.vstack(result)
 
-            # Adjust the radius based on the error direction
-            radius_ = radius.copy()
-            if error > 0:  # Need more neighbors: increase radius
-                radius -= step
-            else:  # Need fewer neighbors: decrease radius
+            if previous_error is not None and np.sign(error) != np.sign(previous_error):
+                step /= 2
+                self.logger.debug(f"Overshoot detected. Reducing step size to {step:.6f}.")
+
+            if error > 0:
                 radius += step
-                
+            else:
+                radius -= step
+
             if radius < 1e-6:
-                radius = radius_.copy()  # Ensure radius remains positive
-                step = radius * initial_step_ratio
-                print("Here")
-            
+                radius = 1e-6
+                self.logger.debug(f"Radius fell below minimum threshold. Setting radius to {radius}.")
+
+            previous_error = error
+
         raise RuntimeError(
             f"Could not find a suitable radius within {max_iterations} iterations. "
             f"Final radius: {radius:.4f}, Final average neighbors: {avg_neighbors:.4f}."
-        )
+        ) 
