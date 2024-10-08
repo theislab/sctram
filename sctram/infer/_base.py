@@ -10,6 +10,19 @@ import scanpy as sc
 from anndata import AnnData
 
 
+labels_key = "labels"
+x_diffmap_key = "X_diffmap"
+iroot_key = "iroot"
+
+
+# TODO: Ensure the below structure is in `adata.uns["neighbors"]`
+# {'connectivities_key': 'connectivities',
+#  'distances_key': 'distances',
+#  'params': {'n_neighbors': 90,
+#   'method': 'umap',
+#   'random_state': 0,
+#   'metric': 'euclidean'}}
+
 class TrajectoryInferenceBase(ABC):
     """Abstract base class for trajectory inference methods.
 
@@ -267,8 +280,8 @@ class TrajectoryInferenceBase(ABC):
         self,
         embedding: Union[np.ndarray, pd.DataFrame],
         labels: Union[np.ndarray, pd.Series],
-        connectivities: Optional[Union[np.ndarray, pd.DataFrame]],
-        distances: Optional[Union[np.ndarray, pd.DataFrame]],
+        connectivities: Union[np.ndarray, pd.DataFrame],
+        distances: Union[np.ndarray, pd.DataFrame],
     ) -> AnnData:
         """Initializes AnnData from raw embedding and labels, with optional neighbors.
 
@@ -285,11 +298,11 @@ class TrajectoryInferenceBase(ABC):
         adata = self._create_anndata_from_embedding(embedding, labels)
 
         # Handle precomputed neighbors
-        if connectivities is not None or distances is not None:
+        if connectivities is not None and distances is not None:
             self.logger.debug("Adding precomputed neighbors to AnnData.")
             adata = self._add_precomputed_neighbors(adata, connectivities=connectivities, distances=distances)
         else:
-            self.logger.info("No precomputed neighbors provided. Neighbors will be computed.")
+            self.logger.info("Precomputed neighbor matrics (`distances` and `connectivities`) are not provided. Neighbors will be computed.")
 
         self.logger.debug("AnnData initialized successfully from embedding and labels.")
         return adata
@@ -319,9 +332,9 @@ class TrajectoryInferenceBase(ABC):
             if len(adata) != len(labels):
                 raise ValueError("The number of cells in AnnData and labels must match.")
 
-            adata.obs["labels"] = labels.values
+            adata.obs[labels_key] = labels.values
         else:
-            if "labels" not in adata.obs:
+            if labels_key not in adata.obs:
                 raise ValueError("Labels not found in AnnData object. Please provide labels separately.")
             self.logger.debug("Using existing labels from AnnData object.")
 
@@ -366,7 +379,7 @@ class TrajectoryInferenceBase(ABC):
         if len(adata) != len(labels):
             raise ValueError("The number of embeddings and labels must match.")
 
-        adata.obs["labels"] = labels.values
+        adata.obs[labels_key] = labels.values
 
         self.logger.debug("AnnData object created successfully from embedding and labels.")
         return adata
@@ -374,8 +387,8 @@ class TrajectoryInferenceBase(ABC):
     def _add_precomputed_neighbors(
         self,
         adata: AnnData,
-        connectivities: Optional[Union[np.ndarray, pd.DataFrame]],
-        distances: Optional[Union[np.ndarray, pd.DataFrame]],
+        connectivities: Union[np.ndarray, pd.DataFrame],
+        distances: Union[np.ndarray, pd.DataFrame],
     ) -> AnnData:
         """Adds precomputed neighbors to the AnnData object.
 
@@ -390,46 +403,28 @@ class TrajectoryInferenceBase(ABC):
         Raises:
             ValueError: If input validation fails.
         """
-        if connectivities is not None:
-            self.logger.debug("Adding connectivity matrix to AnnData.")
-            if isinstance(connectivities, pd.DataFrame):
-                connectivities = connectivities.values
-            if not isinstance(connectivities, np.ndarray):
-                raise ValueError("Connectivities must be a numpy.ndarray or pandas.DataFrame.")
+        self.logger.debug("Adding connectivity matrix to AnnData.")
+        if isinstance(connectivities, pd.DataFrame):
+            connectivities = connectivities.values
+        if not isinstance(connectivities, np.ndarray):
+            raise ValueError("Connectivities must be a numpy.ndarray or pandas.DataFrame.")
+        if connectivities.shape[0] != connectivities.shape[1]:
+            raise ValueError("Connectivity matrix must be square.")
+        if connectivities.shape[0] != len(adata):
+            raise ValueError("Connectivity matrix size must match number of cells.")
+        adata.obsp["connectivities"] = connectivities
 
-            if connectivities.shape[0] != connectivities.shape[1]:
-                raise ValueError("Connectivity matrix must be square.")
-            if connectivities.shape[0] != len(adata):
-                raise ValueError("Connectivity matrix size must match number of cells.")
-
-            adata.obsp["connectivities"] = connectivities
-
-        if distances is not None:
-            self.logger.debug("Adding distance matrix to AnnData.")
-            if isinstance(distances, pd.DataFrame):
-                distances = distances.values
-            if not isinstance(distances, np.ndarray):
-                raise ValueError("Distances must be a numpy.ndarray or pandas.DataFrame.")
-
-            if distances.shape[0] != distances.shape[1]:
-                raise ValueError("Distance matrix must be square.")
-            if distances.shape[0] != len(adata):
-                raise ValueError("Distance matrix size must match number of cells.")
-
-            adata.obsp["distances"] = distances
-        else:
-            if "distances" not in adata.obsp:
-                self.logger.warning("Distances not provided. Creating a placeholder distance matrix.")
-                adata.obsp["distances"] = np.zeros((len(adata), len(adata)))
-
-        # Ensure both connectivities and distances are present
-        if "connectivities" not in adata.obsp:
-            self.logger.warning("Connectivities not provided. Creating a placeholder connectivity matrix.")
-            adata.obsp["connectivities"] = np.ones((len(adata), len(adata)))  # Placeholder
-
-        if "distances" not in adata.obsp:
-            self.logger.warning("Distances not provided. Creating a placeholder distance matrix.")
-            adata.obsp["distances"] = np.zeros((len(adata), len(adata)))  # Placeholder
+        
+        self.logger.debug("Adding distance matrix to AnnData.")
+        if isinstance(distances, pd.DataFrame):
+            distances = distances.values
+        if not isinstance(distances, np.ndarray):
+            raise ValueError("Distances must be a numpy.ndarray or pandas.DataFrame.")
+        if distances.shape[0] != distances.shape[1]:
+            raise ValueError("Distance matrix must be square.")
+        if distances.shape[0] != len(adata):
+            raise ValueError("Distance matrix size must match number of cells.")
+        adata.obsp["distances"] = distances
 
         self.logger.debug("Precomputed neighbors added successfully.")
         return adata

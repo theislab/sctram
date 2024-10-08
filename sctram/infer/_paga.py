@@ -6,7 +6,7 @@ import numpy as np
 import scanpy as sc
 from anndata import AnnData
 
-from sctram.infer._base import TrajectoryInferenceBase
+from sctram.infer._base import TrajectoryInferenceBase, labels_key
 
 
 class PAGAInference(TrajectoryInferenceBase):
@@ -42,7 +42,7 @@ class PAGAInference(TrajectoryInferenceBase):
 
     def _calculate(self):
         """Performs the PAGA calculation."""
-        sc.tl.paga(self.adata_prepared, groups="labels", **self.method_params)
+        sc.tl.paga(self.adata_prepared, groups=labels_key, **self.method_params)
 
     def get_result(self, return_mode: str) -> Union[AnnData, np.ndarray]:
         """Retrieves the result of the PAGA trajectory inference.
@@ -62,8 +62,10 @@ class PAGAInference(TrajectoryInferenceBase):
             raise RuntimeError("First run `infer_trajectory`.")
         elif return_mode == "anndata":
             return self.adata_prepared
-        elif return_mode == "graph":
-            paga_graph = self.adata_prepared.uns["paga"]["connectivities"]
+        elif return_mode == "adjacency":
+            paga_graph = self.adata_prepared.uns["paga"]["connectivities"].toarray()
             return paga_graph
+        elif return_mode == "labels":
+            return self.adata_prepared.obs[labels_key].cat.categories      
         else:
             raise ValueError("Invalid 'return_mode'.")
