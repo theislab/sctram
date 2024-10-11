@@ -6,7 +6,8 @@ import numpy as np
 import scanpy as sc
 from anndata import AnnData
 
-from sctram.infer._base import TrajectoryInferenceBase, labels_key
+from sctram._constants import labels_key
+from sctram.infer._base import TrajectoryInferenceBase
 
 
 class PAGAInference(TrajectoryInferenceBase):
@@ -66,6 +67,6 @@ class PAGAInference(TrajectoryInferenceBase):
             paga_graph = self.adata_prepared.uns["paga"]["connectivities"].toarray()
             return paga_graph
         elif return_mode == "labels":
-            return self.adata_prepared.obs[labels_key].cat.categories      
+            return self.adata_prepared.obs[labels_key].cat.categories
         else:
             raise ValueError("Invalid 'return_mode'.")

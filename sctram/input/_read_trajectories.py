@@ -5,7 +5,7 @@ from collections.abc import Iterable
 from typing import Any, Optional
 
 from sctram.input._input_trajectories import InputTrajectories
-from sctram.input._utils import (
+from sctram._constants import (
     InputGraphDictWithEdge,
     InputGraphPossibleTypes,
     edge_reserved_keys,

@@ -3,7 +3,7 @@
 import networkx as nx
 
 from sctram.input._input_trajectory import InputTrajectory
-from sctram.input._utils import key_trajectories
+from sctram._constants import key_trajectories
 
 
 class InputTrajectories(nx.MultiDiGraph):

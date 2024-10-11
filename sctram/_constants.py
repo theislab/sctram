@@ -13,3 +13,8 @@ InputGraphPossibleTypes = Union[InputGraphDictWithoutEdge, InputGraphDictNoneEdg
 key_trajectories = "trajectories"
 edge_reserved_keys = [key_trajectories]
 node_reserved_keys = [key_trajectories]
+
+# AnnData Keys
+labels_key = "labels"
+x_diffmap_key = "X_diffmap"
+iroot_key = "iroot"

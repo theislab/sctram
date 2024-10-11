@@ -6,8 +6,8 @@ import networkx as nx
 import numpy as np
 from scipy.linalg import eigh
 from scipy.sparse import csgraph
-from sklearn.neighbors import NearestNeighbors
 from scipy.spatial.distance import pdist, squareform
+from sklearn.neighbors import NearestNeighbors
 
 
 class PseudotimeAdjacencyConverter:
@@ -85,7 +85,7 @@ class PseudotimeAdjacencyConverter:
         include_self: bool = False,
         weighted: bool = False,
         handle_disconnected: bool = True,
-        epsilon: float = 1e-5
+        epsilon: float = 1e-5,
     ) -> np.ndarray:
         """Converts the pseudotime array into an adjacency matrix using the k-Nearest Neighbors (k-NN) method.
 
@@ -122,11 +122,9 @@ class PseudotimeAdjacencyConverter:
         pseudotime_reshaped = self.pseudotime.reshape(-1, 1)
 
         # Initialize NearestNeighbors
-        nbrs = NearestNeighbors(
-            n_neighbors=n_neighbors + int(include_self),
-            metric=metric,
-            algorithm=algorithm
-        ).fit(pseudotime_reshaped)
+        nbrs = NearestNeighbors(n_neighbors=n_neighbors + int(include_self), metric=metric, algorithm=algorithm).fit(
+            pseudotime_reshaped
+        )
 
         # Find k neighbors for each cell
         distances, indices = nbrs.kneighbors(pseudotime_reshaped)
@@ -156,11 +154,7 @@ class PseudotimeAdjacencyConverter:
         return self.adjacency_matrix
 
     def to_threshold_adjacency(
-        self,
-        delta: float,
-        weighted: bool = False,
-        handle_disconnected: bool = True,
-        epsilon: float = 1e-5
+        self, delta: float, weighted: bool = False, handle_disconnected: bool = True, epsilon: float = 1e-5
     ) -> np.ndarray:
         """Converts the pseudotime array into an adjacency matrix by thresholding pseudotime differences.
 
@@ -192,7 +186,7 @@ class PseudotimeAdjacencyConverter:
         adjacency = np.zeros((n_cells, n_cells), dtype=float if weighted else int)
 
         # Compute pairwise absolute differences
-        pairwise_diff = squareform(pdist(self.pseudotime.reshape(-1, 1), metric='chebyshev'))
+        pairwise_diff = squareform(pdist(self.pseudotime.reshape(-1, 1), metric="chebyshev"))
 
         if weighted:
             adjacency[pairwise_diff < delta] = pairwise_diff[pairwise_diff < delta]
@@ -209,10 +203,7 @@ class PseudotimeAdjacencyConverter:
         return self.adjacency_matrix
 
     def to_mst_adjacency(
-        self,
-        algorithm: str = "kruskal",
-        handle_disconnected: bool = False,
-        epsilon: float = 1e-5
+        self, algorithm: str = "kruskal", handle_disconnected: bool = False, epsilon: float = 1e-5
     ) -> np.ndarray:
         """Converts the pseudotime array into an adjacency matrix using the Minimum Spanning Tree (MST) method.
 
@@ -236,7 +227,7 @@ class PseudotimeAdjacencyConverter:
         Raises:
             ValueError: If an unsupported algorithm is specified.
         """
-        if algorithm.lower() not in ['kruskal', 'prim']:
+        if algorithm.lower() not in ["kruskal", "prim"]:
             raise ValueError("algorithm must be either 'kruskal' or 'prim'.")
 
         n_cells = len(self.pseudotime)
@@ -255,8 +246,8 @@ class PseudotimeAdjacencyConverter:
         # Initialize adjacency matrix
         adjacency = np.zeros((n_cells, n_cells), dtype=float)
         for i, j, data in mst.edges(data=True):
-            adjacency[i, j] = data['weight']
-            adjacency[j, i] = data['weight']  # Ensure symmetry
+            adjacency[i, j] = data["weight"]
+            adjacency[j, i] = data["weight"]  # Ensure symmetry
 
         if handle_disconnected and not nx.is_connected(mst):
             adjacency = self._handle_disconnected_components(adjacency, epsilon=epsilon)
@@ -265,10 +256,7 @@ class PseudotimeAdjacencyConverter:
         return self.adjacency_matrix
 
     def to_gaussian_kernel_adjacency(
-        self,
-        sigma: float = 1.0,
-        handle_disconnected: bool = True,
-        epsilon: float = 1e-5
+        self, sigma: float = 1.0, handle_disconnected: bool = True, epsilon: float = 1e-5
     ) -> np.ndarray:
         """Converts the pseudotime array into an adjacency matrix using a Gaussian Kernel-Based method.
 
@@ -300,10 +288,10 @@ class PseudotimeAdjacencyConverter:
         adjacency = np.zeros((n_cells, n_cells), dtype=float)
 
         # Compute pairwise squared differences
-        pairwise_diff_sq = squareform(pdist(self.pseudotime.reshape(-1, 1), metric='sqeuclidean'))
+        pairwise_diff_sq = squareform(pdist(self.pseudotime.reshape(-1, 1), metric="sqeuclidean"))
 
         # Apply Gaussian kernel
-        adjacency = np.exp(-pairwise_diff_sq / (2 * sigma ** 2))
+        adjacency = np.exp(-pairwise_diff_sq / (2 * sigma**2))
 
         # Remove self-connections
         np.fill_diagonal(adjacency, 0)
@@ -329,11 +317,7 @@ class PseudotimeAdjacencyConverter:
                     f"Adjacency matrix shape {self.adjacency_matrix.shape} does not match the number of labels ({n_labels})."
                 )
 
-    def to_adjacency(
-        self,
-        method: str = "knn",
-        **kwargs
-    ) -> np.ndarray:
+    def to_adjacency(self, method: str = "knn", **kwargs) -> np.ndarray:
         """Convenience method to compute the adjacency matrix using the specified method.
 
         Supported Methods:
@@ -376,7 +360,9 @@ class PseudotimeAdjacencyConverter:
             ValueError: If the adjacency matrix has not been computed yet.
         """
         if self.adjacency_matrix is None:
-            raise ValueError("Adjacency matrix has not been computed yet. Call one of the adjacency construction methods first.")
+            raise ValueError(
+                "Adjacency matrix has not been computed yet. Call one of the adjacency construction methods first."
+            )
         return self.adjacency_matrix
 
 
@@ -442,7 +428,7 @@ class AdjacencyPseudotimeConverter:
         root_cell: int = 0,
         weight: Optional[str] = "weight",
         handle_disconnected: str = "assign_max_plus_one",
-        alternative_distance: Optional[float] = None
+        alternative_distance: Optional[float] = None,
     ) -> np.ndarray:
         """Converts the adjacency matrix into a pseudotime array using the Shortest Path-Based method.
 
@@ -497,7 +483,9 @@ class AdjacencyPseudotimeConverter:
             pseudotime[np.isinf(pseudotime)] = max_finite + 1
         elif handle_disconnected == "assign_alternative_distance":
             if alternative_distance is None:
-                raise ValueError("alternative_distance must be provided when handle_disconnected is 'assign_alternative_distance'.")
+                raise ValueError(
+                    "alternative_distance must be provided when handle_disconnected is 'assign_alternative_distance'."
+                )
             pseudotime[np.isinf(pseudotime)] = alternative_distance
         elif handle_disconnected == "ignore":
             pass  # Leave infinities as is
@@ -509,11 +497,7 @@ class AdjacencyPseudotimeConverter:
         return pseudotime
 
     def to_diffusion_pseudotime(
-        self,
-        alpha: float = 0.5,
-        n_steps: int = 100,
-        tol: float = 1e-6,
-        root_cell: int = 0
+        self, alpha: float = 0.5, n_steps: int = 100, tol: float = 1e-6, root_cell: int = 0
     ) -> np.ndarray:
         """Converts the adjacency matrix into a pseudotime array using the Diffusion-Based method.
 
@@ -577,10 +561,7 @@ class AdjacencyPseudotimeConverter:
         return F
 
     def to_spectral_pseudotime(
-        self,
-        n_components: int = 2,
-        root_cell: Optional[int] = None,
-        normalized: bool = False
+        self, n_components: int = 2, root_cell: Optional[int] = None, normalized: bool = False
     ) -> np.ndarray:
         """Converts the adjacency matrix into a pseudotime array using the Spectral Ordering method.
 
@@ -651,11 +632,7 @@ class AdjacencyPseudotimeConverter:
 
         return pseudotime
 
-    def to_gaussian_kernel_pseudotime(
-        self,
-        sigma: float = 1.0,
-        root_cell: int = 0
-    ) -> np.ndarray:
+    def to_gaussian_kernel_pseudotime(self, sigma: float = 1.0, root_cell: int = 0) -> np.ndarray:
         """Converts the adjacency matrix into a pseudotime array using a Gaussian Kernel-Based method.
 
         This method defines edge weights based on a Gaussian kernel of the pseudotime differences
@@ -687,7 +664,7 @@ class AdjacencyPseudotimeConverter:
 
         # Compute Gaussian kernel weights
         diff_matrix = np.abs(preliminary_pseudotime[:, np.newaxis] - preliminary_pseudotime[np.newaxis, :])
-        gaussian_weights = np.exp(- (diff_matrix ** 2) / (2 * sigma ** 2))
+        gaussian_weights = np.exp(-(diff_matrix**2) / (2 * sigma**2))
 
         # Update the graph with Gaussian weights
         gaussian_weights_matrix = gaussian_weights * self.adjacency_matrix
@@ -734,11 +711,7 @@ class AdjacencyPseudotimeConverter:
         """
         return list(nx.connected_components(self.graph))
 
-    def to_pseudotime(
-        self,
-        method: str = "shortest_path",
-        **kwargs
-    ) -> np.ndarray:
+    def to_pseudotime(self, method: str = "shortest_path", **kwargs) -> np.ndarray:
         """Convenience method to compute pseudotime using the specified method.
 
         Supported Methods:
@@ -826,7 +799,7 @@ class LabelAdjacencyPseudotimeConverter:
         method: str = "shortest_path",
         handle_disconnected: str = "assign_max_plus_one",
         alternative_distance: Optional[float] = None,
-        **kwargs
+        **kwargs,
     ) -> np.ndarray:
         """Computes pseudotime for each label using the specified method.
 
@@ -861,7 +834,7 @@ class LabelAdjacencyPseudotimeConverter:
                 root_cell=root_label,
                 weight="weight",
                 handle_disconnected=handle_disconnected,
-                alternative_distance=alternative_distance
+                alternative_distance=alternative_distance,
             )
         elif method == "diffusion":
             alpha = kwargs.get("alpha", 0.5)
@@ -869,27 +842,19 @@ class LabelAdjacencyPseudotimeConverter:
             tol = kwargs.get("tol", 1e-6)
             root_label = kwargs.get("root_label", 0)
             self.label_pseudotime = converter.to_diffusion_pseudotime(
-                alpha=alpha,
-                n_steps=n_steps,
-                tol=tol,
-                root_cell=root_label
+                alpha=alpha, n_steps=n_steps, tol=tol, root_cell=root_label
             )
         elif method == "spectral":
             n_components = kwargs.get("n_components", 2)
             root_label = kwargs.get("root_label", None)
             normalized = kwargs.get("normalized", False)
             self.label_pseudotime = converter.to_spectral_pseudotime(
-                n_components=n_components,
-                root_cell=root_label,
-                normalized=normalized
+                n_components=n_components, root_cell=root_label, normalized=normalized
             )
         elif method == "gaussian_kernel":
             sigma = kwargs.get("sigma", 1.0)
             root_label = kwargs.get("root_label", 0)
-            self.label_pseudotime = converter.to_gaussian_kernel_pseudotime(
-                sigma=sigma,
-                root_cell=root_label
-            )
+            self.label_pseudotime = converter.to_gaussian_kernel_pseudotime(sigma=sigma, root_cell=root_label)
         else:
             raise ValueError(
                 f"Unsupported method '{method}'. Choose from 'shortest_path', 'diffusion', 'spectral', 'gaussian_kernel'."
@@ -898,9 +863,7 @@ class LabelAdjacencyPseudotimeConverter:
         return self.label_pseudotime
 
     def assign_cell_pseudotime(
-        self,
-        handle_disconnected: str = "assign_max_plus_one",
-        alternative_distance: Optional[float] = None
+        self, handle_disconnected: str = "assign_max_plus_one", alternative_distance: Optional[float] = None
     ) -> np.ndarray:
         """Assigns pseudotime to each cell based on its label's pseudotime.
 
@@ -920,26 +883,20 @@ class LabelAdjacencyPseudotimeConverter:
 
         # Map each label to its pseudotime
         label_to_pseudotime = {label: self.label_pseudotime[idx] for idx, label in enumerate(self.labels)}
-        
+
         # Assign pseudotime to each cell based on its label
         self.cell_pseudotime = np.vectorize(label_to_pseudotime.get)(self.cell_labels)
 
         # Handle cells with labels that might not have been assigned pseudotime (if any)
         if handle_disconnected == "assign_max_plus_one":
             max_pseudotime = np.max(self.label_pseudotime)
-            self.cell_pseudotime = np.where(
-                np.isinf(self.cell_pseudotime),
-                max_pseudotime + 1,
-                self.cell_pseudotime
-            )
+            self.cell_pseudotime = np.where(np.isinf(self.cell_pseudotime), max_pseudotime + 1, self.cell_pseudotime)
         elif handle_disconnected == "assign_alternative_distance":
             if alternative_distance is None:
-                raise ValueError("alternative_distance must be provided when handle_disconnected is 'assign_alternative_distance'.")
-            self.cell_pseudotime = np.where(
-                np.isinf(self.cell_pseudotime),
-                alternative_distance,
-                self.cell_pseudotime
-            )
+                raise ValueError(
+                    "alternative_distance must be provided when handle_disconnected is 'assign_alternative_distance'."
+                )
+            self.cell_pseudotime = np.where(np.isinf(self.cell_pseudotime), alternative_distance, self.cell_pseudotime)
         elif handle_disconnected == "ignore":
             pass  # Leave infinities as is
         else:
@@ -954,7 +911,7 @@ class LabelAdjacencyPseudotimeConverter:
         method: str = "shortest_path",
         handle_disconnected: str = "assign_max_plus_one",
         alternative_distance: Optional[float] = None,
-        **kwargs
+        **kwargs,
     ) -> np.ndarray:
         """Convenience method to compute label pseudotime and assign it to cells.
 
@@ -969,14 +926,10 @@ class LabelAdjacencyPseudotimeConverter:
             np.ndarray: A one-dimensional array of pseudotime values for each cell.
         """
         self.get_label_pseudotime(
-            method=method,
-            handle_disconnected=handle_disconnected,
-            alternative_distance=alternative_distance,
-            **kwargs
+            method=method, handle_disconnected=handle_disconnected, alternative_distance=alternative_distance, **kwargs
         )
         return self.assign_cell_pseudotime(
-            handle_disconnected=handle_disconnected,
-            alternative_distance=alternative_distance
+            handle_disconnected=handle_disconnected, alternative_distance=alternative_distance
         )
 
 
@@ -1035,11 +988,7 @@ class PseudotimeLabelAdjacencyConverter:
         self.labels = np.unique(cell_labels)
         self.aggregated_pseudotime: Optional[np.ndarray] = None
 
-    def aggregate_pseudotime_per_label(
-        self,
-        aggregation: str = "mean",
-        trim_percent: float = 0.1
-    ) -> np.ndarray:
+    def aggregate_pseudotime_per_label(self, aggregation: str = "mean", trim_percent: float = 0.1) -> np.ndarray:
         """Aggregates pseudotime values per label using the specified method.
 
         Supported Aggregation Methods:
@@ -1087,11 +1036,7 @@ class PseudotimeLabelAdjacencyConverter:
         self.aggregated_pseudotime = aggregated_pseudotime
         return self.aggregated_pseudotime
 
-    def construct_label_adjacency(
-        self,
-        method: str = "knn",
-        **kwargs
-    ) -> np.ndarray:
+    def construct_label_adjacency(self, method: str = "knn", **kwargs) -> np.ndarray:
         """Constructs a label-level adjacency matrix based on aggregated pseudotime values.
 
         Supported Methods:
@@ -1122,11 +1067,7 @@ class PseudotimeLabelAdjacencyConverter:
             n_neighbors = kwargs.get("n_neighbors", 2)
             metric = kwargs.get("metric", "euclidean")
             algorithm = kwargs.get("algorithm", "auto")
-            label_adjacency = converter.to_knn_adjacency(
-                n_neighbors=n_neighbors,
-                metric=metric,
-                algorithm=algorithm
-            )
+            label_adjacency = converter.to_knn_adjacency(n_neighbors=n_neighbors, metric=metric, algorithm=algorithm)
         elif method == "threshold":
             delta = kwargs.get("delta", 1.0)
             label_adjacency = converter.to_threshold_adjacency(delta=delta)
@@ -1148,7 +1089,7 @@ class PseudotimeLabelAdjacencyConverter:
         aggregation: str = "mean",
         aggregation_kwargs: Optional[dict] = None,
         method: str = "knn",
-        adjacency_kwargs: Optional[dict] = None
+        adjacency_kwargs: Optional[dict] = None,
     ) -> np.ndarray:
         """Convenience method to aggregate pseudotime and construct label adjacency.
 
@@ -1263,7 +1204,7 @@ class DiffmapAdjacencyConverter:
         include_self: bool = False,
         weighted: bool = False,
         handle_disconnected: bool = True,
-        epsilon: float = 1e-5
+        epsilon: float = 1e-5,
     ) -> np.ndarray:
         """Converts the Diffusion Map embedding into an adjacency matrix using the k-Nearest Neighbors (k-NN) method.
 
@@ -1296,11 +1237,9 @@ class DiffmapAdjacencyConverter:
             raise ValueError("n_neighbors must be a positive integer.")
 
         # Use NearestNeighbors from sklearn
-        nbrs = NearestNeighbors(
-            n_neighbors=n_neighbors + int(include_self),
-            metric=metric,
-            algorithm=algorithm
-        ).fit(self.diffmap_embedding)
+        nbrs = NearestNeighbors(n_neighbors=n_neighbors + int(include_self), metric=metric, algorithm=algorithm).fit(
+            self.diffmap_embedding
+        )
 
         distances, indices = nbrs.kneighbors(self.diffmap_embedding)
 
@@ -1333,7 +1272,7 @@ class DiffmapAdjacencyConverter:
         metric: str = "euclidean",
         weighted: bool = False,
         handle_disconnected: bool = True,
-        epsilon: float = 1e-5
+        epsilon: float = 1e-5,
     ) -> np.ndarray:
         """Converts the Diffusion Map embedding into an adjacency matrix by thresholding distances in diffusion space.
 
@@ -1388,7 +1327,7 @@ class DiffmapAdjacencyConverter:
         metric: str = "euclidean",
         algorithm: str = "kruskal",
         handle_disconnected: bool = False,
-        epsilon: float = 1e-5
+        epsilon: float = 1e-5,
     ) -> np.ndarray:
         """Converts the Diffusion Map embedding into an adjacency matrix using the Minimum Spanning Tree (MST) method.
 
@@ -1413,7 +1352,7 @@ class DiffmapAdjacencyConverter:
         Raises:
             ValueError: If an unsupported algorithm is specified.
         """
-        if algorithm.lower() not in ['kruskal', 'prim']:
+        if algorithm.lower() not in ["kruskal", "prim"]:
             raise ValueError("algorithm must be either 'kruskal' or 'prim'.")
 
         n_cells = self.diffmap_embedding.shape[0]
@@ -1435,8 +1374,8 @@ class DiffmapAdjacencyConverter:
         # Initialize adjacency matrix
         adjacency = np.zeros((n_cells, n_cells), dtype=float)
         for i, j, data in mst.edges(data=True):
-            adjacency[i, j] = data['weight']
-            adjacency[j, i] = data['weight']  # Ensure symmetry
+            adjacency[i, j] = data["weight"]
+            adjacency[j, i] = data["weight"]  # Ensure symmetry
 
         if handle_disconnected and not nx.is_connected(mst):
             adjacency = self._handle_disconnected_components(adjacency, epsilon=epsilon)
@@ -1445,11 +1384,7 @@ class DiffmapAdjacencyConverter:
         return self.adjacency_matrix
 
     def to_gaussian_kernel_adjacency(
-        self,
-        sigma: float = 1.0,
-        metric: str = "euclidean",
-        handle_disconnected: bool = True,
-        epsilon: float = 1e-5
+        self, sigma: float = 1.0, metric: str = "euclidean", handle_disconnected: bool = True, epsilon: float = 1e-5
     ) -> np.ndarray:
         """Converts the Diffusion Map embedding into an adjacency matrix using a Gaussian Kernel-Based method.
 
@@ -1483,7 +1418,7 @@ class DiffmapAdjacencyConverter:
         pairwise_dist_sq = squareform(pdist(self.diffmap_embedding, metric=metric)) ** 2
 
         # Apply Gaussian kernel
-        adjacency = np.exp(-pairwise_dist_sq / (2 * sigma ** 2))
+        adjacency = np.exp(-pairwise_dist_sq / (2 * sigma**2))
 
         # Remove self-connections
         np.fill_diagonal(adjacency, 0)
@@ -1494,11 +1429,7 @@ class DiffmapAdjacencyConverter:
         self.adjacency_matrix = adjacency
         return self.adjacency_matrix
 
-    def to_adjacency(
-        self,
-        method: str = "knn",
-        **kwargs
-    ) -> np.ndarray:
+    def to_adjacency(self, method: str = "knn", **kwargs) -> np.ndarray:
         """Convenience method to compute the adjacency matrix using the specified method.
 
         Supported Methods:
@@ -1528,7 +1459,7 @@ class DiffmapAdjacencyConverter:
             return self.to_gaussian_kernel_adjacency(**kwargs)
         else:
             raise ValueError(
-                f"Unsupported method '{method}'. Choose from 'knn', 'threshold', 'mst', 'gaussian_kernel'."
+                f"Unsupported method {method!r}. Choose from 'knn', 'threshold', 'mst', 'gaussian_kernel'."
             )
 
     def get_adjacency(self) -> np.ndarray:
@@ -1541,5 +1472,7 @@ class DiffmapAdjacencyConverter:
             ValueError: If the adjacency matrix has not been computed yet.
         """
         if self.adjacency_matrix is None:
-            raise ValueError("Adjacency matrix has not been computed yet. Call one of the adjacency construction methods first.")
+            raise ValueError(
+                "Adjacency matrix has not been computed yet. Call one of the adjacency construction methods first."
+            )
         return self.adjacency_matrix

@@ -9,11 +9,7 @@ import pandas as pd
 import scanpy as sc
 from anndata import AnnData
 
-
-labels_key = "labels"
-x_diffmap_key = "X_diffmap"
-iroot_key = "iroot"
-
+from sctram._constants import labels_key
 
 # TODO: Ensure the below structure is in `adata.uns["neighbors"]`
 # {'connectivities_key': 'connectivities',
@@ -22,6 +18,7 @@ iroot_key = "iroot"
 #   'method': 'umap',
 #   'random_state': 0,
 #   'metric': 'euclidean'}}
+
 
 class TrajectoryInferenceBase(ABC):
     """Abstract base class for trajectory inference methods.
@@ -66,18 +63,8 @@ class TrajectoryInferenceBase(ABC):
         self.method_params = method_params or {}
         self.random_state = random_state
 
-        # Configure logging
-        self.logger = logging.getLogger(self.__class__.__name__)
-        if not self.logger.handlers:
-            # Prevent adding multiple handlers in interactive environments
-            handler = logging.StreamHandler()
-            formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-            handler.setFormatter(formatter)
-            self.logger.addHandler(handler)
-            self.logger.setLevel(logging.INFO)
-
-        # Internal AnnData object
-        self.adata_prepared: Optional[AnnData] = None
+        self.logger = logging.getLogger(self.__class__.__name__)  # Configure logging
+        self.adata_prepared: AnnData  # Internal AnnData object
 
     def infer_trajectory(
         self,
@@ -302,7 +289,9 @@ class TrajectoryInferenceBase(ABC):
             self.logger.debug("Adding precomputed neighbors to AnnData.")
             adata = self._add_precomputed_neighbors(adata, connectivities=connectivities, distances=distances)
         else:
-            self.logger.info("Precomputed neighbor matrics (`distances` and `connectivities`) are not provided. Neighbors will be computed.")
+            self.logger.info(
+                "Precomputed neighbor matrics (`distances` and `connectivities`) are not provided. Neighbors will be computed."
+            )
 
         self.logger.debug("AnnData initialized successfully from embedding and labels.")
         return adata
@@ -414,7 +403,6 @@ class TrajectoryInferenceBase(ABC):
             raise ValueError("Connectivity matrix size must match number of cells.")
         adata.obsp["connectivities"] = connectivities
 
-        
         self.logger.debug("Adding distance matrix to AnnData.")
         if isinstance(distances, pd.DataFrame):
             distances = distances.values
