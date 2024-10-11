@@ -2,8 +2,7 @@
 
 import logging
 from abc import ABC, abstractmethod
-import numpy as np
-from typing import Any, Dict, Optional, Tuple, Union, List
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from sctram.input import InputTrajectories
 
@@ -36,12 +35,12 @@ class EvaluationBase(ABC):
         prepared_after_subset_inferred (Any): Prepared inferred trajectory after subsetting.
         result (Any): The result of the evaluation.
     """
-    
+
     available_metrics: Optional[List[str]] = None
 
     def __init__(
         self,
-        method_params: Dict[str, Any] = None,
+        method_params: Dict[str, Any],
         subset_params: Optional[Dict[str, Any]] = None,
         prepare_params_before_subset: Optional[Dict[str, Any]] = None,
         prepare_params_after_subset: Optional[Dict[str, Any]] = None,
@@ -49,8 +48,7 @@ class EvaluationBase(ABC):
         """Initializes the evaluation method with common parameters.
 
         Args:
-            method_params (Optional[Dict[str, Any]]): Parameters specific to the evaluation method.
-
+            method_params (Dict[str, Any]): Parameters specific to the evaluation method.
             subset_params (Optional[Dict[str, Any]]): Parameters for subsetting the data.
             prepare_params_before_subset (Optional[Dict[str, Any]]): Parameters for preparing the data before subsetting.
             prepare_params_after_subset (Optional[Dict[str, Any]]): Parameters for preparing the data after subsetting.
@@ -78,24 +76,23 @@ class EvaluationBase(ABC):
 
         self.result: Dict[str, Union[int, float]] = dict()
 
-
     def _verify_method_params(self, method_params: Optional[Dict[str, Any]]) -> Tuple[Dict[str, Any], List[str]]:
         if method_params is None or not isinstance(method_params, dict):
             raise ValueError("`method_params` should be a dict.")
         if metrics_key not in method_params:
             raise ValueError(f"`method_params` must contain {metrics_key!r} key.")
-        
+
         metrics = method_params[metrics_key]
         if not isinstance(metrics, list):
             raise ValueError(f"metrics_key {metrics_key!r} should be a list of metric names.")
-        
+
         if self.available_metrics is None:
             raise NotImplementedError(f"Subclass {self.__class__.__name__!r} should define `available_metrics`.")
-        
+
         for metric in metrics:
             if metric not in self.available_metrics:
                 raise ValueError(f"Undefined metric: {metric!r}")
-        
+
         return method_params, metrics
 
     def evaluate(

@@ -38,7 +38,6 @@ DATASETS = {
         "description": "Kanemaru Developmental Complete single-cell RNA-seq dataset.",
     },
     # Add more datasets here as needed:
-    
     # TODO: sc.datasets.paul15()
     # TODO: datasets implemented in other datasets.
 }

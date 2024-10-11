@@ -9,7 +9,6 @@ from scipy.stats import wasserstein_distance
 from sklearn.metrics.pairwise import cosine_similarity
 
 from sctram.evaluate._base import EvaluationBase
-from sctram.input import InputTrajectories
 
 
 class AdjacencyMatrixEvaluation(EvaluationBase):
@@ -21,18 +20,30 @@ class AdjacencyMatrixEvaluation(EvaluationBase):
     """
 
     available_metrics = [
-        'frobenius', 'L1', 'accuracy', 'graph_edit_distance',
-        'spectral_distance', 'jaccard', 'hamming',
-        'precision', 'recall', 'f1_score',
-        'avg_shortest_path_diff', 'degree_emd', 'clustering_coeff_diff',
-        'graphlet_degree_vector', 'weisfeiler_lehman_distance',
-        'gnn_embedding_distance', 'persistence_diagram_distance',
-        'maximum_common_subgraph_distance', 'random_walk_kernel_distance'
+        "frobenius",
+        "L1",
+        "accuracy",
+        "graph_edit_distance",
+        "spectral_distance",
+        "jaccard",
+        "hamming",
+        "precision",
+        "recall",
+        "f1_score",
+        "avg_shortest_path_diff",
+        "degree_emd",
+        "clustering_coeff_diff",
+        "graphlet_degree_vector",
+        "weisfeiler_lehman_distance",
+        "gnn_embedding_distance",
+        "persistence_diagram_distance",
+        "maximum_common_subgraph_distance",
+        "random_walk_kernel_distance",
     ]
 
     def __init__(
         self,
-        method_params: Optional[Dict[str, Any]] = None,
+        method_params: Dict[str, Any],
         subset_params: Optional[Dict[str, Any]] = None,
         prepare_params_before_subset: Optional[Dict[str, Any]] = None,
         prepare_params_after_subset: Optional[Dict[str, Any]] = None,
@@ -49,7 +60,7 @@ class AdjacencyMatrixEvaluation(EvaluationBase):
     def _verify_inferred_trajectory(self, inferred_adjacency: np.ndarray) -> np.ndarray:
         """Verifies the inferred trajectory as adjacency matrix.
 
-        Ensures that the inferred trajectory is in an acceptable format for comparison, is symmetric, 
+        Ensures that the inferred trajectory is in an acceptable format for comparison, is symmetric,
         has zeros on its diagonal, and contains values between 0 and 1 inclusive.
 
         Args:
@@ -59,7 +70,7 @@ class AdjacencyMatrixEvaluation(EvaluationBase):
             np.ndarray: The verified inferred trajectory.
 
         Raises:
-            ValueError: If the inferred trajectory is not a numpy array, is not 2-dimensional, is not square, 
+            ValueError: If the inferred trajectory is not a numpy array, is not 2-dimensional, is not square,
                 is not symmetric, has non-zero diagonal elements, or contains values outside the range [0, 1].
         """
         if not isinstance(inferred_adjacency, np.ndarray):
@@ -785,8 +796,8 @@ class AdjacencyMatrixEvaluation(EvaluationBase):
         """
         try:
             import gudhi as gd  # type: ignore
-            # For TDA persistence diagrams
 
+            # For TDA persistence diagrams
             # Convert adjacency matrices to NetworkX graphs
             g1 = nx.from_numpy_array(self.prepared_after_subset_given)
             g2 = nx.from_numpy_array(self.prepared_after_subset_inferred)

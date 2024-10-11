@@ -1,35 +1,12 @@
 #!/usr/bin/env python3
 
-from typing import Any, Dict, Optional, Tuple, List
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
-import pandas as pd
-import networkx as nx
-from scipy.stats import (
-    pearsonr,
-    spearmanr,
-    kendalltau,
-    wasserstein_distance,
-    ks_2samp,
-)
-from sklearn.metrics import (
-    mean_squared_error,
-    mean_absolute_error,
-    r2_score,
-    mutual_info_score,
-    confusion_matrix,
-    accuracy_score,
-    precision_score,
-    recall_score,
-    f1_score,
-    adjusted_rand_score,
-    adjusted_mutual_info_score,
-    cohen_kappa_score,
-)
-import logging
+from scipy.stats import kendalltau, ks_2samp, pearsonr, spearmanr, wasserstein_distance
+from sklearn.metrics import mean_absolute_error, mean_squared_error, mutual_info_score, r2_score
 
 from sctram.evaluate._base import EvaluationBase
-from sctram.input import InputTrajectories
 
 
 class PseudotimeEvaluation(EvaluationBase):
@@ -50,16 +27,24 @@ class PseudotimeEvaluation(EvaluationBase):
     capturing aspects such as linear correlation, rank correlation, error magnitude, ordering consistency,
     distribution similarity, and more.
     """
-    
+
     available_metrics = [
-        'pearson', 'spearman', 'kendall', 'mse', 'mae',
-        'r2', 'concordance_index', 'dynamic_time_warping',
-        'wasserstein_distance', 'mutual_information', 'cumulative_density_difference'
+        "pearson",
+        "spearman",
+        "kendall",
+        "mse",
+        "mae",
+        "r2",
+        "concordance_index",
+        "dynamic_time_warping",
+        "wasserstein_distance",
+        "mutual_information",
+        "cumulative_density_difference",
     ]
 
     def __init__(
         self,
-        method_params: Optional[Dict[str, Any]] = None,
+        method_params: Dict[str, Any],
         subset_params: Optional[Dict[str, Any]] = None,
         prepare_params_before_subset: Optional[Dict[str, Any]] = None,
         prepare_params_after_subset: Optional[Dict[str, Any]] = None,
@@ -72,7 +57,7 @@ class PseudotimeEvaluation(EvaluationBase):
             prepare_params_after_subset=prepare_params_after_subset,
         )
         self.logger.debug(f"Initialized PseudotimeEvaluation with metrics: {self.metrics}")
-        
+
         if prepare_params_before_subset is None or "method" not in prepare_params_before_subset.keys():
             raise ValueError("Determine a method how to estimate pseudotime from adjacency matrix.")
 
@@ -107,16 +92,13 @@ class PseudotimeEvaluation(EvaluationBase):
 
         Returns:
             Tuple[Any, Any]: The prepared reference pseudotime and inferred pseudotime.
-
-        Raises:
-            ValueError: If labels contain cell types not present in the given trajectory.
         """
         self.logger.debug("Computing reference pseudotime from given trajectory.")
 
         # TODO: given_trajectory should be converted into reference_pseudotime by `LabelAdjacencyPseudotimeConverter`.
         # TODO: also have a look at the required parameters, and correctly enter it in `__init__`.
         reference_pseudotime = given_trajectory
-        
+
         return reference_pseudotime, inferred_pseudotime
 
     def _subset(self, reference_pseudotime: Any, inferred_pseudotime: Any) -> Tuple[Any, Any]:
@@ -398,7 +380,7 @@ class PseudotimeEvaluation(EvaluationBase):
             - Less affected by the exact values of pseudotime.
 
         What it Measures:
-            - The probability that, for a randomly chosen pair of samples, the sample with the 
+            - The probability that, for a randomly chosen pair of samples, the sample with the
                 higher observed pseudotime also has a higher inferred pseudotime.
             - Values range from 0 to 1; higher values indicate better concordance.
         """
@@ -411,15 +393,15 @@ class PseudotimeEvaluation(EvaluationBase):
 
             # Create pairwise comparison matrices
             # Using broadcasting to create matrices T_i and T_j for all i < j
-            T_i = self.prepared_after_subset_given[:, np.newaxis]
-            T_j = self.prepared_after_subset_given[np.newaxis, :]
-            P_i = self.prepared_after_subset_inferred[:, np.newaxis]
-            P_j = self.prepared_after_subset_inferred[np.newaxis, :]
+            t_i = self.prepared_after_subset_given[:, np.newaxis]
+            t_j = self.prepared_after_subset_given[np.newaxis, :]
+            p_i = self.prepared_after_subset_inferred[:, np.newaxis]
+            p_j = self.prepared_after_subset_inferred[np.newaxis, :]
 
             # Boolean matrices indicating concordant and discordant pairs
-            concordant = ((T_i < T_j) & (P_i < P_j)) | ((T_i > T_j) & (P_i > P_j))
-            discordant = ((T_i < T_j) & (P_i > P_j)) | ((T_i > T_j) & (P_i < P_j))
-            usable = (T_i != T_j) & (P_i != P_j)
+            concordant = ((t_i < t_j) & (p_i < p_j)) | ((t_i > t_j) & (p_i > p_j))
+            discordant = ((t_i < t_j) & (p_i > p_j)) | ((t_i > t_j) & (p_i < p_j))
+            usable = (t_i != t_j) & (p_i != p_j)
 
             # Consider only the upper triangle of the matrices to avoid duplicate pairs and self-pairs
             upper_tri = np.triu(np.ones_like(concordant, dtype=bool), k=1)
@@ -465,7 +447,7 @@ class PseudotimeEvaluation(EvaluationBase):
             - Lower values indicate better alignment.
         """
         try:
-            from dtw import dtw
+            from dtw import dtw  # type: ignore
 
             distance, _, _, _ = dtw(
                 self.prepared_after_subset_inferred,
