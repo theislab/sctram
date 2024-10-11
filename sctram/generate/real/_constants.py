@@ -42,12 +42,12 @@ DATASETS = {
     # scanpy:
     "datasets_krumsiek11": {
         "url": "https://drive.google.com/file/d/1FBcGOe_P1SOxn5Y5dvx8bE7uKOBfenMV/view?usp=share_link",
-        "filename": "sc_datasets_krumsiek11.h5ad",
+        "filename": "datasets_krumsiek11.h5ad",
         "description": "The literature-curated boolean network from Krumsiek et al. [2011]. From scanpy package.",
     },
     "datasets_paul15": {
         "url": "https://drive.google.com/file/d/1wIcVzFDKGvl554ctOZmrAtDECNgJsd7D/view?usp=share_link",
-        "filename": "sc_datasets_paul15.h5ad",
+        "filename": "datasets_paul15.h5ad",
         "description": "Development of Myeloid Progenitors [Paul et al., 2015].. From scanpy package.",
     },
 }
