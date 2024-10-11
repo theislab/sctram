@@ -9,6 +9,7 @@ from scipy.stats import wasserstein_distance
 from sklearn.metrics.pairwise import cosine_similarity
 
 from sctram.evaluate._base import EvaluationBase
+from sctram.input import InputTrajectories
 
 
 class AdjacencyMatrixEvaluation(EvaluationBase):
@@ -19,6 +20,16 @@ class AdjacencyMatrixEvaluation(EvaluationBase):
     similarities/differences from multiple perspectives.
     """
 
+    available_metrics = [
+        'frobenius', 'L1', 'accuracy', 'graph_edit_distance',
+        'spectral_distance', 'jaccard', 'hamming',
+        'precision', 'recall', 'f1_score',
+        'avg_shortest_path_diff', 'degree_emd', 'clustering_coeff_diff',
+        'graphlet_degree_vector', 'weisfeiler_lehman_distance',
+        'gnn_embedding_distance', 'persistence_diagram_distance',
+        'maximum_common_subgraph_distance', 'random_walk_kernel_distance'
+    ]
+
     def __init__(
         self,
         method_params: Optional[Dict[str, Any]] = None,
@@ -26,64 +37,47 @@ class AdjacencyMatrixEvaluation(EvaluationBase):
         prepare_params_before_subset: Optional[Dict[str, Any]] = None,
         prepare_params_after_subset: Optional[Dict[str, Any]] = None,
     ):
-        """Initializes the adjacency matrix evaluation method.
-
-        Args:
-            method_params (Optional[Dict[str, Any]]): Parameters for the evaluation method.
-                Expected keys:
-                - 'metrics': List of metrics to use for comparison. Options include:
-                    'frobenius', 'L1', 'accuracy', 'graph_edit_distance',
-                    'spectral_distance', 'jaccard', 'hamming',
-                    'precision', 'recall', 'f1_score',
-                    'avg_shortest_path_diff', 'degree_emd', 'clustering_coeff_diff',
-                    'graphlet_degree_vector', 'weisfeiler_lehman_distance',
-                    'gnn_embedding_distance', 'persistence_diagram_distance',
-                    'maximum_common_subgraph_distance', 'random_walk_kernel_distance'
-            subset_params (Optional[Dict[str, Any]]): Parameters for subsetting the data.
-            prepare_params_before_subset (Optional[Dict[str, Any]]): Parameters for preparing the data before subsetting.
-            prepare_params_after_subset (Optional[Dict[str, Any]]): Parameters for preparing the data after subsetting.
-
-        Raises:
-            ValueError: If 'metrics' is not provided as a list in method_params.
-        """
+        """Initializes the adjacency matrix evaluation method."""  # noqa
         super().__init__(
             method_params=method_params,
             subset_params=subset_params,
             prepare_params_before_subset=prepare_params_before_subset,
             prepare_params_after_subset=prepare_params_after_subset,
         )
-        self.metrics = self.method_params.get("metrics", ["frobenius"])
-        if not isinstance(self.metrics, list):
-            raise ValueError("'metrics' should be a list of metric names.")
-        self.result = {}
         self.logger.debug(f"Initialized AdjacencyMatrixEvaluation with metrics: {self.metrics}")
 
-    def _verify_inferred_trajectory(self, inferred: Any) -> Any:
-        """Verifies the inferred trajectory.
+    def _verify_inferred_trajectory(self, inferred_adjacency: np.ndarray) -> np.ndarray:
+        """Verifies the inferred trajectory as adjacency matrix.
 
-        Ensures that the inferred trajectory is in an acceptable format for comparison.
+        Ensures that the inferred trajectory is in an acceptable format for comparison, is symmetric, 
+        has zeros on its diagonal, and contains values between 0 and 1 inclusive.
 
         Args:
-            inferred (Any): The inferred trajectory.
+            inferred_adjacency (np.ndarray): The inferred trajectory adjacency matrix.
 
         Returns:
-            Any: The verified inferred trajectory.
+            np.ndarray: The verified inferred trajectory.
 
         Raises:
-            ValueError: If the inferred trajectory is not a NetworkX graph, NumPy array, or Pandas DataFrame.
+            ValueError: If the inferred trajectory is not a numpy array, is not 2-dimensional, is not square, 
+                is not symmetric, has non-zero diagonal elements, or contains values outside the range [0, 1].
         """
-        if isinstance(inferred, (nx.Graph, nx.MultiDiGraph)):
-            self.logger.debug("Inferred trajectory is a NetworkX graph.")
-            return inferred
-        elif isinstance(inferred, (np.ndarray, pd.DataFrame)):
-            self.logger.debug("Inferred trajectory is an adjacency matrix (NumPy array or Pandas DataFrame).")
-            return inferred
-        else:
-            raise ValueError(
-                "Inferred trajectory must be a NetworkX graph, NumPy array, or Pandas DataFrame representing an adjacency matrix."
-            )
+        if not isinstance(inferred_adjacency, np.ndarray):
+            raise ValueError("Inferred trajectory must be a numpy array.")
+        if inferred_adjacency.ndim != 2:
+            raise ValueError("Inferred trajectory must be a 2D array.")
+        if inferred_adjacency.shape[0] != inferred_adjacency.shape[1]:
+            raise ValueError("Inferred trajectory must be square.")
+        if not np.array_equal(inferred_adjacency, inferred_adjacency.T):
+            raise ValueError("Inferred trajectory must be symmetric.")
+        if np.any(inferred_adjacency.diagonal() != 0):
+            raise ValueError("All diagonal elements must be zero.")
+        if not np.all((inferred_adjacency >= 0) & (inferred_adjacency <= 1)):
+            raise ValueError("All values must be within the range [0, 1].")
 
-    def _prepare_before_subset(self, given_trajectory: Any, inferred_trajectory: Any) -> Tuple[Any, Any]:
+        return inferred_adjacency
+
+    def _prepare_before_subset(self, given_trajectory: Any, inferred_trajectory: Any) -> Tuple[np.ndarray, np.ndarray]:
         """Prepares the trajectories before subsetting by converting them to adjacency matrices.
 
         Converts both the given and inferred trajectories to adjacency matrices to ensure compatibility
@@ -102,29 +96,13 @@ class AdjacencyMatrixEvaluation(EvaluationBase):
         self.logger.debug("Converting given trajectory to adjacency matrix.")
         given_adj_matrix = nx.to_numpy_array(given_trajectory)
         self.logger.debug(f"Given adjacency matrix shape: {given_adj_matrix.shape}")
+        self.logger.debug(f"Inferred adjacency matrix is a NumPy array with shape: {inferred_trajectory.shape}")
 
-        self.logger.debug("Ensuring inferred trajectory is an adjacency matrix.")
-        if isinstance(inferred_trajectory, (nx.Graph, nx.MultiDiGraph)):
-            inferred_adj_matrix = nx.to_numpy_array(inferred_trajectory)
-            self.logger.debug(f"Inferred adjacency matrix converted from graph with shape: {inferred_adj_matrix.shape}")
-        elif isinstance(inferred_trajectory, np.ndarray):
-            inferred_adj_matrix = inferred_trajectory
-            self.logger.debug(f"Inferred adjacency matrix is a NumPy array with shape: {inferred_adj_matrix.shape}")
-        elif isinstance(inferred_trajectory, pd.DataFrame):
-            inferred_adj_matrix = inferred_trajectory.values
-            self.logger.debug(
-                f"Inferred adjacency matrix is a Pandas DataFrame with shape: {inferred_adj_matrix.shape}"
-            )
-        else:
-            raise ValueError(
-                "Inferred trajectory must be a NetworkX graph, NumPy array, or Pandas DataFrame representing an adjacency matrix."
-            )
-
-        if given_adj_matrix.shape != inferred_adj_matrix.shape:
+        if given_adj_matrix.shape != inferred_trajectory.shape:
             raise ValueError("Given and inferred adjacency matrices must have the same shape for comparison.")
 
         self.logger.debug("Assigned prepared adjacency matrices before subsetting.")
-        return given_adj_matrix, inferred_adj_matrix
+        return given_adj_matrix, inferred_trajectory
 
     def _subset(self, given_trajectory: Any, inferred_trajectory: Any) -> Tuple[Any, Any]:
         """Subsets the trajectories based on `subset_params`.
@@ -716,9 +694,9 @@ class AdjacencyMatrixEvaluation(EvaluationBase):
             - A single scalar value between -1 and 1 representing the cosine similarity of GNN embeddings.
         """
         try:
-            import torch
-            from torch_geometric.data import Data
-            from torch_geometric.nn import GCNConv
+            import torch  # type: ignore
+            from torch_geometric.data import Data  # type: ignore
+            from torch_geometric.nn import GCNConv  # type: ignore
 
             # from torch_geometric.utils import to_networkx
         except ImportError:
@@ -806,7 +784,8 @@ class AdjacencyMatrixEvaluation(EvaluationBase):
             - Returns `NaN` if computation fails.
         """
         try:
-            import gudhi as gd  # For TDA persistence diagrams
+            import gudhi as gd  # type: ignore
+            # For TDA persistence diagrams
 
             # Convert adjacency matrices to NetworkX graphs
             g1 = nx.from_numpy_array(self.prepared_after_subset_given)

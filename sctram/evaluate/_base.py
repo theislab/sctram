@@ -2,9 +2,12 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Tuple
+import numpy as np
+from typing import Any, Dict, Optional, Tuple, Union, List
 
 from sctram.input import InputTrajectories
+
+metrics_key = "metrics"
 
 
 class EvaluationBase(ABC):
@@ -33,10 +36,12 @@ class EvaluationBase(ABC):
         prepared_after_subset_inferred (Any): Prepared inferred trajectory after subsetting.
         result (Any): The result of the evaluation.
     """
+    
+    available_metrics: Optional[List[str]] = None
 
     def __init__(
         self,
-        method_params: Optional[Dict[str, Any]] = None,
+        method_params: Dict[str, Any] = None,
         subset_params: Optional[Dict[str, Any]] = None,
         prepare_params_before_subset: Optional[Dict[str, Any]] = None,
         prepare_params_after_subset: Optional[Dict[str, Any]] = None,
@@ -45,35 +50,58 @@ class EvaluationBase(ABC):
 
         Args:
             method_params (Optional[Dict[str, Any]]): Parameters specific to the evaluation method.
+
             subset_params (Optional[Dict[str, Any]]): Parameters for subsetting the data.
             prepare_params_before_subset (Optional[Dict[str, Any]]): Parameters for preparing the data before subsetting.
             prepare_params_after_subset (Optional[Dict[str, Any]]): Parameters for preparing the data after subsetting.
         """
-        self.method_params = method_params or {}
+        self.method_params, self.metrics = self._verify_method_params(method_params=method_params)
         self.subset_params = subset_params or {}
         self.prepare_params_before_subset = prepare_params_before_subset or {}
         self.prepare_params_after_subset = prepare_params_after_subset or {}
 
         self.logger = logging.getLogger(self.__class__.__name__)
 
+        # Unprocessed inputs to `evaluate` method
         self.given_trajectory: Optional[InputTrajectories] = None
-        self.inferred: Any = None
+        self.inferred_trajectory: Any = None
+
+        # Converted into specific comparable data formats. e.g. both are adjacency, pseudotime
+        self.prepared_before_subset_given: Any = None
+        self.prepared_before_subset_inferred: Any = None
 
         self.subset_given: Any = None
         self.subset_inferred: Any = None
 
-        self.prepared_before_subset_given: Any = None
-        self.prepared_before_subset_inferred: Any = None
-
         self.prepared_after_subset_given: Any = None
         self.prepared_after_subset_inferred: Any = None
 
-        self.result: Any = None
+        self.result: Dict[str, Union[int, float]] = dict()
+
+
+    def _verify_method_params(self, method_params: Optional[Dict[str, Any]]) -> Tuple[Dict[str, Any], List[str]]:
+        if method_params is None or not isinstance(method_params, dict):
+            raise ValueError("`method_params` should be a dict.")
+        if metrics_key not in method_params:
+            raise ValueError(f"`method_params` must contain {metrics_key!r} key.")
+        
+        metrics = method_params[metrics_key]
+        if not isinstance(metrics, list):
+            raise ValueError(f"metrics_key {metrics_key!r} should be a list of metric names.")
+        
+        if self.available_metrics is None:
+            raise NotImplementedError(f"Subclass {self.__class__.__name__!r} should define `available_metrics`.")
+        
+        for metric in metrics:
+            if metric not in self.available_metrics:
+                raise ValueError(f"Undefined metric: {metric!r}")
+        
+        return method_params, metrics
 
     def evaluate(
         self,
         given_trajectory: InputTrajectories,
-        inferred: Any,
+        inferred_trajectory: Any,
     ) -> Any:
         """Evaluates the inferred trajectory against the given trajectory.
 
@@ -87,7 +115,7 @@ class EvaluationBase(ABC):
 
         Args:
             given_trajectory (InputTrajectories): The ground truth trajectory.
-            inferred (Any): The inferred trajectory, format depends on the subclass implementation.
+            inferred_trajectory (Any): The inferred trajectory, format depends on the subclass implementation.
 
         Returns:
             Any: The result of the evaluation.
@@ -103,17 +131,17 @@ class EvaluationBase(ABC):
             self.given_trajectory = self._verify_given_trajectory(given_trajectory)
 
             self.logger.debug("Verifying inferred trajectory.")
-            self.inferred = self._verify_inferred_trajectory(inferred)
+            self.inferred_trajectory = self._verify_inferred_trajectory(inferred_trajectory)
 
             # Prepare trajectories before subsetting
             if self.prepare_params_before_subset:
                 self.logger.debug("Preparing trajectories before subsetting.")
                 self.prepared_before_subset_given, self.prepared_before_subset_inferred = self._prepare_before_subset(
-                    self.given_trajectory, self.inferred
+                    self.given_trajectory, self.inferred_trajectory
                 )
             else:
                 self.prepared_before_subset_given = self.given_trajectory
-                self.prepared_before_subset_inferred = self.inferred
+                self.prepared_before_subset_inferred = self.inferred_trajectory
 
             # Subset the trajectories if needed
             if self.subset_params:
@@ -234,14 +262,5 @@ class EvaluationBase(ABC):
 
     @abstractmethod
     def get_result(self) -> Any:
-        """Retrieves the result of the evaluation.
-
-        Returns:
-            Any: The result of the evaluation.
-
-        Raises:
-            ValueError: If the result is not available.
-        """
-        if self.result is None:
-            raise ValueError("No result available. Have you run the evaluation?")
-        return self.result
+        """Retrieves the result of the evaluation."""
+        pass
