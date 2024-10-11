@@ -2,11 +2,13 @@
 
 # Define the DATASETS dictionary with all available datasets
 DATASETS = {
+    # Drug perturbation:
     "norman_sciplex_cpa": {
         "url": "https://drive.google.com/file/d/1nWZ64abGDFLwhFCaEQUH02f3U5I-t51v/view?usp=share_link",
         "filename": "norman_sciplex_cpa.h5ad",
         "description": "Sciplex dose response dataset from Norman et al.",
     },
+    # Developmental:
     "suo_developmental_complete": {
         "url": "https://drive.google.com/file/d/1d_tTFEWoKfL-zPAs6D8KVeQr0dU4NhCU/view?usp=share_link",
         "filename": "suo_developmental_complete.h5ad",
@@ -37,7 +39,15 @@ DATASETS = {
         "filename": "kanemaru_developmental_complete.h5ad",
         "description": "Kanemaru Developmental Complete single-cell RNA-seq dataset.",
     },
-    # Add more datasets here as needed:
-    # TODO: sc.datasets.paul15()
-    # TODO: datasets implemented in other datasets.
+    # scanpy:
+    "datasets_krumsiek11": {
+        "url": "https://drive.google.com/file/d/1FBcGOe_P1SOxn5Y5dvx8bE7uKOBfenMV/view?usp=share_link",
+        "filename": "sc_datasets_krumsiek11.h5ad",
+        "description": "The literature-curated boolean network from Krumsiek et al. [2011]. From scanpy package.",
+    },
+    "datasets_paul15": {
+        "url": "https://drive.google.com/file/d/1wIcVzFDKGvl554ctOZmrAtDECNgJsd7D/view?usp=share_link",
+        "filename": "sc_datasets_paul15.h5ad",
+        "description": "Development of Myeloid Progenitors [Paul et al., 2015].. From scanpy package.",
+    },
 }
