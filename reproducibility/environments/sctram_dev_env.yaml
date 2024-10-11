@@ -1,0 +1,75 @@
+# tardis_env Environment
+
+name: sctram_dev_env
+
+channels:
+    - conda-forge
+
+dependencies:
+    - python=3.11
+    - pip
+    - jupyterlab>4.1 # jupyterlab
+    - notebook # jupyterlab
+    - markdown # jupyterlab
+    - nodejs # jupyterlab
+    - jupyterlab_widgets # jupyterlab
+    - ipywidgets # jupyterlab
+    - python-lsp-server # jupyterlab
+    - jupyterlab-lsp # jupyterlab
+    - jupyterlab_code_formatter # jupyterlab
+
+    - gdown # TODO: add this to poetry
+    - pyyaml>=5.2
+    - pandas>=0.25.3
+    - pandas-stubs
+    - numpy>=1.17.4
+    - networkx>=2.4
+    - requests>=2.22.0
+    - tqdm>=4.37.0
+    - zarr
+    - jsonpickle
+    - joblib
+    - natsort
+    - deprecated
+    - cython
+    - future>=0.16.0
+    - scipy
+    - sparse
+    - scikit-learn
+    - scikit-sparse
+    - scikit-plot
+    - statsmodels>=0.12
+    - matplotlib>=3.7
+    - cycler
+    - colorlover
+    - mscorefonts
+    - seaborn>0.13
+    - hiplot
+    - igraph>=0.10,<0.12
+    - python-igraph
+    - leidenalg
+    - python-louvain
+    - rclone
+    - adjustText
+    - upsetplot
+    - python-levenshtein
+    - memory_profiler
+    - typing_extensions
+    - anytree
+    - scanpy=1.10.2
+    - anndata=0.10.8
+    - mudata=0.3.0
+    - omnipath
+    - umap-learn>=0.5.0 # scib dependency
+    - pydot # scib dependency
+    - llvmlite # scib dependency
+    - deprecated # scib dependency
+    - plottable # scib-metrics dependency
+    - pynndescent # scib-metrics dependency
+    - rich # scib-metrics dependency
+    - chex # scib-metrics dependency
+    - hypothesis
+    - pip:
+          - scib-metrics==0.5.1
+          - scib==1.1.5
+          - louvain==0.8.2

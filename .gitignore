@@ -143,4 +143,6 @@ dmypy.json
 
 # MacOS files
 *.DS_Store
-docs/_notebooks/.pybiomart.sqlite
+
+# development
+__temp__/
