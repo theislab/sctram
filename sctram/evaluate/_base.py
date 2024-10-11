@@ -4,8 +4,8 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Tuple
 
-import networkx as nx
 from sctram.input import InputTrajectories
+
 
 class EvaluationBase(ABC):
     """Abstract base class for trajectory evaluation methods.
@@ -56,7 +56,7 @@ class EvaluationBase(ABC):
 
         self.logger = logging.getLogger(self.__class__.__name__)
 
-        self.given_trajectory: InputTrajectories = None
+        self.given_trajectory: Optional[InputTrajectories] = None
         self.inferred: Any = None
 
         self.subset_given: Any = None
@@ -146,9 +146,7 @@ class EvaluationBase(ABC):
             self.logger.error(f"Error during evaluation: {e}")
             raise RuntimeError(f"Error during evaluation: {e}") from e
 
-    def _verify_given_trajectory(
-        self, given_trajectory: InputTrajectories
-    ) -> InputTrajectories:
+    def _verify_given_trajectory(self, given_trajectory: InputTrajectories) -> InputTrajectories:
         """Verifies the given trajectory.
 
         Args:
@@ -182,9 +180,7 @@ class EvaluationBase(ABC):
         pass
 
     @abstractmethod
-    def _prepare_before_subset(
-        self, given_trajectory: Any, inferred_trajectory: Any
-    ) -> Tuple[Any, Any]:
+    def _prepare_before_subset(self, given_trajectory: Any, inferred_trajectory: Any) -> Tuple[Any, Any]:
         """Prepares the trajectories before subsetting.
 
         This method must be implemented in subclasses to handle preparation specific to the data formats before subsetting.
@@ -199,9 +195,7 @@ class EvaluationBase(ABC):
         pass
 
     @abstractmethod
-    def _subset(
-        self, given_trajectory: Any, inferred_trajectory: Any
-    ) -> Tuple[Any, Any]:
+    def _subset(self, given_trajectory: Any, inferred_trajectory: Any) -> Tuple[Any, Any]:
         """Subsets the trajectories based on `subset_params`.
 
         This method must be implemented in subclasses to handle subsetting specific to the data formats.
@@ -216,9 +210,7 @@ class EvaluationBase(ABC):
         pass
 
     @abstractmethod
-    def _prepare_after_subset(
-        self, subset_given: Any, subset_inferred: Any
-    ) -> Tuple[Any, Any]:
+    def _prepare_after_subset(self, subset_given: Any, subset_inferred: Any) -> Tuple[Any, Any]:
         """Prepares the trajectories after subsetting.
 
         This method must be implemented in subclasses to handle preparation specific to the data formats after subsetting.

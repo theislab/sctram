@@ -4,7 +4,6 @@ import logging
 from collections.abc import Iterable
 from typing import Any, Optional
 
-from sctram.input._input_trajectories import InputTrajectories
 from sctram._constants import (
     InputGraphDictWithEdge,
     InputGraphPossibleTypes,
@@ -12,6 +11,7 @@ from sctram._constants import (
     key_trajectories,
     node_reserved_keys,
 )
+from sctram.input._input_trajectories import InputTrajectories
 
 # Logger
 logger = logging.getLogger(name="read_trajectories")

@@ -14,8 +14,8 @@ from sctram.infer._base import TrajectoryInferenceBase
 class DPTInference(TrajectoryInferenceBase):
     """DPT (Diffusion Pseudotime) trajectory inference method with customizable root setting.
 
-    This subclass of TrajectoryInferenceBase provides enhanced functionality for trajectory inference 
-    using the DPT method. It allows customization of the Diffusion Map calculation and provides flexible 
+    This subclass of TrajectoryInferenceBase provides enhanced functionality for trajectory inference
+    using the DPT method. It allows customization of the Diffusion Map calculation and provides flexible
     methods to set the root of the trajectory.
 
     Inherits From:
