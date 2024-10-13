@@ -949,69 +949,33 @@ class AdjacencyMatrixEvaluation(SpatialMetricsMixin, EvaluationBase):
             self.result["random_walk_kernel_distance"] = np.nan
 
     def _calculate_morans_i(self):
-        """
-        Calculates Moran's I for the adjacency matrix.
-
-        Args:
-            x (np.ndarray): Flattened adjacency matrix (1D array).
-            spatial_weights (csr_matrix): Spatial weights matrix based on adjacency.
-
-        Returns:
-            float: Moran's I statistic.
-        """
+        """Calculates Moran's I for the adjacency matrix."""
         x = self.prepared_after_subset_given.flatten()
-        spatial_weights = self.compute_spatial_weights(x, 'adjacency')
+        spatial_weights = self.compute_spatial_weights(x, "adjacency")
         morans_i = self.calculate_morans_i(x, spatial_weights)
         self.result["morans_i"] = morans_i
         self.logger.debug(f"Moran's I: {morans_i}")
 
     def _calculate_gearys_c(self):
-        """
-        Calculates Geary's C for the adjacency matrix.
-
-        Args:
-            x (np.ndarray): Flattened adjacency matrix (1D array).
-            spatial_weights (csr_matrix): Spatial weights matrix based on adjacency.
-
-        Returns:
-            float: Geary's C statistic.
-        """
+        """Calculates Geary's C for the adjacency matrix."""
         x = self.prepared_after_subset_given.flatten()
-        spatial_weights = self.compute_spatial_weights(x, 'adjacency')
+        spatial_weights = self.compute_spatial_weights(x, "adjacency")
         gearys_c = self.calculate_gearys_c(x, spatial_weights)
         self.result["gearys_c"] = gearys_c
         self.logger.debug(f"Geary's C: {gearys_c}")
 
     def _calculate_local_morans_i(self):
-        """
-        Calculates Local Moran's I (LISA) for the adjacency matrix.
-
-        Args:
-            x (np.ndarray): Flattened adjacency matrix (1D array).
-            spatial_weights (csr_matrix): Spatial weights matrix based on adjacency.
-
-        Returns:
-            np.ndarray: Array of Local Moran's I values.
-        """
+        """Calculates Local Moran's I (LISA) for the adjacency matrix."""
         x = self.prepared_after_subset_given.flatten()
-        spatial_weights = self.compute_spatial_weights(x, 'adjacency')
+        spatial_weights = self.compute_spatial_weights(x, "adjacency")
         lisa = self.calculate_lisa(x, spatial_weights)
         self.result["local_morans_i"] = lisa
         self.logger.debug(f"Local Moran's I: {lisa}")
 
     def _calculate_getis_ord_gi_star(self):
-        """
-        Calculates Getis-Ord Gi* statistic for the adjacency matrix.
-
-        Args:
-            x (np.ndarray): Flattened adjacency matrix (1D array).
-            spatial_weights (csr_matrix): Spatial weights matrix based on adjacency.
-
-        Returns:
-            np.ndarray: Array of Getis-Ord Gi* values.
-        """
+        """Calculates Getis-Ord Gi* statistic for the adjacency matrix."""
         x = self.prepared_after_subset_given.flatten()
-        spatial_weights = self.compute_spatial_weights(x, 'adjacency')
+        spatial_weights = self.compute_spatial_weights(x, "adjacency")
         gi_star = self.calculate_getis_ord_gi_star(x, spatial_weights)
         self.result["getis_ord_gi_star"] = gi_star
         self.logger.debug(f"Getis-Ord Gi* statistic: {gi_star}")

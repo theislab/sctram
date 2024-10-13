@@ -2,19 +2,17 @@
 
 from typing import Any, Dict, Optional, Tuple
 
+import networkx as nx
 import numpy as np
 from scipy.spatial import procrustes
-from scipy.stats import pearsonr, spearmanr, kendalltau
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score, mutual_info_score
-from sklearn.metrics.pairwise import cosine_similarity
+from scipy.stats import kendalltau, ks_2samp, pearsonr, spearmanr, wasserstein_distance
 from sklearn.manifold import Isomap
-from scipy.stats import wasserstein_distance, ks_2samp
-from sklearn.decomposition import PCA
-from umap import UMAP
-import networkx as nx
+from sklearn.metrics import mean_absolute_error, mean_squared_error, mutual_info_score, r2_score
+from sklearn.metrics.pairwise import cosine_similarity
 
 from sctram.evaluate._base import EvaluationBase
 from sctram.evaluate._spatialmixin import SpatialMetricsMixin
+
 
 class EmbeddingEvaluation(SpatialMetricsMixin, EvaluationBase):
     """Evaluation method to compare inferred embeddings with a given trajectory.
@@ -63,6 +61,9 @@ class EmbeddingEvaluation(SpatialMetricsMixin, EvaluationBase):
             subset_params (Optional[Dict[str, Any]]): Parameters for subsetting the data.
             prepare_params_before_subset (Optional[Dict[str, Any]]): Parameters for preparing the data before subsetting.
             prepare_params_after_subset (Optional[Dict[str, Any]]): Parameters for preparing the data after subsetting.
+
+        Raises:
+            ValueError: Must have keys not in `prepare_params_before_subset`.
         """
         super().__init__(
             method_params=method_params,
@@ -106,6 +107,9 @@ class EmbeddingEvaluation(SpatialMetricsMixin, EvaluationBase):
 
         Returns:
             Tuple[np.ndarray, np.ndarray]: The prepared reference distances and inferred embedding.
+
+        Raises:
+            ValueError: Unknown embedding method is specified in `prepare_params_before_subset`.
         """
         self.logger.debug("Computing reference distances from given trajectory.")
 
@@ -133,14 +137,16 @@ class EmbeddingEvaluation(SpatialMetricsMixin, EvaluationBase):
         embedding_method = self.prepare_params_before_subset.get("method")
         if embedding_method == "isomap":
             n_components = self.prepare_params_before_subset.get("n_components", inferred_embedding.shape[1])
-            isomap = Isomap(n_components=n_components, metric='precomputed')
+            isomap = Isomap(n_components=n_components, metric="precomputed")
             reference_embedding = isomap.fit_transform(reference_distances)
             self.logger.debug("Reference embedding computed using Isomap.")
         elif embedding_method == "none":
             reference_embedding = reference_distances
             self.logger.debug("Reference embedding set as distance matrix (no embedding).")
         else:
-            raise ValueError(f"Unknown embedding method '{embedding_method}' specified in prepare_params_before_subset.")
+            raise ValueError(
+                f"Unknown embedding method {embedding_method!r} specified in prepare_params_before_subset."
+            )
 
         return reference_embedding, inferred_embedding
 
@@ -255,6 +261,9 @@ class EmbeddingEvaluation(SpatialMetricsMixin, EvaluationBase):
 
         Args:
             method (str): The correlation method to use ('pearson', 'spearman', 'kendall').
+
+        Raises:
+            ValueError: When the method is not among allowed ones, 'pearson', 'spearman', 'kendall'.
         """
         embedding1 = self.prepared_after_subset_given.flatten()
         embedding2 = self.prepared_after_subset_inferred.flatten()
@@ -272,7 +281,7 @@ class EmbeddingEvaluation(SpatialMetricsMixin, EvaluationBase):
             self.result["kendall_correlation"] = tau
             self.logger.debug(f"Kendall's tau correlation: {tau}")
         else:
-            raise ValueError(f"Unknown correlation method '{method}'.")
+            raise ValueError(f"Unknown correlation method {method!r}.")
 
     def _calculate_mean_squared_error(self):
         """Calculates the Mean Squared Error between the reference and inferred embeddings."""
@@ -322,18 +331,10 @@ class EmbeddingEvaluation(SpatialMetricsMixin, EvaluationBase):
         self.logger.debug(f"Alignment score (average cosine similarity across components): {alignment_score}")
 
     def _calculate_morans_i(self):
-        """
-        Calculates Moran's I for the reference embedding.
-
-        Args:
-            x (np.ndarray): Reference embedding data.
-            spatial_weights (csr_matrix): Spatial weights matrix based on the embedding.
-        """
+        """Calculates Moran's I for the reference embedding."""
         morans_i_values = []
         spatial_weights = self.compute_spatial_weights(
-            self.prepared_after_subset_given,
-            'embedding',
-            **self.method_params
+            self.prepared_after_subset_given, "embedding", **self.method_params
         )
         for dim in range(self.prepared_after_subset_given.shape[1]):
             x = self.prepared_after_subset_given[:, dim]
@@ -345,18 +346,10 @@ class EmbeddingEvaluation(SpatialMetricsMixin, EvaluationBase):
         self.logger.debug(f"Average Moran's I across components: {average_morans_i}")
 
     def _calculate_gearys_c(self):
-        """
-        Calculates Geary's C for the reference embedding.
-
-        Args:
-            x (np.ndarray): Reference embedding data.
-            spatial_weights (csr_matrix): Spatial weights matrix based on the embedding.
-        """
+        """Calculates Geary's C for the reference embedding."""
         gearys_c_values = []
         spatial_weights = self.compute_spatial_weights(
-            self.prepared_after_subset_given,
-            'embedding',
-            **self.method_params
+            self.prepared_after_subset_given, "embedding", **self.method_params
         )
         for dim in range(self.prepared_after_subset_given.shape[1]):
             x = self.prepared_after_subset_given[:, dim]
@@ -368,18 +361,10 @@ class EmbeddingEvaluation(SpatialMetricsMixin, EvaluationBase):
         self.logger.debug(f"Average Geary's C across components: {average_gearys_c}")
 
     def _calculate_local_morans_i(self):
-        """
-        Calculates Local Moran's I (LISA) for the reference embedding.
-
-        Args:
-            x (np.ndarray): Reference embedding data.
-            spatial_weights (csr_matrix): Spatial weights matrix based on the embedding.
-        """
+        """Calculates Local Moran's I (LISA) for the reference embedding."""
         lisa_values = []
         spatial_weights = self.compute_spatial_weights(
-            self.prepared_after_subset_given,
-            'embedding',
-            **self.method_params
+            self.prepared_after_subset_given, "embedding", **self.method_params
         )
         for dim in range(self.prepared_after_subset_given.shape[1]):
             x = self.prepared_after_subset_given[:, dim]
@@ -392,18 +377,10 @@ class EmbeddingEvaluation(SpatialMetricsMixin, EvaluationBase):
         self.logger.debug(f"Average Local Moran's I across components: {average_lisa}")
 
     def _calculate_getis_ord_gi_star(self):
-        """
-        Calculates Getis-Ord Gi* statistic for the reference embedding.
-
-        Args:
-            x (np.ndarray): Reference embedding data.
-            spatial_weights (csr_matrix): Spatial weights matrix based on the embedding.
-        """
+        """Calculates Getis-Ord Gi* statistic for the reference embedding."""
         gi_star_values = []
         spatial_weights = self.compute_spatial_weights(
-            self.prepared_after_subset_given,
-            'embedding',
-            **self.method_params
+            self.prepared_after_subset_given, "embedding", **self.method_params
         )
         for dim in range(self.prepared_after_subset_given.shape[1]):
             x = self.prepared_after_subset_given[:, dim]
@@ -418,8 +395,7 @@ class EmbeddingEvaluation(SpatialMetricsMixin, EvaluationBase):
     def _calculate_wasserstein_distance(self):
         """Calculates the Wasserstein distance between the reference and inferred embeddings."""
         wd = wasserstein_distance(
-            self.prepared_after_subset_given.flatten(),
-            self.prepared_after_subset_inferred.flatten()
+            self.prepared_after_subset_given.flatten(), self.prepared_after_subset_inferred.flatten()
         )
         self.result["wasserstein_distance"] = wd
         self.logger.debug(f"Wasserstein distance: {wd}")
@@ -427,8 +403,7 @@ class EmbeddingEvaluation(SpatialMetricsMixin, EvaluationBase):
     def _calculate_ks_statistic(self):
         """Calculates the Kolmogorov-Smirnov statistic between the reference and inferred embeddings."""
         statistic, p_value = ks_2samp(
-            self.prepared_after_subset_given.flatten(),
-            self.prepared_after_subset_inferred.flatten()
+            self.prepared_after_subset_given.flatten(), self.prepared_after_subset_inferred.flatten()
         )
         self.result["ks_statistic"] = statistic
         self.result["ks_p_value"] = p_value
@@ -438,14 +413,16 @@ class EmbeddingEvaluation(SpatialMetricsMixin, EvaluationBase):
         """Calculates the Mutual Information between the reference and inferred embeddings."""
         # Discretize the embeddings
         bins = self.method_params.get("mi_bins", 10)
-        inferred_discrete = np.digitize(self.prepared_after_subset_inferred.flatten(), bins=np.linspace(
-            self.prepared_after_subset_inferred.min(),
-            self.prepared_after_subset_inferred.max(),
-            bins))
-        reference_discrete = np.digitize(self.prepared_after_subset_given.flatten(), bins=np.linspace(
-            self.prepared_after_subset_given.min(),
-            self.prepared_after_subset_given.max(),
-            bins))
+        inferred_discrete = np.digitize(
+            self.prepared_after_subset_inferred.flatten(),
+            bins=np.linspace(
+                self.prepared_after_subset_inferred.min(), self.prepared_after_subset_inferred.max(), bins
+            ),
+        )
+        reference_discrete = np.digitize(
+            self.prepared_after_subset_given.flatten(),
+            bins=np.linspace(self.prepared_after_subset_given.min(), self.prepared_after_subset_given.max(), bins),
+        )
         mi = mutual_info_score(reference_discrete, inferred_discrete)
         self.result["mutual_information"] = mi
         self.logger.debug(f"Mutual Information: {mi}")

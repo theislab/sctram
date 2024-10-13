@@ -48,8 +48,7 @@ class PseudotimeAdjacencyConverter:
         self.adjacency_matrix: Optional[np.ndarray] = None
 
     def _handle_disconnected_components(self, adjacency: np.ndarray, epsilon: float = 1e-5) -> np.ndarray:
-        """
-        Handles disconnected components in the adjacency matrix by connecting them with epsilon-weighted edges.
+        """Handles disconnected components in the adjacency matrix by connecting them with epsilon-weighted edges.
 
         Args:
             adjacency (np.ndarray): The initial adjacency matrix.
@@ -96,7 +95,8 @@ class PseudotimeAdjacencyConverter:
             1.  Let t_i be the pseudotime of cell i.
             2.  Compute the distance between cells using the specified metric.
             3.  For each cell i, identify the k cells with the smallest distances to i.
-            4.  Set A_{i,j} = distance(i, j) if weighted is True, else A_{i,j} = 1 if j is among the k nearest neighbors of i; otherwise, A_{i,j} = 0.
+            4.  Set A_{i,j} = distance(i, j) if weighted is True, else A_{i,j} = 1 if j is
+                among the k nearest neighbors of i; otherwise, A_{i,j} = 0.
             5.  Ensure the adjacency matrix is symmetric.
             6.  Handle disconnected components by connecting them with epsilon-weighted edges if required.
 
@@ -105,9 +105,12 @@ class PseudotimeAdjacencyConverter:
             metric (str): Distance metric to use. Default is 'euclidean'.
             algorithm (str): Algorithm to compute nearest neighbors. Default is 'auto'.
             include_self (bool): Whether to include the cell itself as its neighbor. Default is False.
-            weighted (bool): Whether to assign edge weights based on distance. If False, edges are binary. Default is False.
-            handle_disconnected (bool): Whether to handle disconnected components by connecting them with epsilon-weighted edges. Default is True.
-            epsilon (float): The weight to assign to connecting edges when handling disconnected components. Default is 1e-5.
+            weighted (bool): Whether to assign edge weights based on distance. If
+                False, edges are binary. Default is False.
+            handle_disconnected (bool): Whether to handle disconnected components by
+                connecting them with epsilon-weighted edges. Default is True.
+            epsilon (float): The weight to assign to connecting edges when handling
+                disconnected components. Default is 1e-5.
 
         Returns:
             np.ndarray: An adjacency matrix of shape (n_cells, n_cells).
@@ -163,15 +166,20 @@ class PseudotimeAdjacencyConverter:
 
         Mathematical Formulation:
             1.  Let t_i and t_j be the pseudotime values of cells i and j, respectively.
-            2.  Define A_{i,j} = |t_i - t_j| if weighted is True and |t_i - t_j| < delta; otherwise, A_{i,j} = 1 if |t_i - t_j| < delta; else A_{i,j} = 0.
+            2.  Define A_{i,j} = abs(t_i - t_j) if weighted is True and abs(t_i - t_j) < delta;
+                otherwise, A_{i,j} = 1 if abs(t_i - t_j) < delta; else A_{i,j} = 0.
             3.  Ensure the adjacency matrix is symmetric.
             4.  Handle disconnected components by connecting them with epsilon-weighted edges if required.
 
         Args:
-            delta (float): The maximum allowed pseudotime difference for two cells to be connected. Must be a positive number.
-            weighted (bool): Whether to assign edge weights based on pseudotime differences. If False, edges are binary. Default is False.
-            handle_disconnected (bool): Whether to handle disconnected components by connecting them with epsilon-weighted edges. Default is True.
-            epsilon (float): The weight to assign to connecting edges when handling disconnected components. Default is 1e-5.
+            delta (float): The maximum allowed pseudotime difference for two
+                cells to be connected. Must be a positive number.
+            weighted (bool): Whether to assign edge weights based on pseudotime
+                differences. If False, edges are binary. Default is False.
+            handle_disconnected (bool): Whether to handle disconnected components by
+                connecting them with epsilon-weighted edges. Default is True.
+            epsilon (float): The weight to assign to connecting edges when
+                handling disconnected components. Default is 1e-5.
 
         Returns:
             np.ndarray: An adjacency matrix of shape (n_cells, n_cells).
@@ -212,14 +220,18 @@ class PseudotimeAdjacencyConverter:
 
         Mathematical Formulation:
             1.  Construct a complete graph where each node represents a cell.
-            2.  The weight of the edge between cell i and cell j is |t_i - t_j|.
+            2.  The weight of the edge between cell i and cell j is abs(t_i - t_j).
             3.  Compute the MST of this graph using the specified algorithm (e.g., Kruskal's or Prim's).
-            4.  Represent the MST as an adjacency matrix A, where A_{i,j} = |t_i - t_j| if cells i and j are connected in the MST; otherwise, A_{i,j} = 0.
+            4.  Represent the MST as an adjacency matrix A, where A_{i,j} = abs(t_i - t_j) if
+                cells i and j are connected in the MST; otherwise, A_{i,j} = 0.
 
         Args:
-            algorithm (str): The algorithm to compute the MST. Options include 'kruskal' and 'prim'. Default is 'kruskal'.
-            handle_disconnected (bool): Whether to handle disconnected components by connecting them with epsilon-weighted edges. Default is False.
-            epsilon (float): The weight to assign to connecting edges when handling disconnected components. Default is 1e-5.
+            algorithm (str): The algorithm to compute the MST. Options
+                include 'kruskal' and 'prim'. Default is 'kruskal'.
+            handle_disconnected (bool): Whether to handle disconnected components by
+                connecting them with epsilon-weighted edges. Default is False.
+            epsilon (float): The weight to assign to connecting edges when handling
+                disconnected components. Default is 1e-5.
 
         Returns:
             np.ndarray: An adjacency matrix of shape (n_cells, n_cells) representing the MST.
@@ -272,8 +284,10 @@ class PseudotimeAdjacencyConverter:
 
         Args:
             sigma (float): The bandwidth parameter for the Gaussian kernel. Must be positive. Default is 1.0.
-            handle_disconnected (bool): Whether to handle disconnected components by connecting them with epsilon-weighted edges. Default is True.
-            epsilon (float): The weight to assign to connecting edges when handling disconnected components. Default is 1e-5.
+            handle_disconnected (bool): Whether to handle disconnected components by connecting
+                them with epsilon-weighted edges. Default is True.
+            epsilon (float): The weight to assign to connecting edges when handling
+                disconnected components. Default is 1e-5.
 
         Returns:
             np.ndarray: A weighted adjacency matrix of shape (n_cells, n_cells).
@@ -347,7 +361,7 @@ class PseudotimeAdjacencyConverter:
             return self.to_gaussian_kernel_adjacency(**kwargs)
         else:
             raise ValueError(
-                f"Unsupported method '{method}'. Choose from 'knn', 'threshold', 'mst', 'gaussian_kernel'."
+                f"Unsupported method {method!r}. Choose from 'knn', 'threshold', 'mst', 'gaussian_kernel'."
             )
 
     def get_adjacency(self) -> np.ndarray:
@@ -407,10 +421,13 @@ class AdjacencyPseudotimeConverter:
         self.graph = nx.from_numpy_array(adjacency_matrix)
 
     def _ensure_distance_weights(self):
-        """
-        Ensures that the adjacency matrix represents distances.
+        """Ensures that the adjacency matrix represents distances.
+
         If the adjacency matrix represents similarities, it transforms them into distances.
         This is a private method used internally to prepare the graph for algorithms that require distance metrics.
+
+        Raises:
+            ValueError: When adjacency matrix contains negative weights, which are invalid for distance metrics.
         """
         # Check if any weights are greater than 1, assuming similarities are <=1 and distances >=0
         if np.any(self.adjacency_matrix > 1):
@@ -524,7 +541,8 @@ class AdjacencyPseudotimeConverter:
             np.ndarray: A one-dimensional array of pseudotime values for each cell.
 
         Raises:
-            ValueError: If `alpha` is not between 0 and 1, if `root_cell` is invalid, or if the adjacency matrix contains isolated nodes.
+            ValueError: If `alpha` is not between 0 and 1, if `root_cell` is invalid, or
+                if the adjacency matrix contains isolated nodes.
         """
         if not (0 < alpha < 1):
             raise ValueError("alpha must be strictly between 0 and 1.")
@@ -537,28 +555,28 @@ class AdjacencyPseudotimeConverter:
             raise ValueError("The adjacency matrix contains isolated nodes with zero degree.")
 
         # Compute the transition probability matrix P
-        P = self.adjacency_matrix / degrees[:, np.newaxis]
+        p = self.adjacency_matrix / degrees[:, np.newaxis]
 
         # Initialize the steady-state distribution F
-        F = np.zeros(self.adjacency_matrix.shape[0])
-        F[root_cell] = 1.0  # Start diffusion from the root cell
+        f = np.zeros(self.adjacency_matrix.shape[0])
+        f[root_cell] = 1.0  # Start diffusion from the root cell
 
         # Initialize e_r
         e_r = np.zeros(self.adjacency_matrix.shape[0])
         e_r[root_cell] = 1.0
 
         for step in range(n_steps):
-            F_new = alpha * P.T.dot(F) + (1 - alpha) * e_r
+            f_new = alpha * p.T.dot(f) + (1 - alpha) * e_r
             # Check for convergence
-            if np.linalg.norm(F_new - F, ord=1) < tol:
-                F = F_new
+            if np.linalg.norm(f_new - f, ord=1) < tol:
+                f = f_new
                 print(f"Diffusion pseudotime converged in {step + 1} steps.")
                 break
-            F = F_new
+            f = f_new
         else:
             print(f"Diffusion pseudotime did not converge within {n_steps} steps.")
 
-        return F
+        return f
 
     def to_spectral_pseudotime(
         self, n_components: int = 2, root_cell: Optional[int] = None, normalized: bool = False
@@ -668,7 +686,7 @@ class AdjacencyPseudotimeConverter:
 
         # Update the graph with Gaussian weights
         gaussian_weights_matrix = gaussian_weights * self.adjacency_matrix
-        gaussian_graph = nx.from_numpy_array(gaussian_weights_matrix)
+        # gaussian_graph = nx.from_numpy_array(gaussian_weights_matrix)  # TODO: this variable is not used.
 
         # Perform spectral ordering on the Gaussian-weighted graph
         laplacian = csgraph.laplacian(gaussian_weights_matrix, normed=True)
@@ -741,7 +759,7 @@ class AdjacencyPseudotimeConverter:
             return self.to_gaussian_kernel_pseudotime(**kwargs)
         else:
             raise ValueError(
-                f"Unsupported method '{method}'. Choose from 'shortest_path', 'diffusion', 'spectral', 'gaussian_kernel'."
+                f"Unsupported method {method!r}. Choose from 'shortest_path', 'diffusion', 'spectral', 'gaussian_kernel'."
             )
 
 
@@ -857,7 +875,8 @@ class LabelAdjacencyPseudotimeConverter:
             self.label_pseudotime = converter.to_gaussian_kernel_pseudotime(sigma=sigma, root_cell=root_label)
         else:
             raise ValueError(
-                f"Unsupported method '{method}'. Choose from 'shortest_path', 'diffusion', 'spectral', 'gaussian_kernel'."
+                f"Unsupported method {method!r}. Choose from 'shortest_path', "
+                "'diffusion', 'spectral', 'gaussian_kernel'."
             )
 
         return self.label_pseudotime
@@ -868,7 +887,8 @@ class LabelAdjacencyPseudotimeConverter:
         """Assigns pseudotime to each cell based on its label's pseudotime.
 
         Args:
-            handle_disconnected (str): Strategy to handle disconnected labels. Must match the strategy used in `get_label_pseudotime`.
+            handle_disconnected (str): Strategy to handle disconnected labels. Must
+                match the strategy used in `get_label_pseudotime`.
             alternative_distance (Optional[float]): The distance value to assign to disconnected labels if
                 `handle_disconnected` is set to 'assign_alternative_distance'. Must be provided in this case.
 
@@ -1000,7 +1020,8 @@ class PseudotimeLabelAdjacencyConverter:
 
         Args:
             aggregation (str): The aggregation method to use. Default is 'mean'.
-            trim_percent (float): The proportion of data to trim from each end for 'trimmed_mean'. Must be between 0 and 0.5. Default is 0.1.
+            trim_percent (float): The proportion of data to trim from each end for
+                'trimmed_mean'. Must be between 0 and 0.5. Default is 0.1.
 
         Returns:
             np.ndarray: A one-dimensional array of aggregated pseudotime values per label (l,).
@@ -1030,7 +1051,7 @@ class PseudotimeLabelAdjacencyConverter:
                 aggregated_pseudotime[idx] = trimmed.mean()
             else:
                 raise ValueError(
-                    f"Unsupported aggregation method '{aggregation}'. Choose from 'mean', 'median', 'min', 'max', 'trimmed_mean'."
+                    f"Unsupported aggregation method {aggregation!r}. Choose from 'mean', 'median', 'min', 'max', 'trimmed_mean'."
                 )
 
         self.aggregated_pseudotime = aggregated_pseudotime
@@ -1078,7 +1099,7 @@ class PseudotimeLabelAdjacencyConverter:
             label_adjacency = converter.to_gaussian_kernel_adjacency(sigma=sigma)
         else:
             raise ValueError(
-                f"Unsupported method '{method}'. Choose from 'knn', 'threshold', 'mst', 'gaussian_kernel'."
+                f"Unsupported method {method!r}. Choose from 'knn', 'threshold', 'mst', 'gaussian_kernel'."
             )
 
         self.label_adjacency_matrix = label_adjacency
@@ -1101,9 +1122,6 @@ class PseudotimeLabelAdjacencyConverter:
 
         Returns:
             np.ndarray: A binary adjacency matrix of shape (l x l).
-
-        Raises:
-            ValueError: If invalid parameters are provided.
         """
         if aggregation_kwargs is None:
             aggregation_kwargs = {}
@@ -1167,8 +1185,7 @@ class DiffmapAdjacencyConverter:
             self.cell_labels = None
 
     def _handle_disconnected_components(self, adjacency: np.ndarray, epsilon: float = 1e-5) -> np.ndarray:
-        """
-        Handles disconnected components in the adjacency matrix by connecting them with epsilon-weighted edges.
+        """Handles disconnected components in the adjacency matrix by connecting them with epsilon-weighted edges.
 
         Args:
             adjacency (np.ndarray): The initial adjacency matrix.
@@ -1214,7 +1231,8 @@ class DiffmapAdjacencyConverter:
             1.  Let x_i be the Diffusion Map embedding of cell i.
             2.  Compute the distance between cells using the specified metric in diffusion space.
             3.  For each cell i, identify the k cells with the smallest distances to i.
-            4.  Set A_{i,j} = distance(i, j) if weighted is True, else A_{i,j} = 1 if j is among the k nearest neighbors of i; otherwise, A_{i,j} = 0.
+            4.  Set A_{i,j} = distance(i, j) if weighted is True, else A_{i,j} = 1 if j
+                is among the k nearest neighbors of i; otherwise, A_{i,j} = 0.
             5.  Ensure the adjacency matrix is symmetric.
             6.  Handle disconnected components by connecting them with epsilon-weighted edges if required.
 
@@ -1223,9 +1241,12 @@ class DiffmapAdjacencyConverter:
             metric (str): Distance metric to use. Default is 'euclidean'.
             algorithm (str): Algorithm to compute nearest neighbors. Default is 'auto'.
             include_self (bool): Whether to include the cell itself as its neighbor. Default is False.
-            weighted (bool): Whether to assign edge weights based on distance. If False, edges are binary. Default is False.
-            handle_disconnected (bool): Whether to handle disconnected components by connecting them with epsilon-weighted edges. Default is True.
-            epsilon (float): The weight to assign to connecting edges when handling disconnected components. Default is 1e-5.
+            weighted (bool): Whether to assign edge weights based on distance.
+                If False, edges are binary. Default is False.
+            handle_disconnected (bool): Whether to handle disconnected components by
+                connecting them with epsilon-weighted edges. Default is True.
+            epsilon (float): The weight to assign to connecting edges when handling
+                disconnected components. Default is 1e-5.
 
         Returns:
             np.ndarray: An adjacency matrix of shape (n_cells, n_cells).
@@ -1282,7 +1303,8 @@ class DiffmapAdjacencyConverter:
         Mathematical Formulation:
             1.  Let x_i and x_j be the Diffusion Map embeddings of cells i and j, respectively.
             2.  Compute the distance d(i, j) = metric(x_i, x_j).
-            3.  Define A_{i,j} = d(i, j) if weighted is True and d(i, j) < delta; otherwise, A_{i,j} = 1 if d(i, j) < delta; else A_{i,j} = 0.
+            3.  Define A_{i,j} = d(i, j) if weighted is True and d(i, j) < delta;
+                otherwise, A_{i,j} = 1 if d(i, j) < delta; else A_{i,j} = 0.
             4.  Ensure the adjacency matrix is symmetric.
             5.  Handle disconnected components by connecting them with epsilon-weighted edges if required.
 
@@ -1290,7 +1312,8 @@ class DiffmapAdjacencyConverter:
             delta (float): The maximum allowed distance for two cells to be connected. Must be a positive number.
             metric (str): Distance metric to use. Default is 'euclidean'.
             weighted (bool): Whether to assign edge weights based on distance. If False, edges are binary. Default is False.
-            handle_disconnected (bool): Whether to handle disconnected components by connecting them with epsilon-weighted edges. Default is True.
+            handle_disconnected (bool): Whether to handle disconnected components by
+                connecting them with epsilon-weighted edges. Default is True.
             epsilon (float): The weight to assign to connecting edges when handling disconnected components. Default is 1e-5.
 
         Returns:
@@ -1338,13 +1361,17 @@ class DiffmapAdjacencyConverter:
             1.  Construct a complete graph where each node represents a cell.
             2.  The weight of the edge between cell i and cell j is d(i, j) = metric(x_i, x_j).
             3.  Compute the MST of this graph using the specified algorithm (e.g., Kruskal's or Prim's).
-            4.  Represent the MST as an adjacency matrix A, where A_{i,j} = d(i, j) if cells i and j are connected in the MST; otherwise, A_{i,j} = 0.
+            4.  Represent the MST as an adjacency matrix A, where A_{i,j} = d(i, j) if cells i and j are
+                connected in the MST; otherwise, A_{i,j} = 0.
 
         Args:
             metric (str): Distance metric to use. Default is 'euclidean'.
-            algorithm (str): The algorithm to compute the MST. Options include 'kruskal' and 'prim'. Default is 'kruskal'.
-            handle_disconnected (bool): Whether to handle disconnected components by connecting them with epsilon-weighted edges. Default is False.
-            epsilon (float): The weight to assign to connecting edges when handling disconnected components. Default is 1e-5.
+            algorithm (str): The algorithm to compute the MST. Options include 'kruskal'
+                and 'prim'. Default is 'kruskal'.
+            handle_disconnected (bool): Whether to handle disconnected components by connecting
+                them with epsilon-weighted edges. Default is False.
+            epsilon (float): The weight to assign to connecting edges when handling
+                disconnected components. Default is 1e-5.
 
         Returns:
             np.ndarray: An adjacency matrix of shape (n_cells, n_cells) representing the MST.
@@ -1402,8 +1429,10 @@ class DiffmapAdjacencyConverter:
         Args:
             sigma (float): The bandwidth parameter for the Gaussian kernel. Must be positive. Default is 1.0.
             metric (str): Distance metric to use. Default is 'euclidean'.
-            handle_disconnected (bool): Whether to handle disconnected components by connecting them with epsilon-weighted edges. Default is True.
-            epsilon (float): The weight to assign to connecting edges when handling disconnected components. Default is 1e-5.
+            handle_disconnected (bool): Whether to handle disconnected components by connecting
+                them with epsilon-weighted edges. Default is True.
+            epsilon (float): The weight to assign to connecting edges when handling
+                disconnected components. Default is 1e-5.
 
         Returns:
             np.ndarray: A weighted adjacency matrix of shape (n_cells, n_cells).
