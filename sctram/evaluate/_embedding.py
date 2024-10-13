@@ -76,6 +76,19 @@ class EmbeddingEvaluation(SpatialMetricsMixin, EvaluationBase):
         if prepare_params_before_subset is None or "method" not in prepare_params_before_subset:
             raise ValueError("Determine a method how to compute reference distances from the given trajectory.")
 
+    def get_result(self) -> Any:
+        """Retrieves the result of the embedding evaluation.
+
+        Returns:
+            Any: A dictionary containing the results of all evaluated metrics.
+
+        Raises:
+            ValueError: If the result is not available.
+        """
+        if not self.result:
+            raise ValueError("No result available. Have you run the evaluation?")
+        return self.result
+
     def _verify_inferred_trajectory(self, inferred_embedding: Any) -> np.ndarray:
         """Verifies the inferred embedding.
 
@@ -426,16 +439,3 @@ class EmbeddingEvaluation(SpatialMetricsMixin, EvaluationBase):
         mi = mutual_info_score(reference_discrete, inferred_discrete)
         self.result["mutual_information"] = mi
         self.logger.debug(f"Mutual Information: {mi}")
-
-    def get_result(self) -> Any:
-        """Retrieves the result of the embedding evaluation.
-
-        Returns:
-            Any: A dictionary containing the results of all evaluated metrics.
-
-        Raises:
-            ValueError: If the result is not available.
-        """
-        if not self.result:
-            raise ValueError("No result available. Have you run the evaluation?")
-        return self.result

@@ -8,16 +8,9 @@ import numpy as np
 import pandas as pd
 import scanpy as sc
 from anndata import AnnData
+from scipy.sparse import csr_matrix
 
-from sctram._constants import labels_key
-
-# TODO: Ensure the below structure is in `adata.uns["neighbors"]`
-# {'connectivities_key': 'connectivities',
-#  'distances_key': 'distances',
-#  'params': {'n_neighbors': 90,
-#   'method': 'umap',
-#   'random_state': 0,
-#   'metric': 'euclidean'}}
+from sctram._constants import connectivities_key, distances_key, labels_key
 
 
 class TrajectoryInferenceBase(ABC):
@@ -290,7 +283,7 @@ class TrajectoryInferenceBase(ABC):
             adata = self._add_precomputed_neighbors(adata, connectivities=connectivities, distances=distances)
         else:
             self.logger.info(
-                "Precomputed neighbor matrics (`distances` and `connectivities`) are not provided. Neighbors will be computed."
+                "Precomputed neighbor matrices (`distances` and `connectivities`) are not provided. Neighbors will be computed."
             )
 
         self.logger.debug("AnnData initialized successfully from embedding and labels.")
@@ -381,6 +374,15 @@ class TrajectoryInferenceBase(ABC):
     ) -> AnnData:
         """Adds precomputed neighbors to the AnnData object.
 
+        Ensures that `adata.uns["neighbors"]` has the required structure:
+            {
+                'connectivities_key': connectivities_key,
+                'distances_key': distances_key,
+                'params': {
+                    'n_neighbors': <inferred_n_neighbors>
+                }
+            }
+
         Args:
             adata (AnnData): AnnData object.
             connectivities (Optional[Union[np.ndarray, pd.DataFrame]]): Connectivity matrix.
@@ -395,27 +397,103 @@ class TrajectoryInferenceBase(ABC):
         self.logger.debug("Adding connectivity matrix to AnnData.")
         if isinstance(connectivities, pd.DataFrame):
             connectivities = connectivities.values
-        if not isinstance(connectivities, np.ndarray):
-            raise ValueError("Connectivities must be a numpy.ndarray or pandas.DataFrame.")
+        if not isinstance(connectivities, (np.ndarray, csr_matrix)):
+            raise ValueError("Connectivities must be a numpy.ndarray, pandas.DataFrame, or scipy.sparse matrix.")
         if connectivities.shape[0] != connectivities.shape[1]:
             raise ValueError("Connectivity matrix must be square.")
         if connectivities.shape[0] != len(adata):
             raise ValueError("Connectivity matrix size must match number of cells.")
-        adata.obsp["connectivities"] = connectivities
+        adata.obsp[connectivities_key] = connectivities
 
         self.logger.debug("Adding distance matrix to AnnData.")
         if isinstance(distances, pd.DataFrame):
             distances = distances.values
-        if not isinstance(distances, np.ndarray):
-            raise ValueError("Distances must be a numpy.ndarray or pandas.DataFrame.")
+        if not isinstance(distances, (np.ndarray, csr_matrix)):
+            raise ValueError("Distances must be a numpy.ndarray, pandas.DataFrame, or scipy.sparse matrix.")
         if distances.shape[0] != distances.shape[1]:
             raise ValueError("Distance matrix must be square.")
         if distances.shape[0] != len(adata):
             raise ValueError("Distance matrix size must match number of cells.")
-        adata.obsp["distances"] = distances
+        adata.obsp[distances_key] = distances
 
-        self.logger.debug("Precomputed neighbors added successfully.")
+        if connectivities.shape[0] != distances.shape[1]:
+            raise ValueError("Connectivity and distance matrices must be the same shape.")
+
+        # Infer n_neighbors from the distances and connectivities matrices
+        n_neighbors_inferred = self._infer_n_neighbors(distances, connectivities)
+        adata.uns["neighbors"] = {  # Update adata.uns["neighbors"] with the required structure
+            "connectivities_key": connectivities_key,
+            "distances_key": distances_key,
+            "params": {
+                "n_neighbors": n_neighbors_inferred
+                # Exclude 'metric', 'random_state', 'method' as per requirements
+            },
+        }
+        for adata_uns_neighbors_params_keys in ["metric", "random_state", "method"]:
+            adata.uns["neighbors"]["params"][adata_uns_neighbors_params_keys] = np.nan
+
+        self.logger.debug(
+            "Precomputed neighbors added successfully with the required structure in adata.uns['neighbors']."
+        )
         return adata
+
+    def _infer_n_neighbors(self, distances, connectivities, sample_size: int = 10) -> int:
+        """Infers the number of neighbors (n_neighbors) by ensuring both connectivity and distance matrices agree.
+
+        Args:
+            distances (Union[np.ndarray, pd.DataFrame, csr_matrix]): Distance matrix.
+            connectivities (Union[np.ndarray, pd.DataFrame, csr_matrix]): Connectivity matrix.
+            sample_size (int): Number of random rows to sample for consistency check.
+
+        Returns:
+            int: Inferred number of neighbors.
+
+        Raises:
+            ValueError: If connectivity and distance matrices do not agree on sampled rows.
+        """
+        self.logger.debug("Starting n_neighbors inference.")
+
+        # Helper function to count non-zero elements per row
+        def count_nonzeros(matrix, matrix_name):
+            if isinstance(matrix, csr_matrix):
+                return matrix.getnnz(axis=1)
+            elif isinstance(matrix, np.ndarray):
+                if matrix_name == "connectivities":
+                    return np.sum(matrix > 0, axis=1)
+                elif matrix_name == "distances":
+                    return np.sum(np.isfinite(matrix), axis=1)
+            elif isinstance(matrix, pd.DataFrame):
+                return matrix.astype(bool).sum(axis=1).values
+            else:
+                raise ValueError(f"Unsupported matrix type for {matrix_name}.")
+
+        # Count non-zero neighbors for both matrices
+        nnz_connectivities = count_nonzeros(connectivities, "connectivities")
+        nnz_distances = count_nonzeros(distances, "distances")
+
+        # Sample indices
+        rng = np.random.default_rng(self.random_state)
+        sample_size = min(sample_size, len(nnz_connectivities))
+        sampled_indices = rng.choice(len(nnz_connectivities), size=sample_size, replace=False)
+        self.logger.debug(f"Sampled indices for consistency check: {sampled_indices}")
+
+        # Compare neighbor counts in sampled rows
+        for idx in sampled_indices:
+            conn_count = nnz_connectivities[idx]
+            dist_count = nnz_distances[idx]
+            if conn_count != dist_count:
+                raise ValueError(
+                    f"Neighbor count mismatch between connectivities and distances matrices at sampled row {idx}."
+                )
+
+        # If all sampled rows match, infer n_neighbors from connectivity matrix
+        # Assuming connectivity matrix defines a KNN graph with consistent n_neighbors
+        unique_conn_counts = np.unique(nnz_connectivities).max()
+        unique_dist_counts = np.unique(nnz_distances).max()
+        if unique_dist_counts != unique_dist_counts:
+            raise ValueError("Max neighbor count mismatch between connectivities and distances matrices.")
+
+        return int(unique_conn_counts)
 
     @abstractmethod
     def _calculate(self):

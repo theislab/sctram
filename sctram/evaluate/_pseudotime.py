@@ -66,6 +66,12 @@ class PseudotimeEvaluation(EvaluationBase):
         if prepare_params_before_subset is None or "method" not in prepare_params_before_subset.keys():
             raise ValueError("Determine a method how to estimate pseudotime from adjacency matrix.")
 
+    def get_result(self) -> Any:
+        """Retrieves the result of the trajectory evaluation."""
+        if not self.result:
+            raise ValueError("No result available. Have you run the evaluation?")
+        return self.result
+
     def _verify_inferred_trajectory(self, inferred_pseudotime: Any) -> np.ndarray:
         """Verifies the inferred pseudotime.
 
@@ -575,9 +581,3 @@ class PseudotimeEvaluation(EvaluationBase):
         gi_star = self.calculate_getis_ord_gi_star(x, spatial_weights)
         self.result["getis_ord_gi_star"] = gi_star
         self.logger.debug(f"Getis-Ord Gi* statistic: {gi_star}")
-
-    def get_result(self) -> Any:
-        """Retrieves the result of the trajectory evaluation."""
-        if not self.result:
-            raise ValueError("No result available. Have you run the evaluation?")
-        return self.result

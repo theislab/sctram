@@ -554,7 +554,8 @@ def read_yaml(yaml_path: Union[Path, str]) -> InputTrajectories:
             or misuse of reserved keys in attributes.
         FileNotFoundError: If the specified YAML file does not exist.
 
-    TODO:
+    TODO: Improvement for YAML function.
+        - Test the function.
         - Support for inline YAML strings or file-like objects.
         - Enhanced error messages with line numbers for YAML parsing errors.
     """

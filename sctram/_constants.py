@@ -36,6 +36,12 @@ node_reserved_keys = [key_trajectories]
 labels_key = "labels"
 # Key used to store label information in AnnData structures.
 
+connectivities_key = "connectivities"
+# Key used to store connectivities information in AnnData structures after neighbor calculation by scanpy.
+
+distances_key = "distances"
+# Key used to store distance information in AnnData structures after neighbor calculation by scanpy
+
 x_diffmap_key = "X_diffmap"
 # Key used to store diffusion map coordinates in AnnData structures.
 
