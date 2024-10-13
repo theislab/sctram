@@ -7,7 +7,7 @@ from sctram.input._input_trajectory import InputTrajectory
 
 
 class InputTrajectories(nx.MultiDiGraph):
-    """_summary_."""  # TODO
+    """_summary_."""  # TODO: docstring
 
     def get_trajectory(self, trajectory: str, include_additional_nodes: bool) -> InputTrajectory:
         """Returns a subgraph containing all edges where the 'key_trajectories' attribute is equal to 'trajectory'.
@@ -52,7 +52,7 @@ class InputTrajectories(nx.MultiDiGraph):
         return trajectory_subgraph
 
     def _check_individual_trajectories(self):
-        """_summary_."""  # TODO
+        """_summary_."""  # TODO: docstring
         for trajectory in self.graph[key_trajectories]:
             trajectory_subgraph = self.get_trajectory(trajectory=trajectory, include_additional_nodes=False)
             if not trajectory_subgraph.is_directed():
@@ -63,5 +63,5 @@ class InputTrajectories(nx.MultiDiGraph):
                 raise ValueError(f"Trajectory {trajectory!r} is contains self-loops.")
 
     def verify(self):
-        """_summary_."""  # TODO
+        """_summary_."""  # TODO: docstring
         self._check_individual_trajectories()

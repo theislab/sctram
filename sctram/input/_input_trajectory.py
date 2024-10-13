@@ -4,6 +4,8 @@ import networkx as nx
 
 
 class InputTrajectory(nx.DiGraph):
-    """_summary_."""  # TODO
+    """_summary_."""  # TODO: docstring
 
-    pass
+    def identify(self):
+        pass
+        # TODO: which general category is this.

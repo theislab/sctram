@@ -18,7 +18,7 @@ logger = logging.getLogger(name="read_trajectories")
 
 
 def convert_to_dict_tuples(obj: InputGraphPossibleTypes) -> InputGraphDictWithEdge:
-    """_summary_."""  # TODO
+    """_summary_."""  # TODO: docstring
     result = {}
     for key, iterable in obj.items():
         new_tuples: list = []
@@ -35,7 +35,7 @@ def convert_to_dict_tuples(obj: InputGraphPossibleTypes) -> InputGraphDictWithEd
 
 
 def is_valid_input_structure(obj: Any) -> Optional[str]:
-    """_summary_."""  # TODO
+    """_summary_."""  # TODO: docstring
     if not isinstance(obj, dict):
         return "The object must be a dictionary."
 
@@ -64,7 +64,7 @@ def is_valid_input_structure(obj: Any) -> Optional[str]:
 
 
 def is_valid_edge_attributes(start_node: str, end_node: str, attrs: dict[str, Any]) -> Optional[str]:
-    """_summary_."""  # TODO
+    """_summary_."""  # TODO: docstring
     # Check for self-loops
     if start_node == end_node:
         return f"Self-loop detected: Edge from {start_node!r} to itself is not allowed."
@@ -84,7 +84,7 @@ def is_valid_edge_attributes(start_node: str, end_node: str, attrs: dict[str, An
 
 
 def is_valid_node_attributes(node: str, attrs: dict[str, Any]) -> Optional[str]:
-    """_summary_."""  # TODO
+    """_summary_."""  # TODO: docstring
     # Check for misuse of reserved keys in node attributes
     for key in attrs:
         if not isinstance(key, str):
@@ -100,9 +100,9 @@ def is_valid_node_attributes(node: str, attrs: dict[str, Any]) -> Optional[str]:
 
 
 def is_valid_node_attributes_structure(obj: dict[str, dict[str, Any]]) -> Optional[str]:
-    """_summary_."""  # TODO
+    """_summary_."""  # TODO: docstring
     if not isinstance(obj, dict):
-        return "error message"  # TODO
+        return "error message"  # TODO: docstring
 
     for key in obj.keys():
         if not isinstance(key, str):
@@ -112,7 +112,7 @@ def is_valid_node_attributes_structure(obj: dict[str, dict[str, Any]]) -> Option
 
 
 def is_valid_additional_nodes(obj: Iterable[str]) -> Optional[str]:
-    """_summary_."""  # TODO
+    """_summary_."""  # TODO: docstring
     if len({i for i in obj}) != len([i for i in obj]):
         return "Additional nodes should be an iterable with unique elements."
 
@@ -120,7 +120,7 @@ def is_valid_additional_nodes(obj: Iterable[str]) -> Optional[str]:
 
 
 def raise_error(response):
-    """_summary_."""  # TODO
+    """_summary_."""  # TODO: docstring
     if response is not None:
         raise ValueError(response)
 
@@ -139,7 +139,7 @@ def read_dict(
     additional_nodes: Optional[Iterable[str]] = None,
     node_attributes: Optional[dict[str, dict[str, Any]]] = None,
 ) -> InputTrajectories:
-    """_summary_."""  # TODO
+    """_summary_."""  # TODO: docstring
     # Validate input structure, and convert tuples to have dict as third element if missing
     raise_error(is_valid_input_structure(obj=ground_truth_trajectories))
     ground_truth_trajectories = convert_to_dict_tuples(obj=ground_truth_trajectories)
