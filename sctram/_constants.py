@@ -47,3 +47,9 @@ x_diffmap_key = "X_diffmap"
 
 iroot_key = "iroot"
 # Key used to store the root identifier in AnnData structures.
+
+neighbors_key = "neighbors"
+
+x_pca_key = "X_pca"
+
+x_umap_key = "X_umap"

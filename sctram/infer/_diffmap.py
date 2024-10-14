@@ -2,17 +2,18 @@
 
 from typing import Any, Dict, Optional, Union
 
-import scanpy as sc
+import numpy as np
 from anndata import AnnData
+from pandas import DataFrame, Series
 
 from sctram._constants import x_diffmap_key
-from sctram.infer._base import TrajectoryInferenceBase
+from sctram.infer._base import EmbeddingBase
 
 
-class DiffmapInference(TrajectoryInferenceBase):
-    """Diffusion Map trajectory inference method.
+class DiffmapEmbedding(EmbeddingBase):
+    """Diffusion Map embedding method.
 
-    This subclass of TrajectoryInferenceBase provides functionality to compute the Diffusion Map
+    This subclass of InferenceAndEmbeddingBase provides functionality to compute the Diffusion Map
     of the dataset. It does not handle DPT-specific parameters such as root selection.
     """
 
@@ -20,27 +21,36 @@ class DiffmapInference(TrajectoryInferenceBase):
         self,
         neighbors_params: Optional[Dict[str, Any]] = None,
         diffmap_params: Optional[Dict[str, Any]] = None,
+        # Inherited
         random_state: Optional[int] = None,
+        adata: Optional[AnnData] = None,
+        embedding: Optional[Union[np.ndarray, DataFrame]] = None,
+        labels: Optional[Union[np.ndarray, Series]] = None,
+        connectivities: Optional[Union[np.ndarray, DataFrame]] = None,
+        distances: Optional[Union[np.ndarray, DataFrame]] = None,
+        neighbour_key: Optional[str] = None,
     ):
-        """Initializes the DiffmapInference method with optional parameters for neighbors and Diffusion Map.
+        """Initializes DiffmapEmbedding.
 
         Args:
             neighbors_params (Optional[Dict[str, Any]]): Parameters for `sc.pp.neighbors`.
-            diffmap_params (Optional[Dict[str, Any]]): Parameters for `sc.tl.diffmap`.
-            random_state (Optional[int]): Random state for reproducibility.
+            diffmap_params (Optional[Dict[str, Any]]): Parameters for the specific trajectory method.
+            random_state (Optional[int], optional): See `TrajectoryEmbeddingBase.__init__`.
+            adata (Optional[AnnData], optional): See `TrajectoryEmbeddingBase.__init__`.
+            embedding (Optional[Union[np.ndarray, DataFrame]], optional):See `TrajectoryEmbeddingBase.__init__`.
+            labels (Optional[Union[np.ndarray, Series]], optional): See `TrajectoryEmbeddingBase.__init__`.
+            connectivities (Optional[Union[np.ndarray, DataFrame]], optional): See `TrajectoryEmbeddingBase.__init__`.
+            distances (Optional[Union[np.ndarray, DataFrame]], optional): See `TrajectoryEmbeddingBase.__init__`.
+            neighbour_key (Optional[str], optional): See `TrajectoryEmbeddingBase.__init__`.
         """
-        super().__init__(neighbors_params=neighbors_params, method_params=diffmap_params, random_state=random_state)
+        super().__init__(random_state, adata, embedding, labels, connectivities, distances, neighbour_key)
         self.diffmap_params = diffmap_params or {}
+        self.neighbors_params = neighbors_params or {}
 
     def _calculate(self):
         """Performs the Diffusion Map calculation."""
-        # Compute Diffusion Map
-        if x_diffmap_key not in self.adata_prepared.obsm:
-            self.logger.info("Computing Diffusion Map.")
-            sc.tl.diffmap(self.adata_prepared, **self.diffmap_params)
-            self.logger.debug("Diffusion Map computed successfully.")
-        else:
-            self.logger.info("Diffusion Map is already calculated.")
+        self._needs_neighbors(neighbors_params=self.neighbors_params)
+        self._needs_diffmap(diffmap_params=self.diffmap_params)
 
     def get_result(self, return_mode: str) -> Union[AnnData, Any]:
         """Retrieves the result of the Diffusion Map calculation.
@@ -58,7 +68,7 @@ class DiffmapInference(TrajectoryInferenceBase):
             Union[AnnData, Any]: The result of the Diffusion Map calculation.
         """
         if not hasattr(self, "adata_prepared"):
-            raise RuntimeError("First run `infer_trajectory`.")
+            raise RuntimeError("First run `calculate`.")
 
         if return_mode == "anndata":
             return self.adata_prepared

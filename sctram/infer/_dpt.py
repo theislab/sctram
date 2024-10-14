@@ -5,21 +5,22 @@ from typing import Any, Dict, Optional, Tuple, Union
 import numpy as np
 import scanpy as sc
 from anndata import AnnData
+from pandas import DataFrame, Series
 from scipy.stats import zscore
 
 from sctram._constants import iroot_key, labels_key, x_diffmap_key
-from sctram.infer._base import TrajectoryInferenceBase
+from sctram.infer._base import InferenceBase
 
 
-class DPTInference(TrajectoryInferenceBase):
+class DPTInference(InferenceBase):
     """DPT (Diffusion Pseudotime) trajectory inference method with customizable root setting.
 
-    This subclass of TrajectoryInferenceBase provides enhanced functionality for trajectory inference
+    This subclass of InferenceAndEmbeddingBase provides enhanced functionality for trajectory inference
     using the DPT method. It allows customization of the Diffusion Map calculation and provides flexible
     methods to set the root of the trajectory.
 
     Inherits From:
-        TrajectoryInferenceBase: Provides base functionality for trajectory inference methods.
+        InferenceAndEmbeddingBase: Provides base functionality for trajectory inference methods.
 
     Additional Features:
         - Customizable Diffusion Map calculation parameters.
@@ -31,11 +32,19 @@ class DPTInference(TrajectoryInferenceBase):
 
     def __init__(
         self,
+        # Paga settings
         neighbors_params: Optional[Dict[str, Any]] = None,
         diffmap_params: Optional[Dict[str, Any]] = None,
         dpt_params: Optional[Dict[str, Any]] = None,
-        iroot: Optional[Union[int, np.ndarray, dict]] = None,
+        iroot_params: Optional[Union[int, np.ndarray, dict]] = None,
+        # Inherited
         random_state: Optional[int] = None,
+        adata: Optional[AnnData] = None,
+        embedding: Optional[Union[np.ndarray, DataFrame]] = None,
+        labels: Optional[Union[np.ndarray, Series]] = None,
+        connectivities: Optional[Union[np.ndarray, DataFrame]] = None,
+        distances: Optional[Union[np.ndarray, DataFrame]] = None,
+        neighbour_key: Optional[str] = None,
     ):
         """Initializes the DPT method with optional parameters for neighbors, Diffusion Map, DPT, and root selection.
 
@@ -43,7 +52,7 @@ class DPTInference(TrajectoryInferenceBase):
             neighbors_params (Optional[Dict[str, Any]]): Parameters for `sc.pp.neighbors`.
             diffmap_params (Optional[Dict[str, Any]]): Parameters for `sc.tl.diffmap`.
             dpt_params (Optional[Dict[str, Any]]): Parameters for `sc.tl.dpt`.
-            iroot (Optional[Union[int, np.ndarray, dict]]): Specification for the root of the trajectory.
+            iroot_params (Optional[Union[int, np.ndarray, dict]]): Specification for the root of the trajectory.
                 - If `int`, it represents the index of the root cell.
                 - If `np.ndarray`, it should be a binary array with exactly one `1` indicating the root cell.
                 - If `dict`, it represents a cell label from which the root will be selected. Dictionary must contain:
@@ -61,33 +70,38 @@ class DPTInference(TrajectoryInferenceBase):
                         - For `centroid`:
                             - `centroid_embedding` (str): 'X' or a key from `adata.obsm` to be used to calculate
                                 the centroids. Defaults to 'X'.
-            random_state (Optional[int]): Random state for reproducibility.
+            random_state (Optional[int], optional): See `TrajectoryEmbeddingBase.__init__`.
+            adata (Optional[AnnData], optional): See `TrajectoryEmbeddingBase.__init__`.
+            embedding (Optional[Union[np.ndarray, DataFrame]], optional):See `TrajectoryEmbeddingBase.__init__`.
+            labels (Optional[Union[np.ndarray, Series]], optional): See `TrajectoryEmbeddingBase.__init__`.
+            connectivities (Optional[Union[np.ndarray, DataFrame]], optional): See `TrajectoryEmbeddingBase.__init__`.
+            distances (Optional[Union[np.ndarray, DataFrame]], optional): See `TrajectoryEmbeddingBase.__init__`.
+            neighbour_key (Optional[str], optional): See `TrajectoryEmbeddingBase.__init__`.
         """
-        super().__init__(neighbors_params=neighbors_params, method_params=dpt_params, random_state=random_state)
+        super().__init__(random_state, adata, embedding, labels, connectivities, distances, neighbour_key)
+
+        self.neighbors_params = neighbors_params or {}
         self.diffmap_params = diffmap_params or {}
-        self.iroot_spec = iroot  # Specification for the root
+        self.dpt_params = dpt_params or {}
+        self.iroot_params = iroot_params  # Specification for the root
 
     def _calculate(self):
         """Performs the Diffusion Map and DPT calculations, including root setting."""
         # Compute Diffusion Map
-        if x_diffmap_key not in self.adata_prepared.obsm:
-            self.logger.info("Computing Diffusion Map.")
-            sc.tl.diffmap(self.adata_prepared, **self.diffmap_params)
-            self.logger.debug("Diffusion Map computed successfully.")
-        else:
-            self.logger.info("Diffusion Map is already calculated.")
+        self._needs_neighbors(neighbors_params=self.neighbors_params)
+        self._needs_diffmap(diffmap_params=self.diffmap_params)
 
         # Determine and set the root
-        if self.iroot_spec is not None:
-            if isinstance(self.iroot_spec, int):
-                self.logger.debug(f"Setting root using provided integer index: {self.iroot_spec}.")
-                self._set_root_custom_index(self.iroot_spec)
-            elif isinstance(self.iroot_spec, np.ndarray):
+        if self.iroot_params is not None:
+            if isinstance(self.iroot_params, int):
+                self.logger.debug(f"Setting root using provided integer index: {self.iroot_params}.")
+                self._set_root_custom_index(self.iroot_params)
+            elif isinstance(self.iroot_params, np.ndarray):
                 self.logger.debug("Setting root using provided custom binary array.")
-                self.set_root_custom_array(custom_array=self.iroot_spec)
-            elif isinstance(self.iroot_spec, dict):
+                self.set_root_custom_array(custom_array=self.iroot_params)
+            elif isinstance(self.iroot_params, dict):
                 self.logger.debug("Setting root using provided label-based specification.")
-                self.set_root_from_label_dict(label_dict=self.iroot_spec)
+                self.set_root_from_label_dict(label_dict=self.iroot_params)
             else:
                 raise ValueError("Invalid type for 'iroot'. Must be int, np.ndarray, or dict.")
         else:
@@ -101,7 +115,7 @@ class DPTInference(TrajectoryInferenceBase):
 
         # Perform DPT with the specified root in `iroot`
         self.logger.info("Performing DPT trajectory calculation.")
-        sc.tl.dpt(self.adata_prepared, **self.method_params)
+        sc.tl.dpt(self.adata_prepared, **self.dpt_params)
         self.logger.debug("DPT calculation completed successfully.")
 
     def get_result(self, return_mode: str) -> Union[AnnData, np.ndarray]:
@@ -120,7 +134,7 @@ class DPTInference(TrajectoryInferenceBase):
             Union[AnnData, np.ndarray]: The result of the DPT trajectory inference.
         """
         if self.adata_prepared is None:
-            raise RuntimeError("First run `infer_trajectory`.")
+            raise RuntimeError("First run `calculate`.")
 
         if return_mode == "anndata":
             return self.adata_prepared
@@ -214,7 +228,7 @@ class DPTInference(TrajectoryInferenceBase):
         self.adata_prepared.uns[iroot_key] = root_ix
         self.logger.info(info)
 
-    def _set_root_from_label_dict(self, label_dict: Dict[str, Any]) -> Tuple[int, str]:
+    def _set_root_from_label_dict(self, label_dict: Dict[str, Any], component_default: int = 0) -> Tuple[int, str]:
         """Method providing the root. See `set_root_from_label_dict` for details."""  # noqa
         required_keys = {"label", "method", "outlier_definition_z"}
         if not required_keys.issubset(label_dict.keys()):
@@ -224,8 +238,7 @@ class DPTInference(TrajectoryInferenceBase):
         label = label_dict["label"]
         method = label_dict["method"]
         outlier_definition_z = label_dict["outlier_definition_z"]
-        method_params = {k: v for k, v in label_dict.items() if k not in required_keys}
-        component_default = 0
+        optional_params_label_dict = {k: v for k, v in label_dict.items() if k not in required_keys}
         invalid_method_error = (
             "Invalid method for setting root. Choose from 'min_diffmap', 'centroid', 'density', or 'random'."
         )
@@ -246,13 +259,13 @@ class DPTInference(TrajectoryInferenceBase):
         master_indices = cluster_indices.copy()  # Initialize master_indices
 
         def _get_comp():
-            _comp = method_params.get("component", component_default)
+            _comp = optional_params_label_dict.get("component", component_default)
             if _comp < 0 or _comp >= self.adata_prepared.obsm[x_diffmap_key].shape[1]:
                 raise ValueError(f"Component index {_comp} is out of bounds for Diffusion Map.")
             return _comp
 
         def _get_centroid_emb(subset):
-            _centroid_emb = method_params.get("centroid_embedding", "X")
+            _centroid_emb = optional_params_label_dict.get("centroid_embedding", "X")
             if not (_centroid_emb == "X" or _centroid_emb in self.adata_prepared.obsm.keys()):
                 raise ValueError(f"Centroid embedding key {_centroid_emb!r} is not found in `adata.obsm`.")
             _embedding = self.adata_prepared.X if _centroid_emb == "X" else self.adata_prepared.obsm[_centroid_emb]
