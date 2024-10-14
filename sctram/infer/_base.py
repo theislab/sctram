@@ -1,27 +1,21 @@
 #!/usr/bin/env python3
 
 import logging
+import random
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Union
+from typing import Any, Literal, Optional, Union
 
 import numpy as np
 import pandas as pd
 import scanpy as sc
 from anndata import AnnData
+from scipy.sparse import csr_matrix
 
-from sctram._constants import labels_key
-
-# TODO: Ensure the below structure is in `adata.uns["neighbors"]`
-# {'connectivities_key': 'connectivities',
-#  'distances_key': 'distances',
-#  'params': {'n_neighbors': 90,
-#   'method': 'umap',
-#   'random_state': 0,
-#   'metric': 'euclidean'}}
+from sctram._constants import connectivities_key, distances_key, labels_key, neighbors_key, x_diffmap_key
 
 
-class TrajectoryInferenceBase(ABC):
-    """Abstract base class for trajectory inference methods.
+class AnndataPreperation:
+    """Mixin class for preparing anndata from different input types.
 
     This class includes common initialization and data preparation steps.
     Subclasses should implement the specific calculation and return logic.
@@ -46,102 +40,16 @@ class TrajectoryInferenceBase(ABC):
     **Note**: Use only one initialization method per instance.
     """
 
-    def __init__(
-        self,
-        neighbors_params: Optional[Dict[str, Any]] = None,
-        method_params: Optional[Dict[str, Any]] = None,
-        random_state: Optional[int] = None,
-    ):
-        """Initializes the base trajectory inference method with common parameters.
+    def __init__(self, random_state) -> None:
+        """Initialize object.
 
         Args:
-            neighbors_params (Optional[Dict[str, Any]]): Parameters for `sc.pp.neighbors`.
-            method_params (Optional[Dict[str, Any]]): Parameters for the specific trajectory method.
-            random_state (Optional[int]): Random state for reproducibility.
+            random_state (Optional[int], optional): See `TrajectoryEmbeddingBase.__init__`.
         """
-        self.neighbors_params = neighbors_params or {}
-        self.method_params = method_params or {}
+        self.logger = logging.getLogger(self.__class__.__name__)  # Configure logging
         self.random_state = random_state
 
-        self.logger = logging.getLogger(self.__class__.__name__)  # Configure logging
-        self.adata_prepared: AnnData  # Internal AnnData object
-
-    def infer_trajectory(
-        self,
-        adata: Optional[AnnData] = None,
-        embedding: Optional[Union[np.ndarray, pd.DataFrame]] = None,
-        labels: Optional[Union[np.ndarray, pd.Series]] = None,
-        connectivities: Optional[Union[np.ndarray, pd.DataFrame]] = None,
-        distances: Optional[Union[np.ndarray, pd.DataFrame]] = None,
-        neighbour_key: Optional[str] = None,
-        return_mode: Optional[str] = None,
-    ) -> Any:
-        """Computes the trajectory inference based on the provided inputs.
-
-        This method prepares the AnnData object and calls the specific calculation.
-
-        Args:
-            adata (Optional[AnnData]): An AnnData object containing the dataset. It can be used directly
-                if it contains precomputed neighbors or will require neighbor computation if not.
-            embedding (Optional[Union[np.ndarray, pd.DataFrame]]): A low-dimensional representation of the data,
-                typically resulting from dimensionality reduction techniques such as PCA, or an autoencoder latent space.
-            labels (Optional[Union[np.ndarray, pd.Series]]): The labels or identifiers for each data point in
-                the embedding. These are used to group data points during the PAGA computation.
-            connectivities (Optional[Union[np.ndarray, pd.DataFrame]]): A precomputed connectivity matrix specifying the
-                connectivity relationships between data points, used if neighbors are not computed within this function.
-            distances (Optional[Union[np.ndarray, pd.DataFrame]]): A precomputed distance matrix specifying the distances
-                between data points, which can be used alongside connectivities to define neighborhood relationships.
-            neighbour_key (Optional[str]): The key under which precomputed neighbors are stored within the `adata.uns`
-                dictionary if using an AnnData object that already contains neighbor information.
-            return_mode (Optional[str]): Decide the returned object. Either anndata or the result of the calculation.
-                The key `anndata` used as for outputing anndata. Other keys are calculation specific. When `None`,
-                nothing is returned. The user needs to call `get_result` separately.
-
-        Returns:
-            Any: The result of the specific trajectory inference method.
-
-        Raises:
-            RuntimeError: If trajectory inference fails.
-        """
-        try:
-            self.logger.info(f"Starting {self.__class__.__name__} trajectory inference.")
-
-            # Initialize AnnData
-            self.adata_prepared = self._initialize_adata(
-                adata=adata,
-                embedding=embedding,
-                labels=labels,
-                connectivities=connectivities,
-                distances=distances,
-                neighbour_key=neighbour_key,
-            )
-
-            # Set random state if provided
-            if self.random_state is not None:
-                sc.settings.seed = self.random_state
-
-            # Ensure neighbors are computed
-            if "neighbors" not in self.adata_prepared.uns:
-                self.logger.info("Computing neighbors.")
-                sc.pp.neighbors(self.adata_prepared, **self.neighbors_params)
-            else:
-                self.logger.info("Using precomputed neighbors from AnnData.")
-
-            # Perform the specific trajectory calculation
-            self.logger.info("Performing trajectory calculation.")
-            self._calculate()
-
-            # Return the results based on the subclass's implementation
-            self.logger.info("Trajectory inference completed successfully.")
-            if return_mode is not None:
-                return self.get_result(return_mode=return_mode)
-                # Method specific output or outputs.
-
-        except Exception as e:
-            self.logger.error(f"Error in trajectory inference: {e}")
-            raise RuntimeError(f"Error in trajectory inference: {e}") from e
-
-    def _initialize_adata(
+    def initialize_adata(
         self,
         adata: Optional[AnnData],
         embedding: Optional[Union[np.ndarray, pd.DataFrame]],
@@ -226,11 +134,11 @@ class TrajectoryInferenceBase(ABC):
             self.logger.debug(f"Using precomputed neighbors from key {neighbour_key!r}.")
             if neighbour_key not in adata_prepared.uns:
                 raise ValueError(f"Neighbours key {neighbour_key!r} not found in AnnData.uns.")
-            # Move neighbors to standard 'neighbors' key
-            adata_prepared.uns["neighbors"] = adata_prepared.uns.pop(neighbour_key)
+            # Move neighbors to standard neighbors_key key
+            adata_prepared.uns[neighbors_key] = adata_prepared.uns.pop(neighbour_key)
         else:
-            if "neighbors" not in adata_prepared.uns:
-                self.logger.warning("No precomputed neighbors provided. Neighbors will be computed.")
+            if neighbors_key not in adata_prepared.uns:
+                self.logger.warning("No precomputed neighbors provided.")
 
         self.logger.debug("AnnData initialized successfully from AnnData with neighbors.")
         return adata_prepared
@@ -255,8 +163,8 @@ class TrajectoryInferenceBase(ABC):
         # Handle labels
         adata_prepared = self._add_labels_to_adata(adata_prepared, labels)
 
-        if "neighbors" not in adata_prepared.uns:
-            self.logger.info("No precomputed neighbors found in AnnData. Neighbors will be computed.")
+        if neighbors_key not in adata_prepared.uns:
+            self.logger.info("No precomputed neighbors found in AnnData.")
         else:
             self.logger.debug("Using existing neighbors from AnnData.")
 
@@ -289,9 +197,7 @@ class TrajectoryInferenceBase(ABC):
             self.logger.debug("Adding precomputed neighbors to AnnData.")
             adata = self._add_precomputed_neighbors(adata, connectivities=connectivities, distances=distances)
         else:
-            self.logger.info(
-                "Precomputed neighbor matrics (`distances` and `connectivities`) are not provided. Neighbors will be computed."
-            )
+            self.logger.info("Precomputed neighbor matrices (`distances` and `connectivities`) are not provided.")
 
         self.logger.debug("AnnData initialized successfully from embedding and labels.")
         return adata
@@ -381,6 +287,15 @@ class TrajectoryInferenceBase(ABC):
     ) -> AnnData:
         """Adds precomputed neighbors to the AnnData object.
 
+        Ensures that `adata.uns[neighbors_key]` has the required structure:
+            {
+                'connectivities_key': connectivities_key,
+                'distances_key': distances_key,
+                'params': {
+                    'n_neighbors': <inferred_n_neighbors>
+                }
+            }
+
         Args:
             adata (AnnData): AnnData object.
             connectivities (Optional[Union[np.ndarray, pd.DataFrame]]): Connectivity matrix.
@@ -395,39 +310,243 @@ class TrajectoryInferenceBase(ABC):
         self.logger.debug("Adding connectivity matrix to AnnData.")
         if isinstance(connectivities, pd.DataFrame):
             connectivities = connectivities.values
-        if not isinstance(connectivities, np.ndarray):
-            raise ValueError("Connectivities must be a numpy.ndarray or pandas.DataFrame.")
+        if not isinstance(connectivities, (np.ndarray, csr_matrix)):
+            raise ValueError("Connectivities must be a numpy.ndarray, pandas.DataFrame, or scipy.sparse matrix.")
         if connectivities.shape[0] != connectivities.shape[1]:
             raise ValueError("Connectivity matrix must be square.")
         if connectivities.shape[0] != len(adata):
             raise ValueError("Connectivity matrix size must match number of cells.")
-        adata.obsp["connectivities"] = connectivities
+        adata.obsp[connectivities_key] = connectivities
 
         self.logger.debug("Adding distance matrix to AnnData.")
         if isinstance(distances, pd.DataFrame):
             distances = distances.values
-        if not isinstance(distances, np.ndarray):
-            raise ValueError("Distances must be a numpy.ndarray or pandas.DataFrame.")
+        if not isinstance(distances, (np.ndarray, csr_matrix)):
+            raise ValueError("Distances must be a numpy.ndarray, pandas.DataFrame, or scipy.sparse matrix.")
         if distances.shape[0] != distances.shape[1]:
             raise ValueError("Distance matrix must be square.")
         if distances.shape[0] != len(adata):
             raise ValueError("Distance matrix size must match number of cells.")
-        adata.obsp["distances"] = distances
+        adata.obsp[distances_key] = distances
 
-        self.logger.debug("Precomputed neighbors added successfully.")
+        if connectivities.shape[0] != distances.shape[1]:
+            raise ValueError("Connectivity and distance matrices must be the same shape.")
+
+        # Infer n_neighbors from the distances and connectivities matrices
+        n_neighbors_inferred = self._infer_n_neighbors(distances, connectivities)
+        adata.uns[neighbors_key] = {  # Update adata.uns[neighbors_key] with the required structure
+            "connectivities_key": connectivities_key,
+            "distances_key": distances_key,
+            "params": {
+                "n_neighbors": n_neighbors_inferred
+                # Exclude 'metric', 'random_state', 'method' as per requirements
+            },
+        }
+        for adata_uns_neighbors_params_keys in ["metric", "random_state", "method"]:
+            adata.uns[neighbors_key]["params"][adata_uns_neighbors_params_keys] = np.nan
+
+        self.logger.debug(
+            "Precomputed neighbors added successfully with the required structure in adata.uns[neighbors_key]."
+        )
         return adata
+
+    def _infer_n_neighbors(self, distances, connectivities, sample_size: int = 10) -> int:
+        """Infers the number of neighbors (n_neighbors) by ensuring both connectivity and distance matrices agree.
+
+        Args:
+            distances (Union[np.ndarray, pd.DataFrame, csr_matrix]): Distance matrix.
+            connectivities (Union[np.ndarray, pd.DataFrame, csr_matrix]): Connectivity matrix.
+            sample_size (int): Number of random rows to sample for consistency check.
+
+        Returns:
+            int: Inferred number of neighbors.
+
+        Raises:
+            ValueError: If connectivity and distance matrices do not agree on sampled rows.
+        """
+        self.logger.debug("Starting n_neighbors inference.")
+
+        # Helper function to count non-zero elements per row
+        def count_nonzeros(matrix, matrix_name):
+            if isinstance(matrix, csr_matrix):
+                return matrix.getnnz(axis=1)
+            elif isinstance(matrix, np.ndarray):
+                if matrix_name == "connectivities":
+                    return np.sum(matrix > 0, axis=1)
+                elif matrix_name == "distances":
+                    return np.sum(np.isfinite(matrix), axis=1)
+            elif isinstance(matrix, pd.DataFrame):
+                return matrix.astype(bool).sum(axis=1).values
+            else:
+                raise ValueError(f"Unsupported matrix type for {matrix_name}.")
+
+        # Count non-zero neighbors for both matrices
+        nnz_connectivities = count_nonzeros(connectivities, "connectivities")
+        nnz_distances = count_nonzeros(distances, "distances")
+
+        # Sample indices
+        rng = np.random.default_rng(self.random_state)
+        sample_size = min(sample_size, len(nnz_connectivities))
+        sampled_indices = rng.choice(len(nnz_connectivities), size=sample_size, replace=False)
+        self.logger.debug(f"Sampled indices for consistency check: {sampled_indices}")
+
+        # Compare neighbor counts in sampled rows
+        for idx in sampled_indices:
+            conn_count = nnz_connectivities[idx]
+            dist_count = nnz_distances[idx]
+            if conn_count != dist_count:
+                raise ValueError(
+                    f"Neighbor count mismatch between connectivities and distances matrices at sampled row {idx}."
+                )
+
+        # If all sampled rows match, infer n_neighbors from connectivity matrix
+        # Assuming connectivity matrix defines a KNN graph with consistent n_neighbors
+        unique_conn_counts = np.unique(nnz_connectivities).max()
+        unique_dist_counts = np.unique(nnz_distances).max()
+        if unique_dist_counts != unique_dist_counts:
+            raise ValueError("Max neighbor count mismatch between connectivities and distances matrices.")
+
+        return int(unique_conn_counts)
+
+
+class InferenceAndEmbeddingBase(ABC):
+    """Abstract base class for trajectory inference methods or embedding calculations.
+
+    This class includes common initialization and data preparation steps.
+    Subclasses should implement the specific calculation and return logic.
+
+    This class supports three initialization methods given in `AnndataBase`.
+    """
+
+    subclass_mode: Literal["trajectory inference", "embedding calculation"]
+
+    def __init__(
+        self,
+        random_state: Optional[int] = None,
+        # adata preparation parameters
+        adata: Optional[AnnData] = None,
+        embedding: Optional[Union[np.ndarray, pd.DataFrame]] = None,
+        labels: Optional[Union[np.ndarray, pd.Series]] = None,
+        connectivities: Optional[Union[np.ndarray, pd.DataFrame]] = None,
+        distances: Optional[Union[np.ndarray, pd.DataFrame]] = None,
+        neighbour_key: Optional[str] = None,
+    ):
+        """Initializes the class and prepares the AnnData object.
+
+        See `AnndataPreperationMixin` class to understand how to use anndata parameters to prepare the anndata object.
+
+        Args:
+            random_state (Optional[int]): Random state for reproducibility.
+            adata (Optional[AnnData]): An AnnData object containing the dataset. It can be used directly
+                if it contains precomputed neighbors or will require neighbor computation if not.
+            embedding (Optional[Union[np.ndarray, pd.DataFrame]]): A low-dimensional representation of the data,
+                resulting from dimensionality reduction techniques such as PCA, or an autoencoder latent space.
+            labels (Optional[Union[np.ndarray, pd.Series]]): The labels or identifiers for each data point in
+                the embedding. These are used to group data points during the PAGA computation.
+            connectivities (Optional[Union[np.ndarray, pd.DataFrame]]): A precomputed connectivity matrix specifying the
+                connectivity relationships between data points, used if neighbors are not computed within this function.
+            distances (Optional[Union[np.ndarray, pd.DataFrame]]): A precomputed distance matrix specifying distances.
+                between data points, which can be used alongside connectivities to define neighborhood relationships.
+            neighbour_key (Optional[str]): The key under which precomputed neighbors are stored within the `adata.uns`
+                dictionary if using an AnnData object that already contains neighbor information.
+
+        Raises:
+            ValueError: if `subclass_mode` is not correctly defined among possible ones.
+            NotImplementedError: When `subclass_mode` is not specified as class variable.
+        """
+        if not hasattr(self, "subclass_mode"):
+            raise NotImplementedError("Subclasses must define the 'subclass_mode' class variable")
+        if self.subclass_mode not in ["trajectory inference", "embedding calculation"]:
+            raise ValueError("'subclass_mode' must be 'trajectory inference' or 'embedding calculation'")
+
+        self.random_state = random_state
+        self.logger = logging.getLogger(self.__class__.__name__)  # Configure logging
+
+        if self.random_state is not None:  # Set random seed
+            sc.settings.seed = self.random_state
+            np.random.seed(self.random_state)
+            random.seed(self.random_state)
+
+        # Initialize AnnData
+        self.adata_prepared = AnndataPreperation(random_state=self.random_state).initialize_adata(
+            adata=adata,
+            embedding=embedding,
+            labels=labels,
+            connectivities=connectivities,
+            distances=distances,
+            neighbour_key=neighbour_key,
+        )
+
+    def calculate(self, return_mode: Optional[str] = None) -> Any:
+        """Computes the trajectory inference or embedding calculation based on the provided inputs.
+
+        Args:
+            return_mode (Optional[str]): Decide the returned object. Either anndata or the result of the calculation.
+                The key `anndata` used as for outputing anndata. Other keys are calculation specific. When `None`,
+                nothing is returned. The user needs to call `get_result` separately.
+
+        Returns:
+            Any: The result of the specific trajectory inference method or embedding calculation.
+
+        Raises:
+            RuntimeError: If fails.
+        """
+        try:
+            self.logger.info(f"Starting {self.__class__.__name__} {self.subclass_mode}.")
+
+            # Perform the specific calculation
+            self.logger.info(f"Performing {self.subclass_mode}.")
+            self._calculate()
+
+            # Return the results based on the subclass's implementation
+            self.logger.info(f"{self.subclass_mode.capitalize()} completed successfully.")
+            if return_mode is not None:
+                return self.get_result(return_mode=return_mode)
+                # Method specific output or outputs.
+
+        except Exception as e:
+            self.logger.error(f"Error in {self.subclass_mode}: {e}")
+            raise RuntimeError(f"Error in {self.subclass_mode}: {e}") from e
+
+    def _needs_neighbors(self, neighbors_params):
+        if neighbors_key not in self.adata_prepared.uns:
+            self.logger.info("Computing neighbors.")
+            sc.pp.neighbors(self.adata_prepared, **neighbors_params)
+        else:
+            self.logger.info("Using precomputed neighbors from AnnData.")
+
+    def _needs_diffmap(self, diffmap_params):
+        if x_diffmap_key not in self.adata_prepared.obsm:
+            self.logger.info("Computing Diffusion Map.")
+            sc.tl.diffmap(self.adata_prepared, **diffmap_params)
+            self.logger.debug("Diffusion Map computed successfully.")
+        else:
+            self.logger.info("Diffusion Map is already calculated.")
 
     @abstractmethod
     def _calculate(self):
-        """Performs the specific trajectory inference calculation."""
+        """Performs the specific trajectory inference or embedding calculation."""
+        # Specify if you need to call `_needs_neighbors` method.
         pass
 
     @abstractmethod
     def get_result(self, return_mode: str) -> Any:
-        """Retrieves the result of the trajectory inference.
+        """Retrieves the result of the trajectory inference or embedding calculation.
 
         Args:
             return_mode (str): Decide the returned object. Either anndata or the result of the calculation. The key
                 `anndata` used to get the anndata with calculations. Other keys are calculation specific.
         """
         pass
+
+
+class EmbeddingBase(InferenceAndEmbeddingBase):
+    """Embedding subclass."""
+
+    subclass_mode = "embedding calculation"
+
+
+class InferenceBase(InferenceAndEmbeddingBase):
+    """Inference subclass."""
+
+    subclass_mode = "trajectory inference"

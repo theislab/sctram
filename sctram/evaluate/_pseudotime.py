@@ -40,6 +40,11 @@ class PseudotimeEvaluation(EvaluationBase):
         "wasserstein_distance",
         "mutual_information",
         "cumulative_density_difference",
+        # New spatial metrics
+        "morans_i",
+        "gearys_c",
+        "local_morans_i",
+        "getis_ord_gi_star",
     ]
 
     def __init__(
@@ -60,6 +65,12 @@ class PseudotimeEvaluation(EvaluationBase):
 
         if prepare_params_before_subset is None or "method" not in prepare_params_before_subset.keys():
             raise ValueError("Determine a method how to estimate pseudotime from adjacency matrix.")
+
+    def get_result(self) -> Any:
+        """Retrieves the result of the trajectory evaluation."""
+        if not self.result:
+            raise ValueError("No result available. Have you run the evaluation?")
+        return self.result
 
     def _verify_inferred_trajectory(self, inferred_pseudotime: Any) -> np.ndarray:
         """Verifies the inferred pseudotime.
@@ -223,6 +234,14 @@ class PseudotimeEvaluation(EvaluationBase):
                 self._calculate_mutual_information()
             elif metric == "cumulative_density_difference":
                 self._calculate_cumulative_density_difference()
+            elif metric == "morans_i":
+                self._calculate_morans_i()
+            elif metric == "gearys_c":
+                self._calculate_gearys_c()
+            elif metric == "local_morans_i":
+                self._calculate_local_morans_i()
+            elif metric == "getis_ord_gi_star":
+                self._calculate_getis_ord_gi_star()
             else:
                 self.logger.warning(f"Unknown metric {metric!r} specified. Skipping.")
 
@@ -531,15 +550,34 @@ class PseudotimeEvaluation(EvaluationBase):
         self.result["cumulative_density_p_value"] = p_value
         self.logger.debug(f"Cumulative density difference (KS statistic): {statistic}, p-value: {p_value}")
 
-    def get_result(self) -> Any:
-        """Retrieves the result of the trajectory evaluation.
+    def _calculate_morans_i(self):
+        """Calculates Moran's I for the pseudotime."""
+        x = self.prepared_after_subset_given
+        spatial_weights = self.compute_spatial_weights(x, "pseudotime", **self.method_params)
+        morans_i = self.calculate_morans_i(x, spatial_weights)
+        self.result["morans_i"] = morans_i
+        self.logger.debug(f"Moran's I: {morans_i}")
 
-        Returns:
-            Any: A dictionary containing the results of all evaluated metrics.
+    def _calculate_gearys_c(self):
+        """Calculates Geary's C for the pseudotime."""
+        x = self.prepared_after_subset_given
+        spatial_weights = self.compute_spatial_weights(x, "pseudotime", **self.method_params)
+        gearys_c = self.calculate_gearys_c(x, spatial_weights)
+        self.result["gearys_c"] = gearys_c
+        self.logger.debug(f"Geary's C: {gearys_c}")
 
-        Raises:
-            ValueError: If the result is not available.
-        """
-        if not self.result:
-            raise ValueError("No result available. Have you run the evaluation?")
-        return self.result
+    def _calculate_local_morans_i(self):
+        """Calculates Local Moran's I (LISA) for the pseudotime."""
+        x = self.prepared_after_subset_given
+        spatial_weights = self.compute_spatial_weights(x, "pseudotime", **self.method_params)
+        lisa = self.calculate_lisa(x, spatial_weights)
+        self.result["local_morans_i"] = lisa
+        self.logger.debug(f"Local Moran's I: {lisa}")
+
+    def _calculate_getis_ord_gi_star(self):
+        """Calculates Getis-Ord Gi* statistic for the pseudotime."""
+        x = self.prepared_after_subset_given
+        spatial_weights = self.compute_spatial_weights(x, "pseudotime", **self.method_params)
+        gi_star = self.calculate_getis_ord_gi_star(x, spatial_weights)
+        self.result["getis_ord_gi_star"] = gi_star
+        self.logger.debug(f"Getis-Ord Gi* statistic: {gi_star}")
