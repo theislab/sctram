@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 from scipy.sparse import csr_matrix
@@ -29,100 +29,208 @@ class SpatialMetricsMixin:
         - Avoids reliance on external spatial libraries like `pysal`.
     """
 
-    def compute_spatial_weights(self, data: Any, input_type: str, **kwargs) -> csr_matrix:
-        """Computes spatial weights based on the input data type.
+    def compute_spatial_weights(
+        self,
+        data: Any,
+        input_type: str,
+        weight_method: Optional[str] = None,
+        k: Optional[int] = None,
+        sigma: Optional[float] = None,
+        gamma: Optional[float] = None,
+    ) -> csr_matrix:
+        """
+        Compute spatial weights based on the input data type.
 
         Spatial weights define the spatial relationships between units. The computation
         method varies depending on whether the input is an adjacency matrix, pseudotime vector,
-        or diffusion map embedding.
+        or embedding (e.g., diffusion map embeddings).
 
         Args:
             data (Any): The data representing the trajectory.
-                        - For 'adjacency': 2D numpy array (adjacency matrix).
-                        - For 'pseudotime': 1D numpy array (pseudotime values).
-                        - For 'diffmap': 2D numpy array (diffusion map embeddings).
-            input_type (str): The type of input data ('adjacency', 'pseudotime', 'diffmap').
-            kwargs: Additional parameters for spatial weights computation.
-                      - For 'pseudotime':
-                          - 'weight_method': 'inverse' or 'gaussian'.
-                          - 'sigma': Parameter for 'gaussian' weighting.
-                      - For 'diffmap':
-                          - 'weight_method': 'knn' or 'rbf'.
-                          - 'k': Number of neighbors for 'knn'.
-                          - 'gamma': Parameter for 'rbf' weighting.
+                - For 'adjacency': 2D numpy array (adjacency matrix).
+                - For 'pseudotime': 1D numpy array (pseudotime values).
+                - For 'embedding': 2D numpy array (embeddings such as diffusion maps or PCA).
+                - For 'precalculated': Already computed spatial weights matrix.
+            input_type (str): The type of input data. Must be one of:
+                - 'adjacency'
+                - 'pseudotime'
+                - 'embedding'
+                - 'precalculated'
+            weight_method (Optional[str]): Method to compute weights.
+                - For 'pseudotime':
+                    - 'inverse' (default)
+                    - 'gaussian'
+                - For 'embedding':
+                    - 'knn' (default)
+                    - 'rbf'
+                - Ignored for 'adjacency' and 'precalculated'.
+            k (Optional[int]): Number of neighbors for 'knn' weighting. Default is 10.
+                Applicable only when input_type is 'embedding' and weight_method is 'knn'.
+            sigma (Optional[float]): Parameter for 'gaussian' weighting. Default is 1.0.
+                Applicable only when input_type is 'pseudotime' and weight_method is 'gaussian'.
+            gamma (Optional[float]): Parameter for 'rbf' weighting. Default is 1.0.
+                Applicable only when input_type is 'embedding' and weight_method is 'rbf'.
 
         Returns:
             csr_matrix: The computed spatial weights matrix in sparse CSR format.
 
         Raises:
-            ValueError: If the input_type is unsupported or required parameters are missing.
+            ValueError: If input_type is unsupported, required parameters are missing,
+                        or input data is invalid.
         """
-        if input_type == "adjacency":
-            # Assume 'data' is adjacency matrix
-            adjacency_matrix = data
-            if not isinstance(adjacency_matrix, np.ndarray):
-                raise ValueError("Adjacency matrix must be a numpy array.")
-            if adjacency_matrix.ndim != 2 or adjacency_matrix.shape[0] != adjacency_matrix.shape[1]:
-                raise ValueError("Adjacency matrix must be a square 2D array.")
-            spatial_weights = csr_matrix(adjacency_matrix)
-            row_sums = spatial_weights.sum(axis=1).A1  # Convert to 1D array
-            row_sums[row_sums == 0] = 1  # Avoid division by zero
-            spatial_weights = spatial_weights.multiply(1 / row_sums[:, np.newaxis])
-        elif input_type == "pseudotime":
-            # Assume 'data' is a 1D pseudotime vector
-            pseudotime = data
-            if not isinstance(pseudotime, np.ndarray):
-                raise ValueError("Pseudotime data must be a numpy array.")
-            if pseudotime.ndim != 1:
-                raise ValueError("Pseudotime data must be a 1D array.")
-            weight_method = kwargs.get("weight_method", "inverse")  # 'inverse' or 'gaussian'
-            if weight_method == "inverse":
-                distance_matrix = np.abs(pseudotime[:, np.newaxis] - pseudotime[np.newaxis, :])
-                spatial_weights = 1 / (distance_matrix + 1e-5)  # Add small value to avoid division by zero
-            elif weight_method == "gaussian":
-                sigma = kwargs.get("sigma", 1.0)
-                distance_matrix = np.abs(pseudotime[:, np.newaxis] - pseudotime[np.newaxis, :])
-                spatial_weights = np.exp(-(distance_matrix**2) / (2 * sigma**2))
-            else:
-                raise ValueError(f"Unknown weight_method {weight_method!r} for pseudotime.")
-            spatial_weights = csr_matrix(spatial_weights)
-            row_sums = spatial_weights.sum(axis=1).A1
-            row_sums[row_sums == 0] = 1
-            spatial_weights = spatial_weights.multiply(1 / row_sums[:, np.newaxis])
-        elif input_type == "diffmap":
-            # Assume 'data' is diffusion map embeddings
-            embedding = data
-            if not isinstance(embedding, np.ndarray):
-                raise ValueError("Diffusion map embeddings must be a numpy array.")
-            if embedding.ndim != 2:
-                raise ValueError("Diffusion map embeddings must be a 2D array.")
-
-            weight_method = kwargs.get("weight_method", "knn")  # 'knn' or 'rbf'
-            if weight_method == "knn":
-                k = kwargs.get("k", 10)
-                spatial_weights = kneighbors_graph(embedding, n_neighbors=k, mode="connectivity", include_self=True)
-            elif weight_method == "rbf":
-                gamma = kwargs.get("gamma", 1.0)
-                spatial_weights = rbf_kernel(embedding, gamma=gamma)
-                spatial_weights = csr_matrix(spatial_weights)
-            else:
-                raise ValueError(f"Unknown weight_method {weight_method!r} for diffmap.")
-
-            if weight_method == "knn":
-                row_sums = spatial_weights.sum(axis=1).A1
-                row_sums[row_sums == 0] = 1
-                spatial_weights = spatial_weights.multiply(1 / row_sums[:, np.newaxis])
-        else:
+        supported_input_types = {'adjacency', 'pseudotime', 'embedding', 'precalculated'}
+        if input_type not in supported_input_types:
             raise ValueError(
-                f"Unsupported input_type {input_type!r}. Supported types: 'adjacency', 'pseudotime', 'diffmap'."
+                f"Unsupported input_type '{input_type}'. Supported types are: {supported_input_types}."
             )
+
+        if input_type == "precalculated":
+            if not isinstance(data, csr_matrix):
+                raise ValueError("For 'precalculated' input_type, data must be a scipy.sparse CSR matrix.")
+            return data.copy()
+
+        spatial_weights = None
+
+        if input_type == "adjacency":
+            spatial_weights = self._compute_adjacency_weights(data)
+
+        elif input_type == "pseudotime":
+            spatial_weights = self._compute_pseudotime_weights(
+                data, weight_method=weight_method or "inverse", sigma=sigma
+            )
+
+        elif input_type == "embedding":
+            spatial_weights = self._compute_embedding_weights(
+                data, weight_method=weight_method or "knn", k=k, gamma=gamma
+            )
+
+        # Normalize the spatial weights
+        spatial_weights = self._normalize_weights(spatial_weights)
+
         return spatial_weights
+
+    def _compute_adjacency_weights(self, adjacency_matrix: np.ndarray) -> csr_matrix:
+        """Compute spatial weights from an adjacency matrix.
+
+        Args:
+            adjacency_matrix (np.ndarray): 2D square numpy array representing adjacency.
+
+        Returns:
+            csr_matrix: Normalized spatial weights matrix.
+        """
+        if not isinstance(adjacency_matrix, np.ndarray):
+            raise ValueError("Adjacency matrix must be a numpy array.")
+        if adjacency_matrix.ndim != 2:
+            raise ValueError("Adjacency matrix must be 2-dimensional.")
+        if adjacency_matrix.shape[0] != adjacency_matrix.shape[1]:
+            raise ValueError("Adjacency matrix must be square (same number of rows and columns).")
+
+        spatial_weights = csr_matrix(adjacency_matrix)
+        return spatial_weights
+
+    def _compute_pseudotime_weights(
+        self, 
+        pseudotime: np.ndarray, 
+        weight_method: str, 
+        sigma: Optional[float]
+    ) -> csr_matrix:
+        """Compute spatial weights based on pseudotime data.
+
+        Args:
+            pseudotime (np.ndarray): 1D array of pseudotime values.
+            weight_method (str): Method to compute weights ('inverse' or 'gaussian').
+            sigma (Optional[float]): Parameter for 'gaussian' weighting.
+
+        Returns:
+            csr_matrix: Spatial weights matrix.
+
+        Raises:
+            ValueError: If weight_method is invalid or required parameters are missing.
+        """
+        if not isinstance(pseudotime, np.ndarray):
+            raise ValueError("Pseudotime data must be a numpy array.")
+        if pseudotime.ndim != 1:
+            raise ValueError("Pseudotime data must be a 1D array.")
+
+        if weight_method == "inverse":
+            distance_matrix = np.abs(pseudotime[:, np.newaxis] - pseudotime[np.newaxis, :])
+            weights = 1.0 / (distance_matrix + 1e-5)  # Avoid division by zero
+        elif weight_method == "gaussian":
+            if sigma is None:
+                sigma = 1.0  # Default value
+            distance_matrix = np.abs(pseudotime[:, np.newaxis] - pseudotime[np.newaxis, :])
+            weights = np.exp(-(distance_matrix ** 2) / (2 * sigma ** 2))
+        else:
+            raise ValueError(f"Unknown weight_method '{weight_method}' for 'pseudotime' input_type.")
+
+        return csr_matrix(weights)
+
+    def _compute_embedding_weights(
+        self, 
+        embedding: np.ndarray, 
+        weight_method: str, 
+        k: Optional[int], 
+        gamma: Optional[float]
+    ) -> csr_matrix:
+        """Compute spatial weights based on embedding data.
+
+        Args:
+            embedding (np.ndarray): 2D array of embeddings (e.g., diffusion maps, PCA).
+            weight_method (str): Method to compute weights ('knn' or 'rbf').
+            k (Optional[int]): Number of neighbors for 'knn' weighting.
+            gamma (Optional[float]): Parameter for 'rbf' weighting.
+
+        Returns:
+            csr_matrix: Spatial weights matrix.
+
+        Raises:
+            ValueError: If weight_method is invalid or required parameters are missing.
+        """
+        if not isinstance(embedding, np.ndarray):
+            raise ValueError("Embedding data must be a numpy array.")
+        if embedding.ndim != 2:
+            raise ValueError("Embedding data must be a 2D array.")
+
+        if weight_method == "knn":
+            if k is None:
+                k = 90  # Default number of neighbors
+            spatial_weights = kneighbors_graph(
+                embedding, n_neighbors=k, mode="connectivity", include_self=True, n_jobs=-1
+            )
+        elif weight_method == "rbf":
+            if gamma is None:
+                gamma = 1.0  # Default gamma
+            weights = rbf_kernel(embedding, gamma=gamma)
+            spatial_weights = csr_matrix(weights)
+        else:
+            raise ValueError(f"Unknown weight_method '{weight_method}' for 'embedding' input_type.")
+
+        return spatial_weights
+
+    def _normalize_weights(self, weights: csr_matrix) -> csr_matrix:
+        """Normalize spatial weights by row to ensure that the sum of weights for each unit is 1.
+
+        Args:
+            weights (csr_matrix): Spatial weights matrix.
+
+        Returns:
+            csr_matrix: Normalized spatial weights matrix.
+        """
+        row_sums = np.array(weights.sum(axis=1)).flatten()
+        # To avoid division by zero, set zero sums to one (isolated units will have zero weights)
+        with np.errstate(divide='ignore'):
+            inv_row_sums = 1.0 / row_sums
+            inv_row_sums[np.isinf(inv_row_sums)] = 0.0
+        diagonal_inv = csr_matrix((inv_row_sums, (np.arange(len(inv_row_sums)), np.arange(len(inv_row_sums)))), shape=(len(inv_row_sums), len(inv_row_sums)))
+        normalized_weights = diagonal_inv.dot(weights)
+        return normalized_weights
 
     def calculate_morans_i(self, x: np.ndarray, spatial_weights: csr_matrix) -> float:
         """Calculates Moran's I for the given data and spatial weights.
 
-        Moran's I is a measure of global spatial autocorrelation, indicating whether similar
-        values are clustered together or dispersed across the spatial units.
+        Moran's I is a measure of spatial autocorrelation that assesses the degree to which 
+        similar values are clustered together in a spatial context. It provides an indication 
+        of whether the pattern expressed is clustered, dispersed, or random.
 
         Mathematical Formulation:
             I = (N / W) * (Σi Σj w_ij (x_i - x̄)(x_j - x̄)) / Σi (x_i - x̄)^2
@@ -133,6 +241,32 @@ class SpatialMetricsMixin:
             - x_i: Value at spatial unit i.
             - x̄: Mean of all x_i.
             - w_ij: Spatial weight between spatial units i and j.
+
+        Advantages:
+            - Provides a global measure of spatial autocorrelation, summarizing the overall 
+              spatial pattern of the data.
+            - Intuitive interpretation where values close to +1 indicate strong clustering, 
+              values around 0 suggest randomness, and values close to -1 indicate dispersion.
+            - Useful for identifying the presence of spatial clusters in the data.
+
+        Limitations:
+            - Assumes linear relationships between the spatial units, which may not capture 
+              more complex spatial dependencies.
+            - Sensitive to the specification of the spatial weights matrix; different 
+              weight matrices can lead to different results.
+            - Does not identify where clusters or outliers are located, only the overall 
+              degree of autocorrelation.
+
+        Sensitivities:
+            - Highly sensitive to the choice and structure of the spatial weights matrix, 
+              which defines the spatial relationships between units.
+            - Influenced by outliers or extreme values in the data, which can skew the 
+              autocorrelation measure.
+
+        Result:
+            - A single scalar value representing Moran's I statistic.
+            - Values range from -1 (indicating perfect dispersion) to +1 (indicating perfect 
+              clustering), with 0 suggesting no spatial autocorrelation.
 
         Args:
             x (np.ndarray): 1D array of data values.
@@ -164,8 +298,9 @@ class SpatialMetricsMixin:
     def calculate_gearys_c(self, x: np.ndarray, spatial_weights: csr_matrix) -> float:
         """Calculates Geary's C for the given data and spatial weights.
 
-        Geary's C is another measure of spatial autocorrelation, emphasizing local
-        differences between neighboring spatial units.
+        Geary's C is a measure of spatial autocorrelation that focuses more on local differences 
+        between values. Unlike Moran's I, which emphasizes global patterns, Geary's C is more 
+        sensitive to changes in individual pairs of neighboring spatial units.
 
         Mathematical Formulation:
             C = ((N - 1) / (2W)) * (Σi Σj w_ij (x_i - x_j)^2) / Σi (x_i - x̄)^2
@@ -183,6 +318,29 @@ class SpatialMetricsMixin:
 
         Returns:
             float: Geary's C statistic.
+
+        Advantages:
+            - Provides a complementary perspective to Moran's I by emphasizing local spatial 
+              variations and differences.
+            - More sensitive to local anomalies and outliers compared to global autocorrelation measures.
+            - Useful for detecting areas with significant local dissimilarities.
+
+        Limitations:
+            - Like Moran's I, Geary's C is sensitive to the choice of spatial weights matrix.
+            - Interpretation can be less intuitive, as values less than 1 indicate positive 
+              spatial autocorrelation, values equal to 1 indicate no spatial autocorrelation, 
+              and values greater than 1 indicate negative spatial autocorrelation.
+            - Does not provide information on the location of spatial autocorrelation.
+
+        Sensitivities:
+            - Highly dependent on the spatial weights matrix, which defines the notion of neighborhood.
+            - Influenced by the presence of spatial outliers, which can disproportionately affect the measure.
+
+        Result:
+            - A single scalar value representing Geary's C statistic.
+            - Values range from 0 to 2, where values below 1 indicate positive spatial autocorrelation, 
+              values equal to 1 suggest no spatial autocorrelation, and values above 1 indicate 
+              negative spatial autocorrelation.
 
         Raises:
             ValueError: If input data is invalid.
@@ -221,8 +379,9 @@ class SpatialMetricsMixin:
     def calculate_lisa(self, x: np.ndarray, spatial_weights: csr_matrix) -> np.ndarray:
         """Calculates Local Moran's I (LISA) for each spatial unit.
 
-        Local Moran's I assesses spatial autocorrelation at the individual unit level,
-        identifying hotspots and coldspots.
+        Local Moran's I, also known as LISA (Local Indicators of Spatial Association), measures spatial 
+        autocorrelation at the local level. It identifies specific locations where high or low values 
+        are clustered, highlighting local clusters and spatial outliers.
 
         Mathematical Formulation:
             I_i = ((x_i - x̄) / S^2) * Σj w_ij (x_j - x̄)
@@ -233,6 +392,28 @@ class SpatialMetricsMixin:
             - x̄: Mean of all x_i.
             - S^2: Variance of all x_i.
             - w_ij: Spatial weight between spatial units i and j.
+
+        Advantages:
+            - Provides spatially explicit information, allowing for the identification of specific 
+              locations with significant spatial autocorrelation.
+            - Can detect local clusters of high or low values, as well as spatial outliers.
+            - Enhances the understanding of spatial patterns by revealing localized spatial dependencies.
+
+        Limitations:
+            - Requires multiple hypothesis testing corrections due to the multiple local tests being performed.
+            - Interpretation can be complex, especially when dealing with multiple significant local 
+              indicators.
+            - Sensitive to the choice of spatial weights matrix, which influences the identification of 
+              local clusters and outliers.
+
+        Sensitivities:
+            - Highly dependent on the spatial weights matrix, affecting which neighbors are considered.
+            - Influenced by the presence of local outliers, which can affect the identification of clusters.
+
+        Result:
+            - An array or similar structure containing Local Moran's I values for each spatial unit.
+            - Each value indicates the degree of local spatial autocorrelation, with higher absolute 
+              values suggesting stronger local clustering or outlier status.
 
         Args:
             x (np.ndarray): 1D array of data values.
@@ -264,8 +445,9 @@ class SpatialMetricsMixin:
     def calculate_getis_ord_gi_star(self, x: np.ndarray, spatial_weights: csr_matrix) -> np.ndarray:
         """Calculates the Getis-Ord Gi* statistic for each spatial unit.
 
-        Getis-Ord Gi* identifies statistically significant spatial clusters of high or low values,
-        known as hotspots and coldspots.
+        The Getis-Ord Gi* statistic measures the degree of clustering of high or low values in the data. 
+        It identifies "hotspots" (clusters of high values) and "coldspots" (clusters of low values) within 
+        the spatial context.
 
         Mathematical Formulation:
             G_i^* = [Σj w_ij x_j - x̄ Σj w_ij] / [S * sqrt((n Σj w_ij^2 - (Σj w_ij)^2) / (n - 1))]
@@ -276,6 +458,29 @@ class SpatialMetricsMixin:
             - S: Standard deviation of all x_j.
             - n: Number of spatial units.
             - w_ij: Spatial weight between spatial units i and j.
+
+        Advantages:
+            - Effectively identifies local clusters of high or low values, providing spatially explicit 
+              insights into hotspots and coldspots.
+            - Useful for detecting areas with significant concentration of extreme values.
+            - Can be applied to various types of spatial data, including counts, rates, and measurements.
+
+        Limitations:
+            - Requires careful interpretation, as statistical significance does not always imply practical 
+              significance.
+            - Sensitive to the specification of the spatial weights matrix, which defines neighborhood relationships.
+            - May identify clusters influenced by the overall distribution of the data, potentially overlooking 
+              smaller or less intense clusters.
+
+        Sensitivities:
+            - Highly dependent on the spatial weights matrix, affecting the identification of spatial clusters.
+            - Influenced by the presence of spatial outliers and the overall distribution of data values.
+
+        Result:
+            - An array or similar structure containing Getis-Ord Gi* values for each spatial unit.
+            - Each value indicates the degree of clustering of high or low values around the corresponding 
+              location, with higher positive values indicating hotspots and lower negative values indicating 
+              coldspots.
 
         Args:
             x (np.ndarray): 1D array of data values.

@@ -10,6 +10,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 from sctram.evaluate._base import EvaluationBase
 from sctram.evaluate._spatialmixin import SpatialMetricsMixin
+from sctram.input import InputTrajectory
 
 
 class AdjacencyMatrixEvaluation(SpatialMetricsMixin, EvaluationBase):
@@ -50,16 +51,15 @@ class AdjacencyMatrixEvaluation(SpatialMetricsMixin, EvaluationBase):
     def __init__(
         self,
         method_params: Dict[str, Any],
-        subset_params: Optional[Dict[str, Any]] = None,
-        prepare_params_before_subset: Optional[Dict[str, Any]] = None,
-        prepare_params_after_subset: Optional[Dict[str, Any]] = None,
+        subset_params: Optional[Dict[str, Any]] = None,  
+        prepare_params: Optional[Dict[str, Any]] = None
     ):
         """Initializes the adjacency matrix evaluation method."""  # noqa
         super().__init__(
             method_params=method_params,
             subset_params=subset_params,
-            prepare_params_before_subset=prepare_params_before_subset,
-            prepare_params_after_subset=prepare_params_after_subset,
+            prepare_params_before_subset=prepare_params,
+            prepare_params_after_subset=None,
         )
         self.logger.debug(f"Initialized AdjacencyMatrixEvaluation with metrics: {self.metrics}")
 
@@ -107,104 +107,100 @@ class AdjacencyMatrixEvaluation(SpatialMetricsMixin, EvaluationBase):
 
         return inferred_adjacency
 
-    def _prepare_before_subset(self, given_trajectory: Any, inferred_trajectory: Any) -> Tuple[np.ndarray, np.ndarray]:
+    def _verify_labels_data_specific(self):
+        """Verifies that labels is consistent with input trajectory and/or inferred trajectory.
+        
+        The labels for the adjacency evaluation should be unique and with the same size as the number of nodes.
+        
+        Raises:
+            ValueError: there is inconsistency.
+        """
+        self.logger.debug("Checking the consistency between the given graph and labels.")
+        if len(self.given_trajectory.nodes()) != len(self.labels):
+            raise ValueError("Number of nodes in the matrix does not match the number of given labels")    
+        elif set(self.given_trajectory.nodes()) != set(self.labels):
+            raise ValueError("Node names in the graph and label array do not match")
+
+    def _prepare_before_subset(self) -> Tuple[np.ndarray, np.ndarray]:
         """Prepares the trajectories before subsetting by converting them to adjacency matrices.
 
         Converts both the given and inferred trajectories to adjacency matrices to ensure compatibility
         for comparison. Validates that both matrices have identical shapes.
 
         Args:
-            given_trajectory (Any): The given trajectory.
-            inferred_trajectory (Any): The inferred trajectory.
+            given_trajectory (InputTrajectory): The given trajectory.
+            inferred_trajectory (np.ndarray): The inferred trajectory.
 
         Returns:
-            Tuple[Any, Any]: Prepared given and inferred adjacency matrices.
+            Tuple[np.ndarray, np.ndarray]: Prepared given and inferred adjacency matrices.
 
         Raises:
             ValueError: If the adjacency matrices cannot be prepared due to incompatible shapes or types.
         """
         self.logger.debug("Converting given trajectory to adjacency matrix.")
-        given_adj_matrix = nx.to_numpy_array(given_trajectory)
+        given_adj_matrix = nx.to_numpy_array(self.given_trajectory, nodelist=self.labels)
         self.logger.debug(f"Given adjacency matrix shape: {given_adj_matrix.shape}")
-        self.logger.debug(f"Inferred adjacency matrix is a NumPy array with shape: {inferred_trajectory.shape}")
+        # Note: this method assumes the inferred numpy array is already in correct order of labels.
+        # See the paga return_mode `label` and `adjacency`.
+        self.logger.debug(f"Inferred adjacency matrix is a numpy array with shape: {self.inferred_trajectory.shape}")
 
-        if given_adj_matrix.shape != inferred_trajectory.shape:
+        if given_adj_matrix.shape != self.inferred_trajectory.shape:
             raise ValueError("Given and inferred adjacency matrices must have the same shape for comparison.")
 
         self.logger.debug("Assigned prepared adjacency matrices before subsetting.")
-        return given_adj_matrix, inferred_trajectory
+        return given_adj_matrix, self.inferred_trajectory.copy()
 
-    def _subset(self, given_trajectory: Any, inferred_trajectory: Any) -> Tuple[Any, Any]:
+    def _subset(self) -> Tuple[np.ndarray, np.ndarray]:
         """Subsets the trajectories based on `subset_params`.
 
-        For adjacency matrices, subsetting typically involves selecting a subset of nodes (rows and columns).
-        This method supports subsetting by specifying either nodes to keep or nodes to remove.
-
-        Args:
-            given_trajectory (Any): The prepared given adjacency matrix before subsetting.
-            inferred_trajectory (Any): The prepared inferred adjacency matrix before subsetting.
+        For adjacency matrices, subsetting typically involves selecting a subset of labels (rows and columns).
+        This method supports subsetting by specifying either labels to keep or labels to remove.
 
         Returns:
-            Tuple[Any, Any]: The subsetted given and inferred adjacency matrices.
+            Tuple[np.ndarray, np.ndarray]: The subsetted given and inferred adjacency matrices.
 
         Raises:
             ValueError: If subsetting parameters are invalid or result in incompatible matrices.
         """
-        if not self.subset_params:
-            self.logger.debug("No subset parameters provided. Returning original trajectories.")
-            return given_trajectory, inferred_trajectory
-
         self.logger.debug("Subsetting trajectories based on subset parameters.")
-        nodes_to_keep = self.subset_params.get("nodes_to_keep", None)
-        nodes_to_remove = self.subset_params.get("nodes_to_remove", None)
+        labels_to_keep = self.subset_params.get("labels_to_keep", None)
+        labels_to_remove = self.subset_params.get("labels_to_remove", None)
 
-        # Extract node labels if given_trajectory is a DataFrame
-        # Assuming given_trajectory is a NumPy array
-        num_nodes = given_trajectory.shape[0]
-        all_nodes = list(range(num_nodes))  # Using integer node identifiers
-
-        if nodes_to_keep is not None:
-            self.logger.debug(f"Subsetting to keep nodes: {nodes_to_keep}")
-            if isinstance(nodes_to_keep, (list, np.ndarray, pd.Index)):
-                # Assuming node identifiers are integers starting from 0
-                indices = [node for node in nodes_to_keep if node in all_nodes]
-                if not indices:
-                    raise ValueError("No matching nodes found to keep in subset.")
-                subset_given = given_trajectory[np.ix_(indices, indices)]
-                subset_inferred = inferred_trajectory[np.ix_(indices, indices)]
+        if labels_to_keep is not None and labels_to_remove is None:
+            self.logger.debug(f"Subsetting to keep nodes: {labels_to_keep}")
+            if isinstance(labels_to_keep, (list, np.ndarray, pd.Index)):
+                keep_indices = [label for label in labels_to_keep if label in self.labels]
+                if len(keep_indices) == 0:
+                    raise ValueError("No matching labels found to keep in subset.")
             else:
-                raise ValueError("'nodes_to_keep' must be a list, NumPy array, or Pandas Index.")
-        elif nodes_to_remove is not None:
-            self.logger.debug(f"Subsetting to remove nodes: {nodes_to_remove}")
-            if isinstance(nodes_to_remove, (list, np.ndarray, pd.Index)):
-                indices_to_remove = [node for node in nodes_to_remove if node in all_nodes]
-                keep_indices = [node for node in all_nodes if node not in indices_to_remove]
-                subset_given = given_trajectory[np.ix_(keep_indices, keep_indices)]
-                subset_inferred = inferred_trajectory[np.ix_(keep_indices, keep_indices)]
+                raise ValueError("'labels_to_keep' must be a list, numpy array, or Pandas Index.")
+        elif labels_to_remove is not None and labels_to_keep is None:
+            self.logger.debug(f"Subsetting to remove labels: {labels_to_remove}")
+            if isinstance(labels_to_remove, (list, np.ndarray, pd.Index)):
+                indices_to_remove = [label for label in labels_to_remove if label in self.labels]
+                if len(indices_to_remove) == 0:
+                    raise ValueError("No matching labels found to remove in subset.")
+                keep_indices = [label for label in self.labels if label not in indices_to_remove]
             else:
-                raise ValueError("'nodes_to_remove' must be a list, NumPy array, or Pandas Index.")
+                raise ValueError("'labels_to_remove' must be a list, numpy array, or Pandas Index.")
         else:
-            raise ValueError("Either 'nodes_to_keep' or 'nodes_to_remove' must be specified in subset_params.")
+            raise ValueError("Either 'labels_to_keep' or 'labels_to_remove' must be specified in subset_params.")
 
+        subset_labels = keep_indices
+        subset_given = self.prepared_before_subset_given[np.ix_(keep_indices, keep_indices)]
+        subset_inferred = self.prepared_before_subset_inferred[np.ix_(keep_indices, keep_indices)]
+        
         self.logger.debug(f"Subset given adjacency matrix shape: {subset_given.shape}")
         self.logger.debug(f"Subset inferred adjacency matrix shape: {subset_inferred.shape}")
-        return subset_given, subset_inferred
+        return subset_given, subset_inferred, subset_labels
 
-    def _prepare_after_subset(self, subset_given: Any, subset_inferred: Any) -> Tuple[Any, Any]:
-        """Prepares the trajectories after subsetting.
-
-        For adjacency matrices, this might involve normalization or other post-processing steps.
-        Currently, no additional preparation is performed.
-
-        Args:
-            subset_given (Any): The subsetted given adjacency matrix.
-            subset_inferred (Any): The subsetted inferred adjacency matrix.
-
-        Returns:
-            Tuple[Any, Any]: The prepared given and inferred adjacency matrices after subsetting.
-        """
-        self.logger.debug("Preparing adjacency matrices after subsetting (no additional preparation).")
-        return subset_given, subset_inferred
+    def _prepare_after_subset(self) -> Tuple[np.ndarray, np.ndarray]:
+        """Prepares the trajectories after subsetting. `_prepare_before_subset` is used instead.
+        
+        Raises:
+            NotImplementedError: This method is not supposed to be running.
+        """ 
+        raise NotImplementedError("This method is not supposed to be running.")
 
     def _calculate(self):
         """Performs the evaluation by comparing the adjacency matrices using the specified metrics.
@@ -962,33 +958,35 @@ class AdjacencyMatrixEvaluation(SpatialMetricsMixin, EvaluationBase):
             self.result["random_walk_kernel_distance"] = np.nan
 
     def _calculate_morans_i(self):
-        """Calculates Moran's I for the adjacency matrix."""
+        """Calculates Moran's I for the adjacency matrix. See the method in `SpatialMixin` class."""
         x = self.prepared_after_subset_given.flatten()
-        spatial_weights = self.compute_spatial_weights(x, "adjacency")
+        spatial_weights = self.compute_spatial_weights(data=x, input_type="adjacency", **self.method_params)
         morans_i = self.calculate_morans_i(x, spatial_weights)
         self.result["morans_i"] = morans_i
         self.logger.debug(f"Moran's I: {morans_i}")
 
     def _calculate_gearys_c(self):
-        """Calculates Geary's C for the adjacency matrix."""
+        """Calculates Geary's C for the adjacency matrix. See the method in `SpatialMixin` class."""
         x = self.prepared_after_subset_given.flatten()
-        spatial_weights = self.compute_spatial_weights(x, "adjacency")
+        spatial_weights = self.compute_spatial_weights(data=x, input_type="adjacency", **self.method_params)
         gearys_c = self.calculate_gearys_c(x, spatial_weights)
         self.result["gearys_c"] = gearys_c
         self.logger.debug(f"Geary's C: {gearys_c}")
 
     def _calculate_local_morans_i(self):
-        """Calculates Local Moran's I (LISA) for the adjacency matrix."""
+        """Calculates Local Moran's I (LISA) for the adjacency matrix. See the method in `SpatialMixin` class."""
+        self.logger.warning("Local Moran's I (LISA) statistic produces an array instead of single scalar.")
         x = self.prepared_after_subset_given.flatten()
-        spatial_weights = self.compute_spatial_weights(x, "adjacency")
+        spatial_weights = self.compute_spatial_weights(data=x, input_type="adjacency", **self.method_params)
         lisa = self.calculate_lisa(x, spatial_weights)
         self.result["local_morans_i"] = lisa
         self.logger.debug(f"Local Moran's I: {lisa}")
 
     def _calculate_getis_ord_gi_star(self):
-        """Calculates Getis-Ord Gi* statistic for the adjacency matrix."""
+        """Calculates the Getis-Ord Gi* statistic for the adjacency matrix. See the method in `SpatialMixin` class."""
+        self.logger.warning("Getis-Ord Gi* statistic produces an array instead of single scalar.")
         x = self.prepared_after_subset_given.flatten()
-        spatial_weights = self.compute_spatial_weights(x, "adjacency")
+        spatial_weights = self.compute_spatial_weights(data=x, input_type="adjacency", **self.method_params)
         gi_star = self.calculate_getis_ord_gi_star(x, spatial_weights)
         self.result["getis_ord_gi_star"] = gi_star
         self.logger.debug(f"Getis-Ord Gi* statistic: {gi_star}")
