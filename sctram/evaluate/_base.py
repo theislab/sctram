@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
 import logging
+import numpy as np
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from sctram.input import InputTrajectories
+from sctram.input import InputTrajectory
 
 metrics_key = "metrics"
+sctram_operate_key = "_sctram_operate"
 
 
 class EvaluationBase(ABC):
@@ -25,7 +27,7 @@ class EvaluationBase(ABC):
         prepare_params_before_subset (Dict[str, Any]): Parameters for preparing the data before subsetting.
         prepare_params_after_subset (Dict[str, Any]): Parameters for preparing the data after subsetting.
         logger (logging.Logger): Logger for the class.
-        given_trajectory (InputTrajectories): The ground truth trajectory.
+        given_trajectory (InputTrajectory): The ground truth trajectory.
         inferred (Any): The inferred trajectory.
         subset_given (Any): Subset of the given trajectory.
         subset_inferred (Any): Subset of the inferred trajectory.
@@ -54,17 +56,22 @@ class EvaluationBase(ABC):
             prepare_params_after_subset (Optional[Dict[str, Any]]): Parameters for preparing the data after subsetting.
         """
         self.method_params, self.metrics = self._verify_method_params(method_params=method_params)
-        self.subset_params = subset_params or {}
-        self.prepare_params_before_subset = prepare_params_before_subset or {}
-        self.prepare_params_after_subset = prepare_params_after_subset or {}
+        self.subset_params = self._params_variable_prepare(subset_params)
+        self.prepare_params_before_subset = self._params_variable_prepare(prepare_params_before_subset)
+        self.prepare_params_after_subset = self._params_variable_prepare(prepare_params_after_subset)
 
         self.logger = logging.getLogger(self.__class__.__name__)
+        
+        # Labels given in `evaluate` method.
+        self.labels: Optional[np.ndarray] = None  # New attribute to store labels
+        self.subset_labels: Optional[np.ndarray] = None
 
-        # Unprocessed inputs to `evaluate` method
-        self.given_trajectory: Optional[InputTrajectories] = None
+        # Unprocessed inputs to `evaluate` method.
+        self.given_trajectory: Optional[InputTrajectory] = None
         self.inferred_trajectory: Any = None
 
-        # Converted into specific comparable data formats. e.g. both are adjacency, pseudotime
+        # In general, either one of the prepare methods are used but both are kept in 
+        # this parent class for code consistency.
         self.prepared_before_subset_given: Any = None
         self.prepared_before_subset_inferred: Any = None
 
@@ -74,6 +81,7 @@ class EvaluationBase(ABC):
         self.prepared_after_subset_given: Any = None
         self.prepared_after_subset_inferred: Any = None
 
+        # The results are kept as a dict.
         self.result: Dict[str, Union[int, float]] = dict()
 
     def _verify_method_params(self, method_params: Optional[Dict[str, Any]]) -> Tuple[Dict[str, Any], List[str]]:
@@ -95,24 +103,53 @@ class EvaluationBase(ABC):
 
         return method_params, metrics
 
+    def _params_variable_prepare(self, params_variable):
+        if params_variable is None:
+            params_variable = dict()
+        
+        if not isinstance(params_variable, dict):
+            raise ValueError(
+                f"Expected a dictionary for params_variable, but received type: {type(params_variable).__name__}."
+            )
+        
+        for key in params_variable:
+            if not isinstance(key, str):
+                raise ValueError(
+                    f"All keys in the params_variable must be strings, found key of type: {type(key).__name__}."
+                )
+            if key == sctram_operate_key:
+                raise ValueError(f"The key {sctram_operate_key!r} is not allowed in params_variable")
+
+        if len(params_variable) != 0:
+            params_variable[sctram_operate_key] = True
+        else:
+            params_variable[sctram_operate_key] = False
+
+        return params_variable
+        
+
     def evaluate(
         self,
-        given_trajectory: InputTrajectories,
+        given_trajectory: InputTrajectory,
         inferred_trajectory: Any,
+        labels: np.ndarray,
     ) -> Any:
         """Evaluates the inferred trajectory against the given trajectory.
 
         This method follows these steps:
             1. Verifies the given and inferred trajectories.
-            2. Prepares the trajectories before subsetting based on `prepare_params_before_subset`.
-            3. Optionally subsets the trajectories based on `subset_params`.
-            4. Prepares the trajectories after subsetting based on `prepare_params_after_subset`.
-            5. Performs the evaluation calculation.
-            6. Returns the result.
+            2. Verifies the labels.
+            3. Prepares the trajectories before subsetting based on `prepare_params_before_subset`.
+            4. Optionally subsets the trajectories based on `subset_params`.
+            5. Prepares the trajectories after subsetting based on `prepare_params_after_subset`.
+            6. Compares the trajectories with labels.
+            7. Performs the evaluation calculation.
+            8. Returns the result.
 
         Args:
-            given_trajectory (InputTrajectories): The ground truth trajectory.
+            given_trajectory (InputTrajectory): The ground truth trajectory.
             inferred_trajectory (Any): The inferred trajectory, format depends on the subclass implementation.
+            labels (np.ndarray): A 1D NumPy array of string labels.
 
         Returns:
             Any: The result of the evaluation.
@@ -130,32 +167,31 @@ class EvaluationBase(ABC):
             self.logger.debug("Verifying inferred trajectory.")
             self.inferred_trajectory = self._verify_inferred_trajectory(inferred_trajectory)
 
+            # Verify labels
+            self.logger.debug("Verifying labels.")
+            self.labels = self._verify_labels(labels)
+            self._verify_labels_data_specific()
+
             # Prepare trajectories before subsetting
-            if self.prepare_params_before_subset:
+            if self.prepare_params_before_subset[sctram_operate_key]:
                 self.logger.debug("Preparing trajectories before subsetting.")
-                self.prepared_before_subset_given, self.prepared_before_subset_inferred = self._prepare_before_subset(
-                    self.given_trajectory, self.inferred_trajectory
-                )
+                self.prepared_before_subset_given, self.prepared_before_subset_inferred = self._prepare_before_subset()
             else:
                 self.prepared_before_subset_given = self.given_trajectory
                 self.prepared_before_subset_inferred = self.inferred_trajectory
 
             # Subset the trajectories if needed
-            if self.subset_params:
+            if self.subset_params[sctram_operate_key]:
                 self.logger.debug("Subsetting trajectories.")
-                self.subset_given, self.subset_inferred = self._subset(
-                    self.prepared_before_subset_given, self.prepared_before_subset_inferred
-                )
+                self.subset_given, self.subset_inferred, self.subset_labels = self._subset()
             else:
                 self.subset_given = self.prepared_before_subset_given
                 self.subset_inferred = self.prepared_before_subset_inferred
 
             # Prepare trajectories after subsetting
-            if self.prepare_params_after_subset:
+            if self.prepare_params_after_subset[sctram_operate_key]:
                 self.logger.debug("Preparing trajectories after subsetting.")
-                self.prepared_after_subset_given, self.prepared_after_subset_inferred = self._prepare_after_subset(
-                    self.subset_given, self.subset_inferred
-                )
+                self.prepared_after_subset_given, self.prepared_after_subset_inferred = self._prepare_after_subset()
             else:
                 self.prepared_after_subset_given = self.subset_given
                 self.prepared_after_subset_inferred = self.subset_inferred
@@ -171,21 +207,55 @@ class EvaluationBase(ABC):
             self.logger.error(f"Error during evaluation: {e}")
             raise RuntimeError(f"Error during evaluation: {e}") from e
 
-    def _verify_given_trajectory(self, given_trajectory: InputTrajectories) -> InputTrajectories:
+    def _verify_given_trajectory(self, given_trajectory: InputTrajectory) -> InputTrajectory:
         """Verifies the given trajectory.
 
         Args:
-            given_trajectory (InputTrajectories): The given trajectory.
+            given_trajectory (InputTrajectory): The given trajectory.
 
         Returns:
-            InputTrajectories: The verified given trajectory.
+            InputTrajectory: The verified given trajectory.
 
         Raises:
-            ValueError: If the given trajectory is not a networkx.MultiDiGraph.
+            ValueError: If the given trajectory is not a InputTrajectory.
         """
-        if not isinstance(given_trajectory, InputTrajectories):
-            raise ValueError("Given trajectory must be a networkx.MultiDiGraph.")
+        if not isinstance(given_trajectory, InputTrajectory):
+            raise ValueError("Given trajectory must be a InputTrajectory instance.")
         return given_trajectory
+
+    def _verify_labels(self, labels: np.ndarray) -> np.ndarray:
+        """Verifies that labels is a 1D NumPy array of strings.
+
+        Args:
+            labels (np.ndarray): The labels to verify.
+
+        Returns:
+            np.ndarray: The verified labels.
+
+        Raises:
+            ValueError: If labels is not a 1D NumPy array of strings.
+        """
+        if not isinstance(labels, np.ndarray):
+            raise ValueError("Labels must be a NumPy array.")
+        if labels.ndim != 1:
+            raise ValueError("Labels array must be 1-dimensional.")
+        if labels.dtype.type is not np.str_ and labels.dtype.type is not np.object_:
+            # np.str_ covers fixed-length strings, np.object_ can include Python strings
+            raise ValueError("Labels array must contain strings.")
+        
+        return labels
+
+    @abstractmethod
+    def _verify_labels_data_specific(self):
+        """Verifies that labels is consistent with input trajectory and/or inferred trajectory.
+        
+        This method must be implemented in subclasses to handle the specific format.
+        
+        Raises:
+            NotImplementedError: as this is abstractmethod.
+        """
+        raise NotImplementedError
+
 
     @abstractmethod
     def _verify_inferred_trajectory(self, inferred: Any) -> Any:
@@ -201,44 +271,45 @@ class EvaluationBase(ABC):
 
         Raises:
             ValueError: If the inferred trajectory is invalid.
+            NotImplementedError: as this is abstractmethod.
         """
-        pass
+        raise NotImplementedError
 
     @abstractmethod
-    def _prepare_before_subset(self, given_trajectory: Any, inferred_trajectory: Any) -> Tuple[Any, Any]:
+    def _prepare_before_subset(self) -> Tuple[Any, Any]:
         """Prepares the trajectories before subsetting.
 
-        This method must be implemented in subclasses to handle preparation specific to the data formats before subsetting.
-
-        Args:
-            given_trajectory (Any): The given trajectory.
-            inferred_trajectory (Any): The inferred trajectory.
+        This method must be implemented in subclasses to handle preparation 
+        specific to the data formats before subsetting.
 
         Returns:
             Tuple[Any, Any]: The prepared given and inferred trajectories before subsetting.
+        
+        Raises:
+            NotImplementedError: as this is abstractmethod.
         """
-        pass
+        raise NotImplementedError
 
     @abstractmethod
-    def _subset(self, given_trajectory: Any, inferred_trajectory: Any) -> Tuple[Any, Any]:
+    def _subset(self) -> Tuple[Any, Any]:
         """Subsets the trajectories based on `subset_params`.
 
         This method must be implemented in subclasses to handle subsetting specific to the data formats.
 
-        Args:
-            given_trajectory (Any): The prepared given trajectory before subsetting.
-            inferred_trajectory (Any): The prepared inferred trajectory before subsetting.
-
         Returns:
             Tuple[Any, Any]: The subsetted given and inferred trajectories.
+        
+        Raises:
+            NotImplementedError: as this is abstractmethod.
         """
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def _prepare_after_subset(self, subset_given: Any, subset_inferred: Any) -> Tuple[Any, Any]:
         """Prepares the trajectories after subsetting.
 
-        This method must be implemented in subclasses to handle preparation specific to the data formats after subsetting.
+        This method must be implemented in subclasses to handle preparation specific 
+        to the data formats after subsetting.
 
         Args:
             subset_given (Any): The subsetted given trajectory.
@@ -246,18 +317,28 @@ class EvaluationBase(ABC):
 
         Returns:
             Tuple[Any, Any]: The prepared given and inferred trajectories after subsetting.
+        
+        Raises:
+            NotImplementedError: as this is abstractmethod.
         """
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def _calculate(self):
         """Performs the specific evaluation calculation.
 
         This method must be implemented in subclasses to perform the evaluation and store the result in `self.result`.
+        
+        Raises:
+            NotImplementedError: as this is abstractmethod.
         """
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def get_result(self) -> Any:
-        """Retrieves the result of the evaluation."""
-        pass
+        """Retrieves the result of the evaluation.
+        
+        Raises:
+            NotImplementedError: as this is abstractmethod.
+        """
+        raise NotImplementedError
