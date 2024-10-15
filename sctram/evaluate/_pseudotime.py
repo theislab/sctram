@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional, Tuple
 import numpy as np
 import pandas as pd
 import networkx as nx
-from abc import ABC
+from abc import abstractmethod
 from scipy.stats import kendalltau, ks_2samp, pearsonr, spearmanr, wasserstein_distance
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error, mutual_info_score, r2_score
@@ -14,8 +14,29 @@ from sctram.evaluate._base import EvaluationBase
 from sctram.input import InputTrajectory
 from sctram.evaluate._pseudotime2adjacency import LabelAdjacencyPseudotimeConverter
 
+# TODO: create separete classes for metrics: adjvsadj, pseudo_vs_pseudo, pseudo_vs_categorical, embedding_vs_embedding
+# TODO: and make them mixin, inherit them together with _calculate_..
 
-class PseudotimeEvaluationBase(EvaluationBase, ABC):
+# TODO: create adj vs adj for pseudotimeEvaluation and inherit adjacency ones
+# TODO: crreate psd vs psd for adjacencyevaluation and inherit pseudo ones.
+
+# TODO: check scib dpt method
+# TODO: check scanpy.morans-i method
+
+# TODO: directionality of lineer using embedding (PCA, UMAP, Diffmap etc)
+# TODO: embedding metrics!!
+
+# TODO: recalculation of knn etc over and over.. `benchmark` should resolve. 
+# TODO: the classses should return the calculations to be used as in `benchmark`
+
+# TODO: `visualize` module 
+
+# TODO: a module/class to scale the obtained scores. 0 is terrible, 1 is perfect.
+
+# TODO: min total_counts / n-genes for DPT inference method (dependent)
+
+
+class PseudotimeEvaluationBase(EvaluationBase):
     """Evaluation method to compare inferred pseudotime with a given trajectory graph.
     
     There is two subclasses: PseudotimeValuesEvaluation and PseudotimeCategoricalEvaluation. They differ in how the
@@ -130,6 +151,14 @@ class PseudotimeEvaluationBase(EvaluationBase, ABC):
         self.logger.debug(f"Subset inferred adjacency matrix shape: {subset_inferred.shape}")
         return subset_given, subset_inferred, subset_labels
 
+    @abstractmethod
+    def _prepare_after_subset(self) -> Tuple[np.ndarray, np.ndarray]:
+        """This need to be implemented in the subclasses.
+        
+        Raises:
+            NotImplementedError: This method is not supposed to be running.
+        """ 
+        raise NotImplementedError("This method is not supposed to be running.")
 
 class PseudotimeCategoricalEvaluation(PseudotimeEvaluationBase):
     """Evaluation method to compare inferred pseudotime with a given trajectory graph.
