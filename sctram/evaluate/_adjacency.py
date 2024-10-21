@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 from sctram.evaluate._base import EvaluationBase
-from sctram.evaluate._mixin_metrics._adjacencymixin import AdjacencyMetricsMixin
+from sctram.evaluate._metricsmixin._adjacencymetricsmixin import AdjacencyMetricsMixin
 
 
 class AdjacencyMatrixEvaluation(AdjacencyMetricsMixin, EvaluationBase):

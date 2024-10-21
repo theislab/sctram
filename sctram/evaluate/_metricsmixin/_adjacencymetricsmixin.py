@@ -5,7 +5,7 @@ import numpy as np
 from scipy.stats import wasserstein_distance
 from sklearn.metrics.pairwise import cosine_similarity
 
-from sctram.evaluate._mixin_metrics._spatialmixin import SpatialMetricsMixin
+from sctram.evaluate._metricsmixin._spatialmetricsmixin import SpatialMetricsMixin
 
 
 class AdjacencyMetricsMixin(SpatialMetricsMixin):

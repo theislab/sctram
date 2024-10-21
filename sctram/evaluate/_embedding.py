@@ -8,7 +8,7 @@ from scipy.spatial import procrustes
 from sklearn.manifold import Isomap
 
 from sctram.evaluate._base import EvaluationBase
-from sctram.evaluate._mixin_metrics._embeddingmixin import EmbeddingMetricsMixin
+from sctram.evaluate._metricsmixin._embeddingmetricsmixin import EmbeddingMetricsMixin
 
 
 class EmbeddingEvaluation(EmbeddingMetricsMixin, EvaluationBase):

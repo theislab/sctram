@@ -10,8 +10,8 @@ from sklearn.preprocessing import MinMaxScaler
 
 from sctram.evaluate._base import EvaluationBase
 from sctram.evaluate._converters._pseudotime2adjacency import LabelAdjacencyPseudotimeConverter
-from sctram.evaluate._mixin_metrics._pseudotimevaluesmixin import PseudotimeValuesMetricsMixin
-from sctram.evaluate._mixin_metrics._pseudotimecategoricalmixin import PseudotimeCategoricalMetricsMixin
+from sctram.evaluate._metricsmixin._pseudotimevaluesmetricsmixin import PseudotimeValuesMetricsMixin
+from sctram.evaluate._metricsmixin._pseudotimecategoricalmetricsmixin import PseudotimeCategoricalMetricsMixin
 
 # TODO: create adj vs adj for pseudotimeEvaluation and inherit adjacency ones
 # TODO: crreate psd vs psd for adjacencyevaluation and inherit pseudo ones.

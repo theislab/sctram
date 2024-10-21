@@ -4,7 +4,7 @@ import numpy as np
 from scipy.stats import kendalltau, ks_2samp, pearsonr, spearmanr, wasserstein_distance
 from sklearn.metrics import mean_absolute_error, mean_squared_error, mutual_info_score, r2_score
 
-from sctram.evaluate._mixin_metrics._spatialmixin import SpatialMetricsMixin
+from sctram.evaluate._metricsmixin._spatialmetricsmixin import SpatialMetricsMixin
 
 
 class PseudotimeValuesMetricsMixin(SpatialMetricsMixin):
