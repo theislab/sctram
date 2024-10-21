@@ -29,7 +29,7 @@ class SpatialMetricsMixin:
         - Avoids reliance on external spatial libraries like `pysal`.
     """
 
-    def compute_spatial_weights(
+    def _compute_spatial_weights(
         self,
         data: Any,
         input_type: str,
