@@ -4,6 +4,7 @@ name: sctram_dev_env
 
 channels:
     - conda-forge
+    - pyg
 
 dependencies:
     - python=3.11
@@ -18,6 +19,10 @@ dependencies:
     - jupyterlab-lsp # jupyterlab
     - jupyterlab_code_formatter # jupyterlab
 
+    - pytorch # gnn metric
+    - pyg::pyg # gnn metric
+    - gudhi
+    - pot
     - gdown
     - pyyaml>=5.2
     - pandas>=0.25.3

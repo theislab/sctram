@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
-from typing import Dict, Any, List
 import logging
+from typing import Any, Dict, List
+
 import numpy as np
+
 
 class MetricsMixinBase:
     """Declarations for consistency and mypy."""

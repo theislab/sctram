@@ -22,6 +22,30 @@ class InputTrajectory(nx.DiGraph):
         (Inherits all attributes from networkx.DiGraph)
     """
 
+    def to_symetrical_multidigraph(self) -> nx.MultiDiGraph:
+        """Create a nx.MultiDiGraph version by just making each edge two sided. 
+        
+        Copies the edge attribute for each direction.
+
+        Returns:
+            nx.MultiDiGraph: The same graph but the edges are two sided.
+        """
+        # Create a new MultiDiGraph and copy graph attributes
+        symetrical_graph = nx.MultiDiGraph()
+        symetrical_graph.graph.update(self.graph)  # Copy graph-level attributes
+
+        # Add all nodes from G to M, preserving attributes
+        for node, data in self.nodes(data=True):
+            symetrical_graph.add_node(node, **data)
+
+        # Add all edges from G to M, preserving attributes
+        # Since we need to make edges bidirectional, we add each edge in both directions
+        for u, v, data in self.edges(data=True):
+            symetrical_graph.add_edge(u, v, **data)
+            symetrical_graph.add_edge(v, u, **data)
+
+        return symetrical_graph
+
     @cached_property
     def identify(self) -> List[Dict[str, Any]]:
         """Identifies and categorizes structural elements within the trajectory graph.

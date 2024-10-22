@@ -6,11 +6,12 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 
+from sctram._constants import sctram_operate_key
 from sctram.evaluate._base import EvaluationBase
 from sctram.evaluate._metricsmixin._adjacencymetricsmixin import AdjacencyMetricsMixin
 
 
-class AdjacencyMatrixEvaluation(EvaluationBase, AdjacencyMetricsMixin):
+class AdjacencyMatrixEvaluation(AdjacencyMetricsMixin, EvaluationBase):
     """Evaluation method to compare given and inferred adjacency matrices using advanced metrics.
 
     This class compares the adjacency matrix of the given trajectory (converted from a NetworkX graph)
@@ -22,15 +23,17 @@ class AdjacencyMatrixEvaluation(EvaluationBase, AdjacencyMetricsMixin):
         self,
         method_params: Dict[str, Any],
         subset_params: Optional[Dict[str, Any]] = None,
-        prepare_params: Optional[Dict[str, Any]] = None,
+        # prepare_params: Optional[Dict[str, Any]] = None,
     ):
         """Initializes the adjacency matrix evaluation method."""  # noqa
         super().__init__(
             method_params=method_params,
             subset_params=subset_params,
-            prepare_params_before_subset=prepare_params,
+            prepare_params_before_subset=None,
             prepare_params_after_subset=None,
         )
+        # Prepare the input/inferred regardless of the prepare params, as there is no real parameter
+        self.prepare_params_before_subset[sctram_operate_key] = True
         self.logger.debug(f"Initialized AdjacencyMatrixEvaluation with metrics: {self.metrics}")
 
     def get_result(self) -> Any:
@@ -104,7 +107,8 @@ class AdjacencyMatrixEvaluation(EvaluationBase, AdjacencyMetricsMixin):
             ValueError: If the adjacency matrices cannot be prepared due to incompatible shapes or types.
         """
         self.logger.debug("Converting given trajectory to adjacency matrix.")
-        given_adj_matrix = nx.to_numpy_array(self.given_trajectory, nodelist=self.labels)
+        symetrical_graph = self.given_trajectory.to_symetrical_multidigraph()  # to have symetrical adjacency matrices
+        given_adj_matrix = nx.to_numpy_array(symetrical_graph, nodelist=self.labels)
         self.logger.debug(f"Given adjacency matrix shape: {given_adj_matrix.shape}")
         # Note: this method assumes the inferred numpy array is already in correct order of labels.
         # See the paga return_mode `label` and `adjacency`.

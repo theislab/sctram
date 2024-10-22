@@ -20,7 +20,7 @@ class EmbeddingTrajectoryEvaluation(EmbeddingTrajectoryMetricsMixin):
     pass  # TODO: complete the class.
 
 
-class EmbeddingsPairEvaluation(EvaluationBase, EmbeddingsPairMetricsMixin):
+class EmbeddingsPairEvaluation(EmbeddingsPairMetricsMixin, EvaluationBase):
     """Evaluation method to compare inferred embeddings with another embedding.
 
     This class compares the inferred embeddings (numpy array of shape [n_samples, n_components])

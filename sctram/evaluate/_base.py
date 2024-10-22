@@ -6,10 +6,8 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
+from sctram._constants import evaluate_metrics_key, sctram_operate_key
 from sctram.input import InputTrajectory
-
-metrics_key = "metrics"
-sctram_operate_key = "_sctram_operate"
 
 
 class EvaluationBase(ABC):
@@ -88,12 +86,12 @@ class EvaluationBase(ABC):
     def _verify_method_params(self, method_params: Optional[Dict[str, Any]]) -> Tuple[Dict[str, Any], List[str]]:
         if method_params is None or not isinstance(method_params, dict):
             raise ValueError("`method_params` should be a dict.")
-        if metrics_key not in method_params:
-            raise ValueError(f"`method_params` must contain {metrics_key!r} key.")
+        if evaluate_metrics_key not in method_params:
+            raise ValueError(f"`method_params` must contain {evaluate_metrics_key!r} key.")
 
-        metrics = method_params[metrics_key]
+        metrics = method_params[evaluate_metrics_key]
         if not isinstance(metrics, list):
-            raise ValueError(f"metrics_key {metrics_key!r} should be a list of metric names.")
+            raise ValueError(f"metrics_key {evaluate_metrics_key!r} should be a list of metric names.")
 
         if self.available_metrics is None or len(self.available_metrics) == 0:
             raise NotImplementedError(f"Subclass {self.__class__.__name__!r} should define `available_metrics`.")

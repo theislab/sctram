@@ -155,7 +155,7 @@ class PseudotimeCategoricalEvaluation(PseudotimeCategoricalMetricsMixin, Pseudot
         # TODO: implement categorical pseudotime evaluation
 
 
-class PseudotimeValuesEvaluation(PseudotimeEvaluationBase, PseudotimeValuesMetricsMixin):
+class PseudotimeValuesEvaluation(PseudotimeValuesMetricsMixin, PseudotimeEvaluationBase):
     """Evaluation method to compare inferred pseudotime with a given trajectory graph.
 
     The data prep includes conversion of user defined adjacency matrix into pseudotime

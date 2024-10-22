@@ -33,10 +33,10 @@ class AdjacencyMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
         "maximum_common_subgraph_distance",
         "random_walk_kernel_distance",
         # Spatial metrics
-        "morans_i",
-        "gearys_c",
-        "local_morans_i",
-        "getis_ord_gi_star",
+        # "morans_i",
+        # "gearys_c",
+        # "local_morans_i",
+        # "getis_ord_gi_star",
     ]
 
     def _calculate(self):
@@ -81,14 +81,14 @@ class AdjacencyMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
                 self._calculate_maximum_common_subgraph_distance()
             elif metric == "random_walk_kernel_distance":
                 self._calculate_random_walk_kernel_distance()
-            elif metric == "morans_i":
-                self._calculate_morans_i()
-            elif metric == "gearys_c":
-                self._calculate_gearys_c()
-            elif metric == "local_morans_i":
-                self._calculate_local_morans_i()
-            elif metric == "getis_ord_gi_star":
-                self._calculate_getis_ord_gi_star()
+            # elif metric == "morans_i":
+            #     self._calculate_morans_i()
+            # elif metric == "gearys_c":
+            #     self._calculate_gearys_c()
+            # elif metric == "local_morans_i":
+            #     self._calculate_local_morans_i()
+            # elif metric == "getis_ord_gi_star":
+            #     self._calculate_getis_ord_gi_star()
             else:
                 self.logger.warning(f"Unknown metric {metric!r} specified. Skipping.")
 
@@ -199,7 +199,7 @@ class AdjacencyMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
         """Calculates the Spectral Distance between the two adjacency matrices.
 
         Spectral Distance compares the eigenvalues of the two adjacency matrices. Specifically, it calculates
-        the Frobenius norm of the difference between the sorted eigenvalues of both matrices.
+        the Euclidean (L2) norm of the difference between the sorted eigenvalues of both matrices.
 
         Advantages:
             - Captures global structural properties related to connectivity and expansion.
@@ -221,10 +221,10 @@ class AdjacencyMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
         # Sort eigenvalues for alignment
         eigen_g1_sorted = np.sort_complex(eigen_g1)
         eigen_g2_sorted = np.sort_complex(eigen_g2)
-        # Compute Frobenius norm of eigenvalue differences
-        spectral_diff = np.linalg.norm(eigen_g1_sorted - eigen_g2_sorted, "fro")
+        # Compute Euclidean (L2) norm of eigenvalue differences
+        spectral_diff = np.linalg.norm(eigen_g1_sorted - eigen_g2_sorted, ord=2)
         self.result["spectral_distance"] = spectral_diff
-        self.logger.debug(f"Spectral Distance (Frobenius norm of eigenvalue differences): {spectral_diff}")
+        self.logger.debug(f"Spectral Distance (Euclidean (L2) norm of eigenvalue differences): {spectral_diff}")
 
     def _calculate_jaccard_similarity(self):
         """Calculates the Jaccard Similarity between the two graphs' edge sets.
@@ -574,6 +574,7 @@ class AdjacencyMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
         except ImportError:
             self.logger.error("PyTorch Geometric is not installed. GNN Embedding Distance cannot be computed.")
             self.result["gnn_embedding_distance"] = np.nan
+            return
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -655,8 +656,10 @@ class AdjacencyMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
             - A single scalar value representing the Wasserstein distance between the persistence diagrams of the two graphs.
             - Returns `NaN` if computation fails.
         """
+        self.logger.warning("Persistence Diagram Distance method is not tested in depth.")
         try:
             import gudhi as gd  # type: ignore
+            import ot
 
             # For TDA persistence diagrams
             # Convert adjacency matrices to NetworkX graphs
@@ -681,12 +684,50 @@ class AdjacencyMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
             diag1 = st1.persistence_intervals_in_dimension(1)
             diag2 = st2.persistence_intervals_in_dimension(1)
 
-            # Compute Wasserstein distance between persistence diagrams
-            pd_dist = gd.wasserstein_distance(diag1, diag2)
+            if len(diag1) == 0 and len(diag2) == 0:
+                pd_dist = 0.0  # Both diagrams are empty, distance is zero
+            elif len(diag1) == 0 or len(diag2) == 0:
+                pd_dist = float("inf")  # One diagram is empty, distance is infinite
+            else:
+                # Convert persistence diagrams to numpy arrays
+                # Each diagram is a list of [birth, death] pairs
+                # We need to pad the smaller diagram with dummy points on the diagonal (birth=death)
+                # to make them the same size for the Wasserstein distance computation
+
+                # Determine the size of the diagrams
+                n1 = len(diag1)
+                n2 = len(diag2)
+                max_size = max(n1, n2)
+
+                # Pad the diagrams with diagonal points
+                if n1 < max_size:
+                    pad_diag1 = diag1 + [[d[0], d[0]] for d in diag2[: max_size - n1]]
+                else:
+                    pad_diag1 = diag1[:max_size]
+
+                if n2 < max_size:
+                    pad_diag2 = diag2 + [[d[0], d[0]] for d in diag1[: max_size - n2]]
+                else:
+                    pad_diag2 = diag2[:max_size]
+
+                # Convert to numpy arrays
+                pd1 = np.array(pad_diag1)
+                pd2 = np.array(pad_diag2)
+
+                # Compute the cost matrix (e.g., L2 distance between points)
+                cost_matrix = np.linalg.norm(pd1[:, np.newaxis, :] - pd2[np.newaxis, :, :], axis=2)
+
+                # Define uniform weights
+                a = np.ones((max_size,)) / max_size
+                b = np.ones((max_size,)) / max_size
+
+                # Compute Wasserstein distance using POT's emd2
+                pd_dist = ot.emd2(a, b, cost_matrix)
+
             self.result["persistence_diagram_distance"] = pd_dist
             self.logger.debug(f"Persistence Diagram Wasserstein Distance: {pd_dist}")
-        except ImportError:
-            self.logger.error("GUDHI is not installed. Persistence Diagram Distance cannot be computed.")
+        except ImportError as e:
+            self.logger.error(f"Required library for persistence diagram distance not installed: {e}")
             self.result["persistence_diagram_distance"] = np.nan
         except Exception as e:
             self.logger.error(f"Error computing Persistence Diagram Distance: {e}")
@@ -746,7 +787,14 @@ class AdjacencyMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
         try:
             # Use VF2 algorithm to find all maximum common subgraphs
             matcher = nx.algorithms.isomorphism.GraphMatcher(g1, g2)
-            mcs = max(matcher.subgraph_isomorphisms_iter(), key=lambda x: len(x))
+            # Generate all possible subgraph isomorphisms
+            all_subgraphs = list(matcher.subgraph_isomorphisms_iter())
+            # Check if any subgraphs were found
+            if not all_subgraphs:
+                self.logger.debug("No common subgraphs found.")
+                return 0  # Return 0 if no common subgraphs are found
+            # Find the maximum common subgraph by number of edges
+            mcs = max(all_subgraphs, key=lambda x: len(x), default=set())
             # Count the number of edges in the MCS
             mcs_edges = len(mcs)
             return mcs_edges
@@ -795,36 +843,39 @@ class AdjacencyMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
             self.logger.error(f"Error computing Random Walk Kernel Distance: {e}")
             self.result["random_walk_kernel_distance"] = np.nan
 
-    def _calculate_morans_i(self):
-        """Calculates Moran's I for the adjacency matrix. See the method in `SpatialMixin` class."""
-        x = self.prepared_after_subset_given.flatten()
-        spatial_weights = self._compute_spatial_weights(data=x, input_type="adjacency", **self.method_params)
-        morans_i = self.calculate_morans_i(x, spatial_weights)
-        self.result["morans_i"] = morans_i
-        self.logger.debug(f"Moran's I: {morans_i}")
+    # def _calculate_morans_i(self):
+    #     """Calculates Moran's I for the adjacency matrix. See the method in `SpatialMixin` class."""
+    #     x = self.prepared_after_subset_given.flatten()
+    #     spatial_weights = self._compute_spatial_weights(data=x, input_type="adjacency", **self.method_params)
+    #     morans_i = self.calculate_morans_i(x, spatial_weights)
+    #     # params = self.method_params.get("morans_i_params", dict())
+    #     # spatial_weights_given = self._compute_spatial_weights(data=self.prepared_after_subset_given, input_type="adjacency", **params)
+    #     # spatial_weights_inferred = self._compute_spatial_weights(data=self.prepared_after_subset_inferred, input_type="adjacency", **params)
+    #     self.result["morans_i"] = morans_i
+    #     self.logger.debug(f"Moran's I: {morans_i}")
 
-    def _calculate_gearys_c(self):
-        """Calculates Geary's C for the adjacency matrix. See the method in `SpatialMixin` class."""
-        x = self.prepared_after_subset_given.flatten()
-        spatial_weights = self._compute_spatial_weights(data=x, input_type="adjacency", **self.method_params)
-        gearys_c = self.calculate_gearys_c(x, spatial_weights)
-        self.result["gearys_c"] = gearys_c
-        self.logger.debug(f"Geary's C: {gearys_c}")
+    # def _calculate_gearys_c(self):
+    #     """Calculates Geary's C for the adjacency matrix. See the method in `SpatialMixin` class."""
+    #     x = self.prepared_after_subset_given.flatten()
+    #     spatial_weights = self._compute_spatial_weights(data=x, input_type="adjacency", **self.method_params)
+    #     gearys_c = self.calculate_gearys_c(x, spatial_weights)
+    #     self.result["gearys_c"] = gearys_c
+    #     self.logger.debug(f"Geary's C: {gearys_c}")
 
-    def _calculate_local_morans_i(self):
-        """Calculates Local Moran's I (LISA) for the adjacency matrix. See the method in `SpatialMixin` class."""
-        self.logger.warning("Local Moran's I (LISA) statistic produces an array instead of single scalar.")
-        x = self.prepared_after_subset_given.flatten()
-        spatial_weights = self._compute_spatial_weights(data=x, input_type="adjacency", **self.method_params)
-        lisa = self.calculate_lisa(x, spatial_weights)
-        self.result["local_morans_i"] = lisa
-        self.logger.debug(f"Local Moran's I: {lisa}")
+    # def _calculate_local_morans_i(self):
+    #     """Calculates Local Moran's I (LISA) for the adjacency matrix. See the method in `SpatialMixin` class."""
+    #     self.logger.warning("Local Moran's I (LISA) statistic produces an array instead of single scalar.")
+    #     x = self.prepared_after_subset_given.flatten()
+    #     spatial_weights = self._compute_spatial_weights(data=x, input_type="adjacency", **self.method_params)
+    #     lisa = self.calculate_lisa(x, spatial_weights)
+    #     self.result["local_morans_i"] = lisa
+    #     self.logger.debug(f"Local Moran's I: {lisa}")
 
-    def _calculate_getis_ord_gi_star(self):
-        """Calculates the Getis-Ord Gi* statistic for the adjacency matrix. See the method in `SpatialMixin` class."""
-        self.logger.warning("Getis-Ord Gi* statistic produces an array instead of single scalar.")
-        x = self.prepared_after_subset_given.flatten()
-        spatial_weights = self._compute_spatial_weights(data=x, input_type="adjacency", **self.method_params)
-        gi_star = self.calculate_getis_ord_gi_star(x, spatial_weights)
-        self.result["getis_ord_gi_star"] = gi_star
-        self.logger.debug(f"Getis-Ord Gi* statistic: {gi_star}")
+    # def _calculate_getis_ord_gi_star(self):
+    #     """Calculates the Getis-Ord Gi* statistic for the adjacency matrix. See the method in `SpatialMixin` class."""
+    #     self.logger.warning("Getis-Ord Gi* statistic produces an array instead of single scalar.")
+    #     x = self.prepared_after_subset_given.flatten()
+    #     spatial_weights = self._compute_spatial_weights(data=x, input_type="adjacency", **self.method_params)
+    #     gi_star = self.calculate_getis_ord_gi_star(x, spatial_weights)
+    #     self.result["getis_ord_gi_star"] = gi_star
+    #     self.logger.debug(f"Getis-Ord Gi* statistic: {gi_star}")

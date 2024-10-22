@@ -86,6 +86,6 @@ class PAGAInference(InferenceBase):
             paga_graph = self.adata_prepared.uns["paga"]["connectivities"].toarray()
             return paga_graph
         elif return_mode == "labels":
-            return self.adata_prepared.obs[labels_key].cat.categories
+            return self.adata_prepared.obs[labels_key].cat.categories.values
         else:
             raise ValueError("Invalid 'return_mode'.")

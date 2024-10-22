@@ -53,3 +53,7 @@ neighbors_key = "neighbors"
 x_pca_key = "X_pca"
 
 x_umap_key = "X_umap"
+
+# evaluate module
+sctram_operate_key = "_sctram_operate"
+evaluate_metrics_key = "metrics"
