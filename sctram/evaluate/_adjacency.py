@@ -10,7 +10,7 @@ from sctram.evaluate._base import EvaluationBase
 from sctram.evaluate._metricsmixin._adjacencymetricsmixin import AdjacencyMetricsMixin
 
 
-class AdjacencyMatrixEvaluation(AdjacencyMetricsMixin, EvaluationBase):
+class AdjacencyMatrixEvaluation(EvaluationBase, AdjacencyMetricsMixin):
     """Evaluation method to compare given and inferred adjacency matrices using advanced metrics.
 
     This class compares the adjacency matrix of the given trajectory (converted from a NetworkX graph)
@@ -21,8 +21,8 @@ class AdjacencyMatrixEvaluation(AdjacencyMetricsMixin, EvaluationBase):
     def __init__(
         self,
         method_params: Dict[str, Any],
-        subset_params: Optional[Dict[str, Any]] = None,  
-        prepare_params: Optional[Dict[str, Any]] = None
+        subset_params: Optional[Dict[str, Any]] = None,
+        prepare_params: Optional[Dict[str, Any]] = None,
     ):
         """Initializes the adjacency matrix evaluation method."""  # noqa
         super().__init__(
@@ -79,15 +79,15 @@ class AdjacencyMatrixEvaluation(AdjacencyMetricsMixin, EvaluationBase):
 
     def _verify_labels_data_specific(self):
         """Verifies that labels is consistent with input trajectory and/or inferred trajectory.
-        
+
         The labels for the adjacency evaluation should be unique and with the same size as the number of nodes.
-        
+
         Raises:
             ValueError: there is inconsistency.
         """
         self.logger.debug("Checking the consistency between the given graph and labels.")
         if len(self.given_trajectory.nodes()) != len(self.labels):
-            raise ValueError("Number of nodes in the matrix does not match the number of given labels")    
+            raise ValueError("Number of nodes in the matrix does not match the number of given labels")
         elif set(self.given_trajectory.nodes()) != set(self.labels):
             raise ValueError("Node names in the graph and label array do not match")
 
@@ -96,10 +96,6 @@ class AdjacencyMatrixEvaluation(AdjacencyMetricsMixin, EvaluationBase):
 
         Converts both the given and inferred trajectories to adjacency matrices to ensure compatibility
         for comparison. Validates that both matrices have identical shapes.
-
-        Args:
-            given_trajectory (InputTrajectory): The given trajectory.
-            inferred_trajectory (np.ndarray): The inferred trajectory.
 
         Returns:
             Tuple[np.ndarray, np.ndarray]: Prepared given and inferred adjacency matrices.
@@ -120,7 +116,7 @@ class AdjacencyMatrixEvaluation(AdjacencyMetricsMixin, EvaluationBase):
         self.logger.debug("Assigned prepared adjacency matrices before subsetting.")
         return given_adj_matrix, self.inferred_trajectory.copy()
 
-    def _subset(self) -> Tuple[np.ndarray, np.ndarray]:
+    def _subset(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Subsets the trajectories based on `subset_params`.
 
         For adjacency matrices, subsetting typically involves selecting a subset of labels (rows and columns).
@@ -156,18 +152,22 @@ class AdjacencyMatrixEvaluation(AdjacencyMetricsMixin, EvaluationBase):
         else:
             raise ValueError("Either 'labels_to_keep' or 'labels_to_remove' must be specified in subset_params.")
 
-        subset_labels = keep_indices
+        subset_labels = np.array(keep_indices)
         subset_given = self.prepared_before_subset_given[np.ix_(keep_indices, keep_indices)]
         subset_inferred = self.prepared_before_subset_inferred[np.ix_(keep_indices, keep_indices)]
-        
+
         self.logger.debug(f"Subset given adjacency matrix shape: {subset_given.shape}")
         self.logger.debug(f"Subset inferred adjacency matrix shape: {subset_inferred.shape}")
         return subset_given, subset_inferred, subset_labels
 
     def _prepare_after_subset(self) -> Tuple[np.ndarray, np.ndarray]:
         """Prepares the trajectories after subsetting. `_prepare_before_subset` is used instead.
-        
+
         Raises:
             NotImplementedError: This method is not supposed to be running.
-        """ 
+        """
         raise NotImplementedError("This method is not supposed to be running.")
+
+
+# Note: as an alternative, one may try creating another class accepting two adjacency matrix just like the one above,
+# but converting them both using the coververters into the pseudotime. Then, the plan is to use pseudotime metrics.

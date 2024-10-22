@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
-from typing import Any, Dict, Optional, Union
+from typing import Optional, Union
 
-import scanpy as sc
 import numpy as np
 from anndata import AnnData
 from pandas import DataFrame, Series
@@ -13,20 +12,21 @@ from sctram.infer._base import EmbeddingBase
 class ObsmEmbedding(EmbeddingBase):
     """Dummy embedding method. It is created for code consistency.
 
-    This subclass of InferenceAndEmbeddingBase provides no functionality. It is a dummy class to pick the obsm 
+    This subclass of EmbeddingBase provides no functionality. It is a dummy class to pick the obsm
     of interest, generally the latent space.
     """
-    
-    def __init__(self,
-            obsm_key: Optional[str] = None,
-            # Inherited
-            random_state: Optional[int] = None, 
-            adata: Optional[AnnData] = None, 
-            embedding: Optional[Union[np.ndarray, DataFrame]] = None, 
-            labels: Optional[Union[np.ndarray, Series]] = None, 
-            connectivities: Optional[Union[np.ndarray, DataFrame]] = None, 
-            distances: Optional[Union[np.ndarray, DataFrame]] = None, 
-            neighbour_key: Optional[str] = None
+
+    def __init__(
+        self,
+        obsm_key: Optional[str] = None,
+        # Inherited
+        random_state: Optional[int] = None,
+        adata: Optional[AnnData] = None,
+        embedding: Optional[Union[np.ndarray, DataFrame]] = None,
+        labels: Optional[Union[np.ndarray, Series]] = None,
+        connectivities: Optional[Union[np.ndarray, DataFrame]] = None,
+        distances: Optional[Union[np.ndarray, DataFrame]] = None,
+        neighbour_key: Optional[str] = None,
     ):
         """Initializes ObsmEmbedding.
 
@@ -39,10 +39,13 @@ class ObsmEmbedding(EmbeddingBase):
             connectivities (Optional[Union[np.ndarray, DataFrame]], optional): See `TrajectoryEmbeddingBase.__init__`.
             distances (Optional[Union[np.ndarray, DataFrame]], optional): See `TrajectoryEmbeddingBase.__init__`.
             neighbour_key (Optional[str], optional): See `TrajectoryEmbeddingBase.__init__`.
-        """    
+
+        Raises:
+            ValueError: Provided 'obsm_key' is not found in the anndata.
+        """
         super().__init__(random_state, adata, embedding, labels, connectivities, distances, neighbour_key)
-        self.obsm_key = obsm_key or "X"
-        
+        self.obsm_key = obsm_key if obsm_key is not None else "X"
+
         if self.obsm_key != "X" and self.obsm_key not in self.adata_prepared.obsm.keys():
             raise ValueError(f"Provided 'obsm_key' {self.obsm_key!r} is not found in the anndata.")
 

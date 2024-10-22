@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 
+# TODO: Codebase is not tested and/or runned.
+
 import numpy as np
 from scipy.spatial import procrustes
 from scipy.stats import kendalltau, ks_2samp, pearsonr, spearmanr, wasserstein_distance
 from sklearn.metrics import mean_absolute_error, mean_squared_error, mutual_info_score, r2_score
 from sklearn.metrics.pairwise import cosine_similarity
 
+from sctram.evaluate._metricsmixin._metricsmixinbase import MetricsMixinBase
 from sctram.evaluate._metricsmixin._spatialmetricsmixin import SpatialMetricsMixin
 
 
-class EmbeddingsPairMetricsMixin(SpatialMetricsMixin):
-    """Aims to compare two embeddings. 
-    
+class EmbeddingsPairMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
+    """Aims to compare two embeddings.
+
     In the context of single-cell data integration, this embeddings come from anndata before integration and anndata
     after integration.
     """

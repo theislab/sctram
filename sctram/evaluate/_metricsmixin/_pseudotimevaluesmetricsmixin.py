@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 
+import logging
+from typing import Any, Dict, List
+
 import numpy as np
 from scipy.stats import kendalltau, ks_2samp, pearsonr, spearmanr, wasserstein_distance
 from sklearn.metrics import mean_absolute_error, mean_squared_error, mutual_info_score, r2_score
 
+from sctram.evaluate._metricsmixin._metricsmixinbase import MetricsMixinBase
 from sctram.evaluate._metricsmixin._spatialmetricsmixin import SpatialMetricsMixin
 
 
-class PseudotimeValuesMetricsMixin(SpatialMetricsMixin):
+class PseudotimeValuesMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
+    """Metrics for comparing two 1d numpya arrays."""
 
     available_metrics = [
         "pearson",
@@ -27,6 +32,14 @@ class PseudotimeValuesMetricsMixin(SpatialMetricsMixin):
         "local_morans_i",
         "getis_ord_gi_star",
     ]
+
+    # Declare expected attributes with type annotations
+    prepared_after_subset_given: np.ndarray
+    prepared_after_subset_inferred: np.ndarray
+    result: Dict[str, Any]
+    metrics: List[str]
+    method_params: Dict[str, Any]
+    logger: logging.Logger
 
     def _calculate(self):
         """Performs the evaluation by comparing the pseudotime arrays using the specified metrics.

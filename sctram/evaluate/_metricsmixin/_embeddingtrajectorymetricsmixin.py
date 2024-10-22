@@ -1,29 +1,32 @@
 #!/usr/bin/env python3
 
-import numpy as np
+# TODO: Codebase is not tested and/or runned.
+
+from typing import Optional
+
 import networkx as nx
-from scipy.spatial.distance import pdist, directed_hausdorff
-from scipy.stats import spearmanr, pearsonr
+import numpy as np
 from scipy.spatial import procrustes
-from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-import logging
+from scipy.spatial.distance import directed_hausdorff, pdist
+from scipy.stats import pearsonr, spearmanr
+
+from sctram.evaluate._metricsmixin._metricsmixinbase import MetricsMixinBase
 
 # Optional dependencies
 try:
-    import gudhi as gd
+    import gudhi as gd  # type: ignore
 except ImportError:
     gd = None
 
 try:
-    from fastdtw import fastdtw
+    from fastdtw import fastdtw  # type: ignore
 except ImportError:
     fastdtw = None
 
 
-class EmbeddingTrajectoryMetricsMixin:
+class EmbeddingTrajectoryMetricsMixin(MetricsMixinBase):
     """A mixin class to compute various metrics comparing an embedding to a trajectory graph.
-        
+
     Attributes:
         prepared_after_subset_given (np.ndarray): The n-dimensional embedding matrix (shape: [n_cells, n_dims]).
         prepared_after_subset_inferred (nx.MultiDiGraph): The trajectory graph as a NetworkX MultiDiGraph.
@@ -48,13 +51,15 @@ class EmbeddingTrajectoryMetricsMixin:
         "dtw_distance",
     ]
 
-    def __init__(self, prepared_after_subset_given: np.ndarray, 
-                 prepared_after_subset_inferred: nx.MultiDiGraph,
-                 labels: np.ndarray,
-                 trajectory_nodes: list,
-                 graph_positions: dict = None):
-        """
-        Initializes the TrajectoryEmbeddingMetricsMixin.
+    def __init__(
+        self,
+        prepared_after_subset_given: np.ndarray,
+        prepared_after_subset_inferred: nx.MultiDiGraph,
+        labels: np.ndarray,
+        trajectory_nodes: list,
+        graph_positions: Optional[dict] = None,
+    ):
+        """Initializes the TrajectoryEmbeddingMetricsMixin.
 
         Args:
             prepared_after_subset_given (np.ndarray): The n-dimensional embedding matrix.
@@ -72,21 +77,9 @@ class EmbeddingTrajectoryMetricsMixin:
         self.metrics = self.available_metrics.copy()
         self.result = {}
 
-        # Initialize logger
-        self.logger = logging.getLogger(self.__class__.__name__)
-        if not self.logger.handlers:
-            # Prevent adding multiple handlers in interactive environments
-            handler = logging.StreamHandler()
-            formatter = logging.Formatter(
-                '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-            )
-            handler.setFormatter(formatter)
-            self.logger.addHandler(handler)
-            self.logger.setLevel(logging.DEBUG)
-
     def _calculate(self):
         """Performs the evaluation by comparing the embedding and trajectory graph using the specified metrics.
-        
+
         Iterates over each specified metric and invokes the corresponding calculation method.
         Stores the results in the `self.result` dictionary.
         """
@@ -198,7 +191,7 @@ class EmbeddingTrajectoryMetricsMixin:
                 if isinstance(edge_data, dict):
                     # Get the first edge's length
                     first_key = next(iter(edge_data))
-                    length = edge_data[first_key].get('length', 1.0)
+                    length = edge_data[first_key].get("length", 1.0)
                 else:
                     length = 1.0
                 graph_lengths.append(length)
@@ -206,7 +199,7 @@ class EmbeddingTrajectoryMetricsMixin:
                 # If no direct edge, use shortest path length
                 try:
                     length = nx.shortest_path_length(
-                        self.prepared_after_subset_inferred, source=node_a, target=node_b, weight='length'
+                        self.prepared_after_subset_inferred, source=node_a, target=node_b, weight="length"
                     )
                 except nx.NetworkXNoPath:
                     length = np.nan  # Undefined
@@ -239,7 +232,7 @@ class EmbeddingTrajectoryMetricsMixin:
         nodes = self.trajectory_nodes
         embedding_positions = np.array([self.prepared_after_subset_given[node] for node in nodes])
         # Compute pairwise distances in the embedding
-        embedding_distances = pdist(embedding_positions, metric='euclidean')
+        embedding_distances = pdist(embedding_positions, metric="euclidean")
         # Compute pairwise graph distances
         graph_distances = []
         for i in range(len(nodes)):
@@ -248,7 +241,7 @@ class EmbeddingTrajectoryMetricsMixin:
                 node_j = nodes[j]
                 try:
                     distance = nx.shortest_path_length(
-                        self.prepared_after_subset_inferred, source=node_i, target=node_j, weight='length'
+                        self.prepared_after_subset_inferred, source=node_i, target=node_j, weight="length"
                     )
                 except nx.NetworkXNoPath:
                     distance = np.nan  # Undefined
@@ -283,7 +276,7 @@ class EmbeddingTrajectoryMetricsMixin:
         """
         nodes = self.trajectory_nodes
         embedding_positions = np.array([self.prepared_after_subset_given[node] for node in nodes])
-        embedding_distances = pdist(embedding_positions, metric='euclidean')
+        embedding_distances = pdist(embedding_positions, metric="euclidean")
         # Compute graph distances
         graph_distances = []
         for i in range(len(nodes)):
@@ -292,7 +285,7 @@ class EmbeddingTrajectoryMetricsMixin:
                 node_j = nodes[j]
                 try:
                     distance = nx.shortest_path_length(
-                        self.prepared_after_subset_inferred, source=node_i, target=node_j, weight='length'
+                        self.prepared_after_subset_inferred, source=node_i, target=node_j, weight="length"
                     )
                 except nx.NetworkXNoPath:
                     distance = np.nan  # Undefined
@@ -308,11 +301,17 @@ class EmbeddingTrajectoryMetricsMixin:
             graph_distances = graph_distances[valid_mask]
             embedding_distances = embedding_distances[valid_mask]
             # Normalize distances
-            graph_distances_norm = graph_distances / np.max(graph_distances) if np.max(graph_distances) != 0 else graph_distances
-            embedding_distances_norm = embedding_distances / np.max(embedding_distances) if np.max(embedding_distances) != 0 else embedding_distances
+            graph_distances_norm = (
+                graph_distances / np.max(graph_distances) if np.max(graph_distances) != 0 else graph_distances
+            )
+            embedding_distances_norm = (
+                embedding_distances / np.max(embedding_distances)
+                if np.max(embedding_distances) != 0
+                else embedding_distances
+            )
             # Compute stress
             stress_numerator = np.sum((embedding_distances_norm - graph_distances_norm) ** 2)
-            stress_denominator = np.sum(graph_distances_norm ** 2)
+            stress_denominator = np.sum(graph_distances_norm**2)
             stress = np.sqrt(stress_numerator / stress_denominator) if stress_denominator != 0 else np.nan
             self.logger.debug(f"Stress function: {stress}")
         self.result["stress"] = stress
@@ -413,7 +412,7 @@ class EmbeddingTrajectoryMetricsMixin:
         """
         nodes = self.trajectory_nodes
         embedding_positions = np.array([self.prepared_after_subset_given[node] for node in nodes])
-        embedding_distances = pdist(embedding_positions, metric='euclidean')
+        embedding_distances = pdist(embedding_positions, metric="euclidean")
         # Compute graph distances
         graph_distances = []
         for i in range(len(nodes)):
@@ -422,7 +421,7 @@ class EmbeddingTrajectoryMetricsMixin:
                 node_j = nodes[j]
                 try:
                     distance = nx.shortest_path_length(
-                        self.prepared_after_subset_inferred, source=node_i, target=node_j, weight='length'
+                        self.prepared_after_subset_inferred, source=node_i, target=node_j, weight="length"
                     )
                 except nx.NetworkXNoPath:
                     distance = np.nan  # Undefined
@@ -471,7 +470,7 @@ class EmbeddingTrajectoryMetricsMixin:
         # Extract graph edge lengths; assume 'length' attribute exists, else default to 1
         graph_edge_lengths = []
         for edge in self.prepared_after_subset_inferred.edges(data=True):
-            length = edge[2].get('length', 1.0)
+            length = edge[2].get("length", 1.0)
             graph_edge_lengths.append(length)
         # Assign positions to graph nodes if not provided
         if self.graph_positions is None:
@@ -479,7 +478,12 @@ class EmbeddingTrajectoryMetricsMixin:
             graph_positions = {}
             for node in self.trajectory_nodes:
                 try:
-                    path = nx.shortest_path(self.prepared_after_subset_inferred, source=self.trajectory_nodes[0], target=node, weight='length')
+                    path = nx.shortest_path(
+                        self.prepared_after_subset_inferred,
+                        source=self.trajectory_nodes[0],
+                        target=node,
+                        weight="length",
+                    )
                     pos = np.sum([self.prepared_after_subset_given[n] for n in path], axis=0) / len(path)
                 except nx.NetworkXNoPath:
                     pos = self.prepared_after_subset_given[node]
@@ -558,7 +562,9 @@ class EmbeddingTrajectoryMetricsMixin:
         nodes = self.trajectory_nodes
         positions = [self.prepared_after_subset_given[node] for node in nodes]
         if self.graph_positions is None:
-            self.logger.warning("Graph positions are not provided. Assigning embedding positions to graph positions for DTW.")
+            self.logger.warning(
+                "Graph positions are not provided. Assigning embedding positions to graph positions for DTW."
+            )
             graph_positions = positions  # Assign embedding positions as graph positions
         else:
             try:
@@ -571,7 +577,9 @@ class EmbeddingTrajectoryMetricsMixin:
         graph_positions = np.array(graph_positions)
         # Compute DTW distance for each dimension and sum
         if positions.shape[1] != graph_positions.shape[1]:
-            self.logger.error("Embedding and graph positions have different dimensions. DTW distance cannot be computed.")
+            self.logger.error(
+                "Embedding and graph positions have different dimensions. DTW distance cannot be computed."
+            )
             self.result["dtw_distance"] = np.nan
             return
         total_distance = 0.0

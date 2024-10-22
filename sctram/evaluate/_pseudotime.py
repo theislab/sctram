@@ -1,43 +1,26 @@
 #!/usr/bin/env python3
 
+from abc import abstractmethod
 from typing import Any, Dict, Optional, Tuple
 
+import networkx as nx
 import numpy as np
 import pandas as pd
-import networkx as nx
-from abc import abstractmethod
 from sklearn.preprocessing import MinMaxScaler
 
 from sctram.evaluate._base import EvaluationBase
-from sctram.evaluate._converters._pseudotime2adjacency import LabelAdjacencyPseudotimeConverter
-from sctram.evaluate._metricsmixin._pseudotimevaluesmetricsmixin import PseudotimeValuesMetricsMixin
+from sctram.evaluate._converters._adjacency2pseudotime import LabelAdjacencyPseudotimeConverter
 from sctram.evaluate._metricsmixin._pseudotimecategoricalmetricsmixin import PseudotimeCategoricalMetricsMixin
-
-# TODO: create adj vs adj for pseudotimeEvaluation and inherit adjacency ones
-# TODO: crreate psd vs psd for adjacencyevaluation and inherit pseudo ones.
-
-# TODO: check scib dpt method
-# TODO: check scanpy.morans-i method
-
-# TODO: directionality of lineer using embedding (PCA, UMAP, Diffmap etc)
-# TODO: embedding metrics!!
-
-# TODO: recalculation of knn etc over and over.. `benchmark` should resolve. 
-# TODO: the classses should return the calculations to be used as in `benchmark`
-
-# TODO: a module/class to scale the obtained scores. 0 is terrible, 1 is perfect.
-
-# TODO: min total_counts / n-genes for DPT inference method (dependent)
-
-# TODO: adata generation infer takes X by default. indicate it several places, raise warning
+from sctram.evaluate._metricsmixin._pseudotimevaluesmetricsmixin import PseudotimeValuesMetricsMixin
 
 
 class PseudotimeEvaluationBase(EvaluationBase):
     """Evaluation method to compare inferred pseudotime with a given trajectory graph.
-    
+
     There is two subclasses: PseudotimeValuesEvaluation and PseudotimeCategoricalEvaluation. They differ in how the
     final data prep is done and the metrics.
     """
+
     def __init__(
         self,
         method_params: Dict[str, Any],
@@ -78,31 +61,31 @@ class PseudotimeEvaluationBase(EvaluationBase):
         if inferred_pseudotime.ndim != 1:
             raise ValueError("Inferred pseudotime must be a 1D array.")
         return inferred_pseudotime
-    
+
     def _verify_labels_data_specific(self):
         """Verifies that labels is consistent with input trajectory and/or inferred trajectory.
-        
+
         The labels for the pseudotime evaluation should be with the same size as the number of data points.
-        
+
         Raises:
             ValueError: there is inconsistency.
         """
         self.logger.debug("Checking the consistency between the given graph and labels.")
         if len(self.inferred_trajectory) != len(self.labels):
-            raise ValueError("Datapoint amount in the inferred trajectory does not match the number of given labels.")    
+            raise ValueError("Datapoint amount in the inferred trajectory does not match the number of given labels.")
 
     def _prepare_before_subset(self) -> Tuple[np.ndarray, np.ndarray]:
         """Prepares the trajectories after subsetting. `_prepare_after_subset` is used instead.
-        
+
         Raises:
             NotImplementedError: This method is not supposed to be running.
-        """ 
+        """
         raise NotImplementedError("This method is not supposed to be running.")
 
-    def _subset(self) -> Tuple[np.ndarray, np.ndarray]:
+    def _subset(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Subsets the trajectories based on `subset_params`.
 
-        For pseudotime array, subsetting typically involves selecting a subset of labels for the given graph and 
+        For pseudotime array, subsetting typically involves selecting a subset of labels for the given graph and
         also subseting pseudotime array based on the same labels.
         This method supports subsetting by specifying either labels to keep or labels to remove.
 
@@ -137,8 +120,7 @@ class PseudotimeEvaluationBase(EvaluationBase):
         else:
             raise ValueError("Either 'labels_to_keep' or 'labels_to_remove' must be specified in subset_params.")
 
-
-        bool_array = np.isin(self.labels, set(keep_indices))
+        bool_array = np.isin(self.labels, keep_indices)
         subset_given = self.prepared_before_subset_given.subgraph(keep_indices).copy()
         subset_inferred = self.prepared_before_subset_inferred[bool_array]
         subset_labels = self.labels[bool_array]
@@ -150,38 +132,35 @@ class PseudotimeEvaluationBase(EvaluationBase):
     @abstractmethod
     def _prepare_after_subset(self) -> Tuple[np.ndarray, np.ndarray]:
         """This need to be implemented in the subclasses.
-        
+
         Raises:
             NotImplementedError: This method is not supposed to be running.
-        """ 
+        """
         raise NotImplementedError("This method is not supposed to be running.")
+
 
 class PseudotimeCategoricalEvaluation(PseudotimeCategoricalMetricsMixin, PseudotimeEvaluationBase):
     """Evaluation method to compare inferred pseudotime with a given trajectory graph.
 
     The data prep includes conversion of user defined adjacency matrix into an array of strings composed of labels
     using `...` class. At the end of the data prep, two numpy array will be obtained: one is numerical the other is
-    categorical. The metrics are desingned to compare these two arrays. 
+    categorical. The metrics are desingned to compare these two arrays.
     """
-    
-    def _prepare_after_subset(self) -> Tuple[np.ndarray, np.ndarray]:
-        """Prepares the data after subsetting.
 
-        Returns:
-            Tuple[np.ndarray, np.ndarray]: The prepared reference pseudotime and inferred pseudotime.
-        """
+    def _prepare_after_subset(self) -> Tuple[np.ndarray, np.ndarray]:
+        """Prepares the data after subsetting."""
         # Convert subset_given (In) to adjacency matrix
         self.logger.debug("Converting `InputTrajectory` to adjacency matrix.")
-        raise NotImplementedError("This class of metrics is not implemented yet.")  
+        raise NotImplementedError("This class of metrics is not implemented yet.")
         # TODO: implement categorical pseudotime evaluation
 
 
-class PseudotimeValuesEvaluation(PseudotimeValuesMetricsMixin, PseudotimeEvaluationBase):
+class PseudotimeValuesEvaluation(PseudotimeEvaluationBase, PseudotimeValuesMetricsMixin):
     """Evaluation method to compare inferred pseudotime with a given trajectory graph.
-    
+
     The data prep includes conversion of user defined adjacency matrix into pseudotime
-    values using `LabelAdjacencyPseudotimeConverter` class. At the end of the data prep, two numpy array 
-    will be obtained and both will be composed of floating numbers. The metrics are desingned to compare 
+    values using `LabelAdjacencyPseudotimeConverter` class. At the end of the data prep, two numpy array
+    will be obtained and both will be composed of floating numbers. The metrics are desingned to compare
     two numerical arrays.
 
     This class compares the inferred pseudotime values (1D array) with the given trajectory,
@@ -204,6 +183,10 @@ class PseudotimeValuesEvaluation(PseudotimeValuesMetricsMixin, PseudotimeEvaluat
 
         Returns:
             Tuple[np.ndarray, np.ndarray]: The prepared reference pseudotime and inferred pseudotime.
+
+        Raises:
+            ValueError: `label_pseudotime` is not given correctly.
+            TypeError: `label_pseudotime` is not given correctly.
         """
         # Convert subset_given (In) to adjacency matrix
         self.logger.debug("Converting `InputTrajectory` to adjacency matrix.")
@@ -212,22 +195,25 @@ class PseudotimeValuesEvaluation(PseudotimeValuesMetricsMixin, PseudotimeEvaluat
         self.logger.debug("Initializing `LabelAdjacencyPseudotimeConverter`.")
         converter = LabelAdjacencyPseudotimeConverter(
             label_adjacency_matrix=subset_adjacency_matrix,
-            cell_labels=self.subset_labels  # Assuming self.labels corresponds to subset labels
+            cell_labels=self.subset_labels,  # Assuming self.labels corresponds to subset labels
         )
-        
-        # Retrieve pseudotime computation parameters from prepare_params
-        method = self.prepare_params.get("method", "shortest_path")
-        handle_disconnected = self.prepare_params.get("handle_disconnected", "assign_max_plus_one")
-        alternative_distance = self.prepare_params.get("alternative_distance", None)
+
+        # Retrieve pseudotime computation parameters from prepare_params_after_subset
+        method = self.prepare_params_after_subset.get("method", "shortest_path")
+        handle_disconnected = self.prepare_params_after_subset.get("handle_disconnected", "assign_max_plus_one")
+        alternative_distance = self.prepare_params_after_subset.get("alternative_distance", None)
         # Extract additional method-specific parameters
-        method_specific_params = {k: v for k, v in self.prepare_params.items()
-                                  if k not in {"method", "handle_disconnected", "alternative_distance"}}
+        method_specific_params = {
+            k: v
+            for k, v in self.prepare_params_after_subset.items()
+            if k not in {"method", "handle_disconnected", "alternative_distance"}
+        }
         self.logger.debug(f"Computing reference pseudotime using method: {method}")
         label_pseudotime = converter.get_label_pseudotime(
             method=method,
             handle_disconnected=handle_disconnected,
             alternative_distance=alternative_distance,
-            **method_specific_params
+            **method_specific_params,
         )
         if not isinstance(label_pseudotime, np.ndarray):
             raise TypeError("Label pseudotime must be a numpy array.")
@@ -239,10 +225,9 @@ class PseudotimeValuesEvaluation(PseudotimeValuesMetricsMixin, PseudotimeEvaluat
 
         self.logger.debug("Assigning pseudotime to cells based on label pseudotime.")
         cell_pseudotime = converter.assign_cell_pseudotime(
-            handle_disconnected=handle_disconnected,
-            alternative_distance=alternative_distance
+            handle_disconnected=handle_disconnected, alternative_distance=alternative_distance
         )
-        
+
         # Validate inferred pseudotime size
         if self.subset_inferred.size != cell_pseudotime.size:
             raise ValueError("Inferred pseudotime size does not match the number of cells in the subset.")
@@ -256,6 +241,10 @@ class PseudotimeValuesEvaluation(PseudotimeValuesMetricsMixin, PseudotimeEvaluat
             self.logger.debug("Normalized pseudotime arrays successfully.")
         except Exception as e:
             self.logger.error(f"Failed to normalize pseudotime arrays: {e}")
-            raise ValueError(f"Failed to normalize pseudotime arrays: {e}")
+            raise ValueError(f"Failed to normalize pseudotime arrays: {e}") from e
 
         return reference_normalized, inferred_normalized
+
+
+# Note: as an alternative, one may try creating another class accepting the inputs like the one above,
+# but converting inferred pseutotime into adjacency matrix. Then, the plan is to use adjacency metrics.

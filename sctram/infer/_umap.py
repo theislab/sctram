@@ -2,8 +2,8 @@
 
 from typing import Any, Dict, Optional, Union
 
-import scanpy as sc
 import numpy as np
+import scanpy as sc
 from anndata import AnnData
 from pandas import DataFrame, Series
 
@@ -16,25 +16,25 @@ class UMAPEmbedding(EmbeddingBase):
 
     This subclass of InferenceAndEmbeddingBase provides functionality to compute the UMAP of the dataset.
     """
-    
-    def __init__(self,
-            neighbors_params: Optional[Dict[str, Any]] = None,
-            umap_params: Optional[Dict[str, Any]] = None,
-            # Inherited
-            random_state: Optional[int] = None, 
-            adata: Optional[AnnData] = None, 
-            embedding: Optional[Union[np.ndarray, DataFrame]] = None, 
-            labels: Optional[Union[np.ndarray, Series]] = None, 
-            connectivities: Optional[Union[np.ndarray, DataFrame]] = None, 
-            distances: Optional[Union[np.ndarray, DataFrame]] = None, 
-            neighbour_key: Optional[str] = None
+
+    def __init__(
+        self,
+        neighbors_params: Optional[Dict[str, Any]] = None,
+        umap_params: Optional[Dict[str, Any]] = None,
+        # Inherited
+        random_state: Optional[int] = None,
+        adata: Optional[AnnData] = None,
+        embedding: Optional[Union[np.ndarray, DataFrame]] = None,
+        labels: Optional[Union[np.ndarray, Series]] = None,
+        connectivities: Optional[Union[np.ndarray, DataFrame]] = None,
+        distances: Optional[Union[np.ndarray, DataFrame]] = None,
+        neighbour_key: Optional[str] = None,
     ):
         """Initializes UMAPEmbedding.
 
         Args:
             neighbors_params (Optional[Dict[str, Any]]): Parameters for `sc.pp.neighbors`.
             umap_params (Optional[Dict[str, Any]]): Parameters for `sc.pp.umap`.
-            
             random_state (Optional[int], optional): See `TrajectoryEmbeddingBase.__init__`.
             adata (Optional[AnnData], optional): See `TrajectoryEmbeddingBase.__init__`.
             embedding (Optional[Union[np.ndarray, DataFrame]], optional):See `TrajectoryEmbeddingBase.__init__`.
@@ -42,7 +42,7 @@ class UMAPEmbedding(EmbeddingBase):
             connectivities (Optional[Union[np.ndarray, DataFrame]], optional): See `TrajectoryEmbeddingBase.__init__`.
             distances (Optional[Union[np.ndarray, DataFrame]], optional): See `TrajectoryEmbeddingBase.__init__`.
             neighbour_key (Optional[str], optional): See `TrajectoryEmbeddingBase.__init__`.
-        """    
+        """
         super().__init__(random_state, adata, embedding, labels, connectivities, distances, neighbour_key)
         self.neighbors_params = neighbors_params or {}
         self.umap_params = umap_params or {}

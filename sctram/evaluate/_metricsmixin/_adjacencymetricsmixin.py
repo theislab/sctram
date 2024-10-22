@@ -5,10 +5,12 @@ import numpy as np
 from scipy.stats import wasserstein_distance
 from sklearn.metrics.pairwise import cosine_similarity
 
+from sctram.evaluate._metricsmixin._metricsmixinbase import MetricsMixinBase
 from sctram.evaluate._metricsmixin._spatialmetricsmixin import SpatialMetricsMixin
 
 
-class AdjacencyMetricsMixin(SpatialMetricsMixin):
+class AdjacencyMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
+    """Metrics to compare two adjacency matrixes, that is, two networkx graphs."""
 
     available_metrics = [
         "frobenius",
@@ -562,7 +564,7 @@ class AdjacencyMetricsMixin(SpatialMetricsMixin):
         Result:
             - A single scalar value between -1 and 1 representing the cosine similarity of GNN embeddings.
         """
-        self.logger.warning(f"GNN Embedding Cosine Similarity method is not tested in depth.")
+        self.logger.warning("GNN Embedding Cosine Similarity method is not tested in depth.")
         try:
             import torch  # type: ignore
             from torch_geometric.data import Data  # type: ignore

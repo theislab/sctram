@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+# TODO: Codebase is not tested and/or runned.
+
 from typing import Any, Dict, Optional, Tuple
 
 import networkx as nx
@@ -8,11 +10,18 @@ from scipy.spatial import procrustes
 from sklearn.manifold import Isomap
 
 from sctram.evaluate._base import EvaluationBase
-from sctram.evaluate._metricsmixin._embeddingmetricsmixin import EmbeddingMetricsMixin
+from sctram.evaluate._metricsmixin._embeddingspairmetricsmixin import EmbeddingsPairMetricsMixin
+from sctram.evaluate._metricsmixin._embeddingtrajectorymetricsmixin import EmbeddingTrajectoryMetricsMixin
 
 
-class EmbeddingEvaluation(EmbeddingMetricsMixin, EvaluationBase):
-    """Evaluation method to compare inferred embeddings with a given trajectory.
+class EmbeddingTrajectoryEvaluation(EmbeddingTrajectoryMetricsMixin):
+    """Evaluation method to compare inferred embeddings with a given trajectory."""
+
+    pass  # TODO: complete the class.
+
+
+class EmbeddingsPairEvaluation(EvaluationBase, EmbeddingsPairMetricsMixin):
+    """Evaluation method to compare inferred embeddings with another embedding.
 
     This class compares the inferred embeddings (numpy array of shape [n_samples, n_components])
     with the given trajectory (networkx.MultiDiGraph), using various metrics to assess how well
