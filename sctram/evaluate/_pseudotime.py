@@ -195,7 +195,8 @@ class PseudotimeValuesEvaluation(PseudotimeValuesMetricsMixin, PseudotimeEvaluat
         self.logger.debug("Initializing `LabelAdjacencyPseudotimeConverter`.")
         converter = LabelAdjacencyPseudotimeConverter(
             label_adjacency_matrix=subset_adjacency_matrix,
-            cell_labels=self.subset_labels,  # Assuming self.labels corresponds to subset labels
+            label_adjacency_matrix_labels=self.subset_labels,  # Assuming self.labels corresponds to subset labels
+            # TODO: add third argument?
         )
 
         # Retrieve pseudotime computation parameters from prepare_params_after_subset
