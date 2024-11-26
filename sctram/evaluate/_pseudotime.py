@@ -8,13 +8,15 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 
+from sctram._constants import sctram_operate_key
+from sctram._utils import Utils
 from sctram.evaluate._base import EvaluationBase
 from sctram.evaluate._converters._adjacency2pseudotime import LabelAdjacencyPseudotimeConverter
 from sctram.evaluate._metricsmixin._pseudotimecategoricalmetricsmixin import PseudotimeCategoricalMetricsMixin
 from sctram.evaluate._metricsmixin._pseudotimevaluesmetricsmixin import PseudotimeValuesMetricsMixin
 
 
-class PseudotimeEvaluationBase(EvaluationBase):
+class PseudotimeEvaluationBase(Utils, EvaluationBase):
     """Evaluation method to compare inferred pseudotime with a given trajectory graph.
 
     There is two subclasses: PseudotimeValuesEvaluation and PseudotimeCategoricalEvaluation. They differ in how the
@@ -34,6 +36,8 @@ class PseudotimeEvaluationBase(EvaluationBase):
             prepare_params_before_subset=None,
             prepare_params_after_subset=prepare_params,
         )
+        # Prepare the input/inferred regardless of the prepare params, as there is no real parameter
+        self.prepare_params_after_subset[sctram_operate_key] = True
         self.logger.debug(f"Initialized PseudotimeEvaluation with metrics: {self.metrics}")
 
     def get_result(self) -> Any:
@@ -96,8 +100,8 @@ class PseudotimeEvaluationBase(EvaluationBase):
             ValueError: If subsetting parameters are invalid or result in incompatible matrices.
         """
         self.logger.debug("Subsetting trajectories based on subset parameters.")
-        labels_to_keep = self.subset_params.get("labels_to_keep", None)
-        labels_to_remove = self.subset_params.get("labels_to_remove", None)
+        labels_to_keep = self.sget(self.subset_params, "labels_to_keep", None)
+        labels_to_remove = self.sget(self.subset_params, "labels_to_remove", None)
         unique_labels = np.unique(self.labels)
 
         if labels_to_keep is not None and labels_to_remove is None:
@@ -190,37 +194,45 @@ class PseudotimeValuesEvaluation(PseudotimeValuesMetricsMixin, PseudotimeEvaluat
         """
         # Convert subset_given (In) to adjacency matrix
         self.logger.debug("Converting `InputTrajectory` to adjacency matrix.")
-        unique_labels = np.unique(self.labels)
-        subset_adjacency_matrix = nx.to_numpy_array(self.subset_given, nodelist=unique_labels)
+        unique_labels = np.unique(self.subset_labels)
+
+        symetrical_graph = self.subset_given.to_symetrical_multidigraph()  # to have symetrical adjacency matrices
+        subset_adjacency_matrix = nx.to_numpy_array(symetrical_graph, nodelist=unique_labels)
         self.logger.debug("Initializing `LabelAdjacencyPseudotimeConverter`.")
         converter = LabelAdjacencyPseudotimeConverter(
             label_adjacency_matrix=subset_adjacency_matrix,
-            label_adjacency_matrix_labels=self.subset_labels,  # Assuming self.labels corresponds to subset labels
-            # TODO: add third argument?
+            label_adjacency_matrix_labels=unique_labels,
+            cell_labels=self.subset_labels,
         )
 
         # Retrieve pseudotime computation parameters from prepare_params_after_subset
-        method = self.prepare_params_after_subset.get("method", "shortest_path")
-        handle_disconnected = self.prepare_params_after_subset.get("handle_disconnected", "assign_max_plus_one")
-        alternative_distance = self.prepare_params_after_subset.get("alternative_distance", None)
+        converter_parameters = self.sget(self.prepare_params_after_subset, "converter", dict())
+        # TODO: make it with "get or warn method".
+        method = self.sget(converter_parameters, "method", "diffusion_with_damping")
+        handle_disconnected = self.sget(converter_parameters, "handle_disconnected", "assign_max_plus_one")
+        alternative_distance = self.sget(converter_parameters, "alternative_distance", None)
+        # Needs root_label
+        root_label = self.sget(converter_parameters, "root_label", None)
+        root_label_index = np.where(unique_labels == root_label)[0][0] if root_label is not None else 0
         # Extract additional method-specific parameters
         method_specific_params = {
             k: v
-            for k, v in self.prepare_params_after_subset.items()
-            if k not in {"method", "handle_disconnected", "alternative_distance"}
+            for k, v in converter_parameters.items()
+            if k not in {"method", "handle_disconnected", "alternative_distance", "root_label"}
         }
         self.logger.debug(f"Computing reference pseudotime using method: {method}")
         label_pseudotime = converter.get_label_pseudotime(
             method=method,
             handle_disconnected=handle_disconnected,
             alternative_distance=alternative_distance,
+            root_label_index=root_label_index,
             **method_specific_params,
         )
         if not isinstance(label_pseudotime, np.ndarray):
             raise TypeError("Label pseudotime must be a numpy array.")
         if label_pseudotime.ndim != 1:
             raise ValueError("Label pseudotime must be a one-dimensional array.")
-        if label_pseudotime.size != len(np.unique(self.subset_labels)):
+        if label_pseudotime.size != len(unique_labels):
             raise ValueError("Label pseudotime size does not match the number of unique subset labels.")
         self.logger.debug("Computed label pseudotime successfully.")
 
@@ -238,7 +250,7 @@ class PseudotimeValuesEvaluation(PseudotimeValuesMetricsMixin, PseudotimeEvaluat
         try:
             scaler = MinMaxScaler()
             reference_normalized = scaler.fit_transform(cell_pseudotime.reshape(-1, 1)).flatten()
-            inferred_normalized = scaler.transform(self.subset_inferred.reshape(-1, 1)).flatten()
+            inferred_normalized = scaler.fit_transform(self.subset_inferred.reshape(-1, 1)).flatten()
             self.logger.debug("Normalized pseudotime arrays successfully.")
         except Exception as e:
             self.logger.error(f"Failed to normalize pseudotime arrays: {e}")

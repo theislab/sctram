@@ -30,10 +30,10 @@ class EmbeddingsPairMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
         "cosine_similarity",
         "embedding_distance",
         "alignment_score",
-        "morans_i",
-        "gearys_c",
-        "local_morans_i",
-        "getis_ord_gi_star",
+        # "morans_i",
+        # "gearys_c",
+        # "local_morans_i",
+        # "getis_ord_gi_star",
         "wasserstein_distance",
         "ks_statistic",
         "mutual_information",
@@ -67,14 +67,14 @@ class EmbeddingsPairMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
                 self._calculate_embedding_distance()
             elif metric == "alignment_score":
                 self._calculate_alignment_score()
-            elif metric == "morans_i":
-                self._calculate_morans_i()
-            elif metric == "gearys_c":
-                self._calculate_gearys_c()
-            elif metric == "local_morans_i":
-                self._calculate_local_morans_i()
-            elif metric == "getis_ord_gi_star":
-                self._calculate_getis_ord_gi_star()
+            # elif metric == "morans_i":
+            #     self._calculate_morans_i()
+            # elif metric == "gearys_c":
+            #     self._calculate_gearys_c()
+            # elif metric == "local_morans_i":
+            #     self._calculate_local_morans_i()
+            # elif metric == "getis_ord_gi_star":
+            #     self._calculate_getis_ord_gi_star()
             elif metric == "wasserstein_distance":
                 self._calculate_wasserstein_distance()
             elif metric == "ks_statistic":
@@ -164,67 +164,67 @@ class EmbeddingsPairMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
         self.result["alignment_score"] = alignment_score
         self.logger.debug(f"Alignment score (average cosine similarity across components): {alignment_score}")
 
-    def _calculate_morans_i(self):
-        """Calculates Moran's I for the reference embedding."""
-        morans_i_values = []
-        spatial_weights = self._compute_spatial_weights(
-            self.prepared_after_subset_given, "embedding", **self.method_params
-        )
-        for dim in range(self.prepared_after_subset_given.shape[1]):
-            x = self.prepared_after_subset_given[:, dim]
-            morans_i = self.calculate_morans_i(x, spatial_weights)
-            morans_i_values.append(morans_i)
-            self.logger.debug(f"Moran's I for component {dim}: {morans_i}")
-        average_morans_i = np.mean(morans_i_values)
-        self.result["morans_i"] = average_morans_i
-        self.logger.debug(f"Average Moran's I across components: {average_morans_i}")
+    # def _calculate_morans_i(self):
+    #     """Calculates Moran's I for the reference embedding."""
+    #     morans_i_values = []
+    #     spatial_weights = self._compute_spatial_weights(
+    #         self.prepared_after_subset_given, "embedding", **self.method_params
+    #     )
+    #     for dim in range(self.prepared_after_subset_given.shape[1]):
+    #         x = self.prepared_after_subset_given[:, dim]
+    #         morans_i = self.calculate_morans_i(x, spatial_weights)
+    #         morans_i_values.append(morans_i)
+    #         self.logger.debug(f"Moran's I for component {dim}: {morans_i}")
+    #     average_morans_i = np.mean(morans_i_values)
+    #     self.result["morans_i"] = average_morans_i
+    #     self.logger.debug(f"Average Moran's I across components: {average_morans_i}")
 
-    def _calculate_gearys_c(self):
-        """Calculates Geary's C for the reference embedding."""
-        gearys_c_values = []
-        spatial_weights = self._compute_spatial_weights(
-            self.prepared_after_subset_given, "embedding", **self.method_params
-        )
-        for dim in range(self.prepared_after_subset_given.shape[1]):
-            x = self.prepared_after_subset_given[:, dim]
-            gearys_c = self.calculate_gearys_c(x, spatial_weights)
-            gearys_c_values.append(gearys_c)
-            self.logger.debug(f"Geary's C for component {dim}: {gearys_c}")
-        average_gearys_c = np.mean(gearys_c_values)
-        self.result["gearys_c"] = average_gearys_c
-        self.logger.debug(f"Average Geary's C across components: {average_gearys_c}")
+    # def _calculate_gearys_c(self):
+    #     """Calculates Geary's C for the reference embedding."""
+    #     gearys_c_values = []
+    #     spatial_weights = self._compute_spatial_weights(
+    #         self.prepared_after_subset_given, "embedding", **self.method_params
+    #     )
+    #     for dim in range(self.prepared_after_subset_given.shape[1]):
+    #         x = self.prepared_after_subset_given[:, dim]
+    #         gearys_c = self.calculate_gearys_c(x, spatial_weights)
+    #         gearys_c_values.append(gearys_c)
+    #         self.logger.debug(f"Geary's C for component {dim}: {gearys_c}")
+    #     average_gearys_c = np.mean(gearys_c_values)
+    #     self.result["gearys_c"] = average_gearys_c
+    #     self.logger.debug(f"Average Geary's C across components: {average_gearys_c}")
 
-    def _calculate_local_morans_i(self):
-        """Calculates Local Moran's I (LISA) for the reference embedding."""
-        lisa_values = []
-        spatial_weights = self._compute_spatial_weights(
-            self.prepared_after_subset_given, "embedding", **self.method_params
-        )
-        for dim in range(self.prepared_after_subset_given.shape[1]):
-            x = self.prepared_after_subset_given[:, dim]
-            lisa = self.calculate_lisa(x, spatial_weights)
-            lisa_values.append(lisa)
-            self.logger.debug(f"Local Moran's I for component {dim}: {lisa}")
-        # Aggregate by averaging across components
-        average_lisa = np.mean(lisa_values, axis=0)
-        self.result["local_morans_i"] = average_lisa
-        self.logger.debug(f"Average Local Moran's I across components: {average_lisa}")
+    # def _calculate_local_morans_i(self):
+    #     """Calculates Local Moran's I (LISA) for the reference embedding."""
+    #     lisa_values = []
+    #     spatial_weights = self._compute_spatial_weights(
+    #         self.prepared_after_subset_given, "embedding", **self.method_params
+    #     )
+    #     for dim in range(self.prepared_after_subset_given.shape[1]):
+    #         x = self.prepared_after_subset_given[:, dim]
+    #         lisa = self.calculate_lisa(x, spatial_weights)
+    #         lisa_values.append(lisa)
+    #         self.logger.debug(f"Local Moran's I for component {dim}: {lisa}")
+    #     # Aggregate by averaging across components
+    #     average_lisa = np.mean(lisa_values, axis=0)
+    #     self.result["local_morans_i"] = average_lisa
+    #     self.logger.debug(f"Average Local Moran's I across components: {average_lisa}")
 
-    def _calculate_getis_ord_gi_star(self):
-        """Calculates Getis-Ord Gi* statistic for the reference embedding."""
-        gi_star_values = []
-        spatial_weights = self._compute_spatial_weights(
-            self.prepared_after_subset_given, "embedding", **self.method_params
-        )
-        for dim in range(self.prepared_after_subset_given.shape[1]):
-            x = self.prepared_after_subset_given[:, dim]
-            gi_star = self.calculate_getis_ord_gi_star(x, spatial_weights)
-            gi_star_values.append(gi_star)
-            self.logger.debug(f"Getis-Ord Gi* for component {dim}: {gi_star}")
-        # Aggregate by averaging across components
-        average_gi_star = np.mean(gi_star_values, axis=0)
-        self.result["getis_ord_gi_star"] = average_gi_star
-        self.logger.debug(f"Average Getis-Ord Gi* across components: {average_gi_star}")
+    # def _calculate_getis_ord_gi_star(self):
+    #     """Calculates Getis-Ord Gi* statistic for the reference embedding."""
+    #     gi_star_values = []
+    #     spatial_weights = self._compute_spatial_weights(
+    #         self.prepared_after_subset_given, "embedding", **self.method_params
+    #     )
+    #     for dim in range(self.prepared_after_subset_given.shape[1]):
+    #         x = self.prepared_after_subset_given[:, dim]
+    #         gi_star = self.calculate_getis_ord_gi_star(x, spatial_weights)
+    #         gi_star_values.append(gi_star)
+    #         self.logger.debug(f"Getis-Ord Gi* for component {dim}: {gi_star}")
+    #     # Aggregate by averaging across components
+    #     average_gi_star = np.mean(gi_star_values, axis=0)
+    #     self.result["getis_ord_gi_star"] = average_gi_star
+    #     self.logger.debug(f"Average Getis-Ord Gi* across components: {average_gi_star}")
 
     def _calculate_wasserstein_distance(self):
         """Calculates the Wasserstein distance between the reference and inferred embeddings."""

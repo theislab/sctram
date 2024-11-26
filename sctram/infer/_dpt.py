@@ -95,7 +95,7 @@ class DPTInference(InferenceBase):
         if self.iroot_params is not None:
             if isinstance(self.iroot_params, int):
                 self.logger.debug(f"Setting root using provided integer index: {self.iroot_params}.")
-                self._set_root_custom_index(self.iroot_params)
+                self.set_root_custom_index(self.iroot_params)
             elif isinstance(self.iroot_params, np.ndarray):
                 self.logger.debug("Setting root using provided custom binary array.")
                 self.set_root_custom_array(custom_array=self.iroot_params)
@@ -103,7 +103,9 @@ class DPTInference(InferenceBase):
                 self.logger.debug("Setting root using provided label-based specification.")
                 self.set_root_from_label_dict(label_dict=self.iroot_params)
             else:
-                raise ValueError("Invalid type for 'iroot'. Must be int, np.ndarray, or dict.")
+                raise ValueError(
+                    f"Invalid type for 'iroot' {type(self.iroot_params)!r}. Must be int, np.ndarray, or dict."
+                )
         else:
             # Default root: cell with minimum value in the 4th Diffusion Map component
             self.logger.info("No root specification provided. Setting default root based on Diffusion Map.")

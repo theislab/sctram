@@ -185,6 +185,7 @@ class EvaluationBase(ABC):
             else:
                 self.subset_given = self.prepared_before_subset_given
                 self.subset_inferred = self.prepared_before_subset_inferred
+                self.subset_labels = self.labels
 
             # Prepare trajectories after subsetting
             if self.prepare_params_after_subset[sctram_operate_key]:

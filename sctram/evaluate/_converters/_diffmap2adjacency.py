@@ -56,9 +56,7 @@ class DiffmapAdjacencyConverter:
                 raise ValueError("cell_labels must be a one-dimensional array.")
             if len(cell_labels) != diffmap_embedding.shape[0]:
                 raise ValueError("cell_labels must have the same length as the number of cells in diffmap_embedding.")
-            self.cell_labels = cell_labels
-        else:
-            self.cell_labels = None
+        self.cell_labels = cell_labels
 
     def _handle_disconnected_components(self, adjacency: np.ndarray, epsilon: float = 1e-5) -> np.ndarray:
         """Handles disconnected components in the adjacency matrix by connecting them with epsilon-weighted edges.
@@ -332,7 +330,7 @@ class DiffmapAdjacencyConverter:
             adjacency = self._handle_disconnected_components(adjacency, epsilon=epsilon)
 
         self.adjacency_matrix = adjacency
-        return self.adjacency_matrix
+        return adjacency
 
     def to_adjacency(self, method: str = "knn", **kwargs) -> np.ndarray:
         """Convenience method to compute the adjacency matrix using the specified method.

@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 
-from typing import Optional, Literal
+import logging
+from typing import Optional
 
 import networkx as nx
 import numpy as np
 from scipy.linalg import eigh
-from scipy.sparse import csgraph, issparse, diags
+from scipy.sparse import csgraph, diags, issparse
 from scipy.sparse.linalg import eigsh
-from functools import cached_property
+
+from sctram._utils import Utils
 
 
-class AdjacencyPseudotimeConverter:
+class AdjacencyPseudotimeConverter(Utils):
     """A class to convert an adjacency matrix into a pseudotime array using various methods.
 
     Trajectory inference aims to order cells along a developmental or differentiation pathway,
@@ -50,6 +52,8 @@ class AdjacencyPseudotimeConverter:
         self.graph = nx.from_numpy_array(adjacency_matrix)
         self._converted_to_distance = False
 
+        self.logger = logging.getLogger(self.__class__.__name__)
+
     def _ensure_distance_weights(self):
         """Ensures that the adjacency matrix represents distances.
 
@@ -58,10 +62,11 @@ class AdjacencyPseudotimeConverter:
 
         Raises:
             ValueError: When adjacency matrix contains negative weights, which are invalid for distance metrics.
+            RuntimeError: When the function is called twice for some reason.
         """
         if self._converted_to_distance:
             raise RuntimeError("`__ensure_distance_weights` is called twice.")
-        
+
         if np.allclose(self.adjacency_matrix, self.adjacency_matrix.T):
             # Assuming similarities; convert to distances
             max_weight = self.adjacency_matrix.max()
@@ -69,16 +74,16 @@ class AdjacencyPseudotimeConverter:
             np.fill_diagonal(self.adjacency_matrix, 0)
             self.graph = nx.from_numpy_array(self.adjacency_matrix)
         else:
-            raise ValueError("Adjacency matrix is not symetrical.")
-        
+            raise ValueError("Adjacency matrix is not symetrical.", self.adjacency_matrix)
+
         if np.any(self.adjacency_matrix < 0):  # Ensure non-negativity
             raise ValueError("Adjacency matrix contains negative weights, which are invalid for distance metrics.")
-            
+
         self._converted_to_distance = True
 
     def to_shortest_path_pseudotime(
         self,
-        root_cell: int = 0,
+        root_label_index: int = 0,
         weight: Optional[str] = "weight",
         handle_disconnected: str = "assign_max_plus_one",
         alternative_distance: Optional[float] = None,
@@ -95,7 +100,7 @@ class AdjacencyPseudotimeConverter:
             4.  Assign pseudotime(v) = d(r, v).
 
         Args:
-            root_cell (int): The index of the root cell from which pseudotime is calculated. Default is 0.
+            root_label_index (int): The index of the root cell from which pseudotime is calculated. Default is 0.
             weight (Optional[str]): Edge attribute to use as weight.
                 If None, unweighted shortest paths are computed. Default is 'weight'.
             handle_disconnected (str): Strategy to handle disconnected cells. Options:
@@ -109,19 +114,19 @@ class AdjacencyPseudotimeConverter:
             np.ndarray: A one-dimensional array of pseudotime values for each cell.
 
         Raises:
-            ValueError: If `root_cell` is not a valid node index, or if `handle_disconnected` is invalid.
+            ValueError: If `root_label_index` is not a valid node index, or if `handle_disconnected` is invalid.
         """
-        if root_cell < 0 or root_cell >= self.adjacency_matrix.shape[0]:
-            raise ValueError(f"root_cell must be between 0 and {self.adjacency_matrix.shape[0] - 1}.")
+        if root_label_index < 0 or root_label_index >= self.adjacency_matrix.shape[0]:
+            raise ValueError(f"root_label_index must be between 0 and {self.adjacency_matrix.shape[0] - 1}.")
 
         # Ensure weights represent distances
         if weight is not None:
             self._ensure_distance_weights()
 
         try:
-            lengths = nx.single_source_dijkstra_path_length(self.graph, root_cell, weight=weight)
+            lengths = nx.single_source_dijkstra_path_length(self.graph, root_label_index, weight=weight)
         except nx.NetworkXNoPath as err:
-            raise ValueError(f"No path found from root_cell {root_cell} to other cells.") from err
+            raise ValueError(f"No path found from root_label_index {root_label_index} to other cells.") from err
 
         # Initialize pseudotime with infinities
         pseudotime = np.full(self.adjacency_matrix.shape[0], np.inf)
@@ -155,33 +160,33 @@ class AdjacencyPseudotimeConverter:
         if np.any(degrees == 0):
             raise ValueError("Graph contains isolated nodes.")
 
-        D_inv = diags(1.0 / degrees)
-        transition_matrix = D_inv @ self.adjacency_matrix
+        d_inv = diags(1.0 / degrees)
+        transition_matrix = d_inv @ self.adjacency_matrix
 
         return transition_matrix
 
-    def diffusion_components(self, n_steps: int):
+    def diffusion_components(self, n_steps: int) -> tuple[np.ndarray, np.ndarray]:
         """Computes the eigenvalues and eigenvectors of the diffusion operator derived from the adjacency matrix.
-        
+
         The diffusion operator models the spread of a signal (such as information or influence) through the
-        network, mimicking a random walk process. This method raises the transition matrix to the power of 
-        `n_steps` to simulate diffusion over time. It then performs eigen decomposition on the resulting 
+        network, mimicking a random walk process. This method raises the transition matrix to the power of
+        `n_steps` to simulate diffusion over time. It then performs eigen decomposition on the resulting
         diffusion operator to extract the principal components of diffusion.
 
-        Parameters:
-        - n_steps (int): The number of steps over which to simulate the diffusion. If n_steps is 0, the 
-        eigenvalues and eigenvectors of the initial transition matrix are computed.
+        Args:
+            n_steps (int): The number of steps over which to simulate the diffusion. If n_steps is 0, the
+                eigenvalues and eigenvectors of the initial transition matrix are computed.
 
         Returns:
-        - tuple: A tuple containing two elements:
-            1. eigvals (numpy.ndarray): An array of eigenvalues of the diffusion operator.
-            2. eigvecs (numpy.ndarray): A 2D array where each column is an eigenvector corresponding to 
-            an eigenvalue in `eigvals`.
+            tuple: A tuple containing two elements:
+                1. eigvals (numpy.ndarray): An array of eigenvalues of the diffusion operator.
+                2. eigvecs (numpy.ndarray): A 2D array where each column is an eigenvector corresponding to
+                    an eigenvalue in `eigvals`.
 
         Raises:
-        - RuntimeError: If the eigen decomposition fails to converge, indicating an issue with numerical
-        stability or matrix properties."""
-        
+            RuntimeError: If the eigen decomposition fails to converge, indicating an issue with numerical
+                stability or matrix properties.
+        """
         # Compute the diffusion operator
         if n_steps > 0:
             diffusion_operator = self._transition_matrix() ** n_steps
@@ -205,7 +210,7 @@ class AdjacencyPseudotimeConverter:
 
     def to_diffusion_pseudotime_with_eigen(
         self,
-        root_cell: int = 0,
+        root_label_index: int = 0,
         n_components: int = 100,
         n_steps: int = 100,
     ) -> np.ndarray:
@@ -227,12 +232,12 @@ class AdjacencyPseudotimeConverter:
             7.  Normalize the distances to range between 0 and 1 to obtain pseudotime values.
 
         Args:
-            root_cell (int, optional): The index of the root cell from which pseudotime is calculated.
+            root_label_index (int): The index of the root cell from which pseudotime is calculated.
                 Default is 0.
-            n_components (int, optional): The number of diffusion components (eigenvectors) to consider
+            n_components (int): The number of diffusion components (eigenvectors) to consider
                 for dimensionality reduction. Higher values capture more diffusion dynamics but may
                 introduce noise. Default is 10.
-            n_steps (int, optional): The number of diffusion steps to simulate. A higher number allows
+            n_steps (int): The number of diffusion steps to simulate. A higher number allows
                 the diffusion process to capture more global structures in the graph. If set to 0,
                 the transition matrix is used as is without raising to any power. Default is 0.
 
@@ -242,12 +247,11 @@ class AdjacencyPseudotimeConverter:
             diffused cells.
 
         Raises:
-            ValueError: If `root_cell` is out of bounds, if `n_components` exceeds the number of available
+            ValueError: If `root_label_index` is out of bounds, if `n_components` exceeds the number of available
                 eigenvectors, or if the adjacency matrix contains isolated nodes.
-            RuntimeError: If eigen decomposition fails to converge.
         """
-        if root_cell < 0 or root_cell >= self.adjacency_matrix.shape[0]:
-            raise ValueError(f"root_cell must be between 0 and {self.adjacency_matrix.shape[0] - 1}.")
+        if root_label_index < 0 or root_label_index >= self.adjacency_matrix.shape[0]:
+            raise ValueError(f"root_label_index must be between 0 and {self.adjacency_matrix.shape[0] - 1}.")
 
         # Compute eigenvalues and eigenvectors for the diffusion operator with given n_steps
         eigvals, eigvecs = self.diffusion_components(n_steps)
@@ -261,13 +265,13 @@ class AdjacencyPseudotimeConverter:
         diff_map = eigvecs[:, 1:]
 
         # Compute distances in diffusion space from the root cell
-        diff_dist = np.linalg.norm(diff_map - diff_map[root_cell], axis=1)
+        diff_dist = np.linalg.norm(diff_map - diff_map[root_label_index], axis=1)
         pseudotime = diff_dist / np.max(diff_dist)
 
         return pseudotime
 
     def to_diffusion_pseudotime_with_damping(
-        self, alpha: float = 0.5, n_steps: int = 100, tol: float = 1e-6, root_cell: int = 0
+        self, alpha: float = 0.5, n_steps: int = 100, tol: float = 1e-6, root_label_index: int = 0
     ) -> np.ndarray:
         """Converts the adjacency matrix into a pseudotime array using the Diffusion-Based method.
 
@@ -279,7 +283,7 @@ class AdjacencyPseudotimeConverter:
             2.  Compute the transition probability matrix P where P = D^{-1} A, and D is the degree matrix.
             3.  Simulate the diffusion process with damping factor alpha:
                 -   F = alpha * P^T F + (1 - alpha) e_r
-                -   where e_r is the initial distribution (one-hot vector for root_cell).
+                -   where e_r is the initial distribution (one-hot vector for root_label_index).
             4.  Iterate until convergence to obtain the steady-state distribution F.
             5.  Assign pseudotime(v) = F[v].
 
@@ -288,19 +292,19 @@ class AdjacencyPseudotimeConverter:
                 Must be between 0 and 1 (exclusive). Default is 0.5.
             n_steps (int): Maximum number of diffusion steps. Default is 100.
             tol (float): Tolerance for convergence. Iterations stop when the change is below this value. Default is 1e-6.
-            root_cell (int): The index of the root cell from which diffusion starts. Default is 0.
+            root_label_index (int): The index of the root cell from which diffusion starts. Default is 0.
 
         Returns:
             np.ndarray: A one-dimensional array of pseudotime values for each cell.
 
         Raises:
-            ValueError: If `alpha` is not between 0 and 1, if `root_cell` is invalid, or
+            ValueError: If `alpha` is not between 0 and 1, if `root_label_index` is invalid, or
                 if the adjacency matrix contains isolated nodes.
         """
         if not (0 < alpha < 1):
             raise ValueError("alpha must be strictly between 0 and 1.")
-        if root_cell < 0 or root_cell >= self.adjacency_matrix.shape[0]:
-            raise ValueError(f"root_cell must be between 0 and {self.adjacency_matrix.shape[0] - 1}.")
+        if root_label_index < 0 or root_label_index >= self.adjacency_matrix.shape[0]:
+            raise ValueError(f"root_label_index must be between 0 and {self.adjacency_matrix.shape[0] - 1}.")
 
         # Compute the degree matrix
         degrees = self.adjacency_matrix.sum(axis=1)
@@ -312,11 +316,11 @@ class AdjacencyPseudotimeConverter:
 
         # Initialize the steady-state distribution F
         f = np.zeros(self.adjacency_matrix.shape[0])
-        f[root_cell] = 1.0  # Start diffusion from the root cell
+        f[root_label_index] = 1.0  # Start diffusion from the root cell
 
         # Initialize e_r
         e_r = np.zeros(self.adjacency_matrix.shape[0])
-        e_r[root_cell] = 1.0
+        e_r[root_label_index] = 1.0
 
         for step in range(n_steps):
             f_new = alpha * p.T.dot(f) + (1 - alpha) * e_r
@@ -365,7 +369,7 @@ class AdjacencyPseudotimeConverter:
 
         return normalized_pseudotime
 
-    def to_spectral_pseudotime(self, n_components: int = 2, root_cell: Optional[int] = None) -> np.ndarray:
+    def to_spectral_pseudotime(self, n_components: int = 2, root_label_index: Optional[int] = None) -> np.ndarray:
         """Converts the adjacency matrix into a pseudotime array using the Spectral Ordering method.
 
         This method utilizes spectral embedding by computing the eigenvectors of the graph Laplacian
@@ -381,21 +385,21 @@ class AdjacencyPseudotimeConverter:
 
         Args:
             n_components (int): Number of eigenvectors to compute. Default is 2.
-            root_cell (Optional[int]): The index of the root cell to orient the pseudotime. If None,
+            root_label_index (Optional[int]): The index of the root cell to orient the pseudotime. If None,
                 pseudotime is assigned based on the Fiedler vector. Default is None.
 
         Returns:
             np.ndarray: A one-dimensional array of pseudotime values for each cell.
 
         Raises:
-            ValueError: If `n_components` is not a positive integer, if `root_cell` is invalid,
+            ValueError: If `n_components` is not a positive integer, if `root_label_index` is invalid,
                         or if the graph is disconnected and `n_components` < number of connected components.
         """
         if not isinstance(n_components, int) or n_components <= 0:
             raise ValueError("n_components must be a positive integer.")
-        if root_cell is not None:
-            if root_cell < 0 or root_cell >= self.adjacency_matrix.shape[0]:
-                raise ValueError(f"root_cell must be between 0 and {self.adjacency_matrix.shape[0] - 1}.")
+        if root_label_index is not None:
+            if root_label_index < 0 or root_label_index >= self.adjacency_matrix.shape[0]:
+                raise ValueError(f"root_label_index must be between 0 and {self.adjacency_matrix.shape[0] - 1}.")
 
         eigenvalues, eigenvectors = self._laplacian_eigendecomposition()
 
@@ -415,16 +419,16 @@ class AdjacencyPseudotimeConverter:
 
         pseudotime = self._normalize_pseudotime(fiedler_vector)
 
-        if root_cell is not None:
+        if root_label_index is not None:
             # Orient the pseudotime based on the root cell
-            direction = pseudotime[root_cell]
+            direction = pseudotime[root_label_index]
             if direction > 0.5:
                 pseudotime = 1 - pseudotime  # Flip the direction
 
         return pseudotime
 
 
-class LabelAdjacencyPseudotimeConverter:
+class LabelAdjacencyPseudotimeConverter(Utils):
     """A class to convert a label-level adjacency matrix into a cell-level pseudotime array.
 
     This involves two main steps:
@@ -443,7 +447,9 @@ class LabelAdjacencyPseudotimeConverter:
         cell_pseudotime (Optional[np.ndarray]): The resulting pseudotime array for cells.
     """
 
-    def __init__(self, label_adjacency_matrix: np.ndarray, label_adjacency_matrix_labels: np.ndarray, cell_labels: np.ndarray):
+    def __init__(
+        self, label_adjacency_matrix: np.ndarray, label_adjacency_matrix_labels: np.ndarray, cell_labels: np.ndarray
+    ):
         """Initializes the converter with a label adjacency matrix and cell labels.
 
         Args:
@@ -463,25 +469,30 @@ class LabelAdjacencyPseudotimeConverter:
             raise TypeError("Labels must be a numpy array.")
         if label_adjacency_matrix_labels.ndim != 1 or cell_labels.ndim != 1:
             raise ValueError("Labels must be a one-dimensional array.")
-        
+
         unique_adj_labels = np.unique(label_adjacency_matrix_labels)
         unique_labels = np.unique(cell_labels)
         if label_adjacency_matrix.shape[0] != len(unique_adj_labels):
             raise ValueError("Unique cell_labels do not match the dimensions of adjacency matrix.")
         if len(unique_adj_labels) != len(label_adjacency_matrix_labels):
-            raise ValueError(f"Adjacency labels are not unique.")
+            raise ValueError("Adjacency labels are not unique.")
+        if set(unique_adj_labels) != set(unique_labels):
+            raise ValueError("Adjacency labels and cell labels do not match.")
         self.label_adjacency_matrix = label_adjacency_matrix
         self.cell_labels = cell_labels
         self.adj_labels = label_adjacency_matrix_labels
-        
+
         self.label_pseudotime: Optional[np.ndarray] = None
         self.cell_pseudotime: Optional[np.ndarray] = None
 
+        self.logger = logging.getLogger(self.__class__.__name__)
+
     def get_label_pseudotime(
         self,
-        method: str = "shortest_path",
+        method: str = "diffusion_with_damping",
         handle_disconnected: str = "assign_max_plus_one",
         alternative_distance: Optional[float] = None,
+        root_label_index: int = 0,
         **kwargs,
     ) -> np.ndarray:
         """Computes pseudotime for each label using the specified method.
@@ -499,6 +510,7 @@ class LabelAdjacencyPseudotimeConverter:
                 - 'ignore': Leave disconnected labels with pseudotime as infinity.
             alternative_distance (Optional[float]): The distance value to assign to disconnected labels if
                 `handle_disconnected` is set to 'assign_alternative_distance'. Must be provided in this case.
+            root_label_index (int): The index of the root cell from which diffusion starts. Default is 0.
             kwargs: Additional keyword arguments for the chosen method.
 
         Returns:
@@ -511,34 +523,30 @@ class LabelAdjacencyPseudotimeConverter:
         converter = AdjacencyPseudotimeConverter(self.label_adjacency_matrix)
 
         if method == "shortest_path":
-            root_label = kwargs.get("root_label", 0)  # TODO: create warning if it is chosen the default.
             self.label_pseudotime = converter.to_shortest_path_pseudotime(
-                root_cell=root_label,
+                root_label_index=root_label_index,
                 weight="weight",
                 handle_disconnected=handle_disconnected,
                 alternative_distance=alternative_distance,
             )
         elif method == "diffusion_with_damping":
-            alpha = kwargs.get("alpha", 0.5)
-            n_steps = kwargs.get("n_steps", 100)
-            tol = kwargs.get("tol", 1e-6)
-            root_label = kwargs.get("root_label", 0)
+            alpha = self.sget(kwargs, "alpha", 0.5)
+            n_steps = self.sget(kwargs, "n_steps", 100)
+            tol = self.sget(kwargs, "tol", 1e-6)
+
             self.label_pseudotime = converter.to_diffusion_pseudotime_with_damping(
-                alpha=alpha, n_steps=n_steps, tol=tol, root_cell=root_label
+                alpha=alpha, n_steps=n_steps, tol=tol, root_label_index=root_label_index
             )
         elif method == "diffusion_with_eigen":
-            n_steps = kwargs.get("n_steps", 100)
-            root_label = kwargs.get("root_label", 0)
-            root_label = kwargs.get("root_label", 0)
-            n_components = kwargs.get("n_components", 100)
+            n_steps = self.sget(kwargs, "n_steps", 100)
+            n_components = self.sget(kwargs, "n_components", 100)
             self.label_pseudotime = converter.to_diffusion_pseudotime_with_eigen(
-                n_steps=n_steps, root_cell=root_label, n_components=n_components
+                n_steps=n_steps, root_label_index=root_label_index, n_components=n_components
             )
         elif method == "spectral":
-            n_components = kwargs.get("n_components", 2)
-            root_label = kwargs.get("root_label", None)
+            n_components = self.sget(kwargs, "n_components", 2)
             self.label_pseudotime = converter.to_spectral_pseudotime(
-                n_components=n_components, root_cell=root_label
+                n_components=n_components, root_label_index=root_label_index
             )
         else:
             raise ValueError(f"Unsupported method {method!r}.")
@@ -569,17 +577,23 @@ class LabelAdjacencyPseudotimeConverter:
         label_to_pseudotime = {label: self.label_pseudotime[idx] for idx, label in enumerate(self.adj_labels)}
 
         # Assign pseudotime to each cell based on its label
-        self.cell_pseudotime = np.vectorize(label_to_pseudotime.get)(self.cell_labels)
+        self.cell_pseudotime = np.array(np.vectorize(label_to_pseudotime.get)(self.cell_labels))
 
         # Handle cells with labels that might not have been assigned pseudotime (if any)
+        if handle_disconnected != "assign_alternative_distance" and alternative_distance is not None:
+            raise ValueError(
+                "`alternative_distance` should not be provided when "
+                "`handle_disconnected` is not 'assign_alternative_distance'."
+            )
+        elif handle_disconnected == "assign_alternative_distance" and alternative_distance is None:
+            raise ValueError(
+                "`alternative_distance` must be provided when `handle_disconnected` is 'assign_alternative_distance'."
+            )
+
         if handle_disconnected == "assign_max_plus_one":
             max_pseudotime = np.max(self.label_pseudotime)
             self.cell_pseudotime = np.where(np.isinf(self.cell_pseudotime), max_pseudotime + 1, self.cell_pseudotime)
-        elif handle_disconnected == "assign_alternative_distance":
-            if alternative_distance is None:
-                raise ValueError(
-                    "alternative_distance must be provided when handle_disconnected is 'assign_alternative_distance'."
-                )
+        elif handle_disconnected == "assign_alternative_distance" and alternative_distance is not None:
             self.cell_pseudotime = np.where(np.isinf(self.cell_pseudotime), alternative_distance, self.cell_pseudotime)
         elif handle_disconnected == "ignore":
             pass  # Leave infinities as is

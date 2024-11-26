@@ -7,11 +7,12 @@ import numpy as np
 import pandas as pd
 
 from sctram._constants import sctram_operate_key
+from sctram._utils import Utils
 from sctram.evaluate._base import EvaluationBase
 from sctram.evaluate._metricsmixin._adjacencymetricsmixin import AdjacencyMetricsMixin
 
 
-class AdjacencyMatrixEvaluation(AdjacencyMetricsMixin, EvaluationBase):
+class AdjacencyMatrixEvaluation(Utils, AdjacencyMetricsMixin, EvaluationBase):
     """Evaluation method to compare given and inferred adjacency matrices using advanced metrics.
 
     This class compares the adjacency matrix of the given trajectory (converted from a NetworkX graph)
@@ -133,8 +134,8 @@ class AdjacencyMatrixEvaluation(AdjacencyMetricsMixin, EvaluationBase):
             ValueError: If subsetting parameters are invalid or result in incompatible matrices.
         """
         self.logger.debug("Subsetting trajectories based on subset parameters.")
-        labels_to_keep = self.subset_params.get("labels_to_keep", None)
-        labels_to_remove = self.subset_params.get("labels_to_remove", None)
+        labels_to_keep = self.sget(self.subset_params, "labels_to_keep", None)
+        labels_to_remove = self.sget(self.subset_params, "labels_to_remove", None)
 
         if labels_to_keep is not None and labels_to_remove is None:
             self.logger.debug(f"Subsetting to keep nodes: {labels_to_keep}")

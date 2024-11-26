@@ -405,12 +405,13 @@ class PseudotimeLabelAdjacencyConverter:
         aggregated_pseudotime (Optional[np.ndarray]): Aggregated pseudotime values per label.
     """
 
-    def __init__(self, cell_pseudotime: np.ndarray, cell_labels: np.ndarray):
+    def __init__(self, cell_pseudotime: np.ndarray, cell_labels: np.ndarray, label_adjacency_matrix_labels: np.ndarray):
         """Initializes the converter with a cell pseudotime array and cell labels.
 
         Args:
             cell_pseudotime (np.ndarray): A one-dimensional array of pseudotime values for each cell (n,).
             cell_labels (np.ndarray): A one-dimensional array of labels for each cell (n,).
+            label_adjacency_matrix_labels (np.ndarray): A one-dimensional array of labels for each label (l,).
 
         Raises:
             ValueError: If dimensions of the inputs are invalid or if labels are inconsistent.
@@ -430,7 +431,7 @@ class PseudotimeLabelAdjacencyConverter:
         self.cell_pseudotime = cell_pseudotime
         self.cell_labels = cell_labels
         self.label_adjacency_matrix: Optional[np.ndarray] = None
-        self.labels = np.unique(cell_labels)
+        self.adj_labels = label_adjacency_matrix_labels
         self.aggregated_pseudotime: Optional[np.ndarray] = None
 
     def aggregate_pseudotime_per_label(self, aggregation: str = "mean", trim_percent: float = 0.1) -> np.ndarray:
@@ -455,9 +456,9 @@ class PseudotimeLabelAdjacencyConverter:
             ValueError: If an unsupported aggregation method is specified or if `trim_percent` is invalid.
         """
         aggregation = aggregation.lower()
-        aggregated_pseudotime = np.zeros(len(self.labels))
+        aggregated_pseudotime = np.zeros(len(self.adj_labels))
 
-        for idx, label in enumerate(self.labels):
+        for idx, label in enumerate(self.adj_labels):
             label_pseudotime = self.cell_pseudotime[self.cell_labels == label]
             if aggregation == "mean":
                 aggregated_pseudotime[idx] = label_pseudotime.mean()

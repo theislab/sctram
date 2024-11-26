@@ -23,8 +23,8 @@ class InputTrajectory(nx.DiGraph):
     """
 
     def to_symetrical_multidigraph(self) -> nx.MultiDiGraph:
-        """Create a nx.MultiDiGraph version by just making each edge two sided. 
-        
+        """Create a nx.MultiDiGraph version by just making each edge two sided.
+
         Copies the edge attribute for each direction.
 
         Returns:
