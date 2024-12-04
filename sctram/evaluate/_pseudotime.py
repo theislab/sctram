@@ -156,7 +156,7 @@ class PseudotimeCategoricalEvaluation(PseudotimeCategoricalMetricsMixin, Pseudot
         # Convert subset_given (In) to adjacency matrix
         self.logger.debug("Converting `InputTrajectory` to adjacency matrix.")
         raise NotImplementedError("This class of metrics is not implemented yet.")
-        # TODO: implement categorical pseudotime evaluation
+        # TODO: implement categorical pseudotime evaluation.
 
 
 class PseudotimeValuesEvaluation(PseudotimeValuesMetricsMixin, PseudotimeEvaluationBase):

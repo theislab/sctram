@@ -33,14 +33,6 @@ class PseudotimeValuesMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
         # "getis_ord_gi_star",
     ]
 
-    # Declare expected attributes with type annotations
-    prepared_after_subset_given: np.ndarray
-    prepared_after_subset_inferred: np.ndarray
-    result: Dict[str, Any]
-    metrics: List[str]
-    method_params: Dict[str, Any]
-    logger: logging.Logger
-
     def _calculate(self):
         """Performs the evaluation by comparing the pseudotime arrays using the specified metrics.
 

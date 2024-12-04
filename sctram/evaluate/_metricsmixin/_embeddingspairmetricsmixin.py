@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 # TODO: Codebase is not tested and/or runned.
+# Note: The codebase here actually belongs to the previous version of the codebase. 
+# It was kept as reference.
 
 import numpy as np
 from scipy.spatial import procrustes
