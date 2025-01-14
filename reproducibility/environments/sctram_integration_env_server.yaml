@@ -1,0 +1,82 @@
+# new_env Environment
+
+name: sctram_integration_env
+
+channels:
+    - conda-forge # Community-driven conda channel
+
+dependencies:
+    # Python and Package Management
+    - python=3.10 # Python programming language
+    - pip # Python package installer
+
+    # JupyterLab and Extensions
+    - jupyterlab>4.1 # Interactive development environment
+    - notebook # Jupyter Notebook support
+    - markdown # Markdown rendering
+    - nodejs # JavaScript runtime for JupyterLab extensions
+    - jupyterlab_widgets # Interactive widgets for JupyterLab
+    - ipywidgets # Interactive widgets for IPython
+    - python-lsp-server # Language Server Protocol for Python
+    - jupyterlab-lsp # LSP integration for JupyterLab
+    - jupyterlab_code_formatter # Code formatter extension for JupyterLab
+    - ipython # Interactive Python shell
+
+    # Development Tools
+    - setuptools>=18.0.1 # Packaging utilities # PhenoGraph dependency
+
+    # Utilities and General Tools
+    - psutil>4 # System and process utilities # PhenoGraph dependency
+
+    # Data Manipulation
+    - pandas # Data analysis library
+    - sparse # Sparse data structures
+    - numpy<2.0.0 # Numerical computing library
+    - numexpr>=2.8.4 # Fast numerical expression evaluator for NumPy
+    - future>=0.16.0 # Compatibility layer between Python 2 and 3
+
+    # Data Handling and Storage
+    - pytables # Hierarchical database for large datasets
+    - hdf5 # Hierarchical Data Format version 5
+    - h5py # HDF5 interface for Python
+    - pyarrow>=9.0 # Apache Arrow for columnar data
+    - joblib # Lightweight pipelining in Python
+
+    # Scientific Computing
+    - scipy>=1.6.0 # Scientific computing library # scarches and bbknn dependency
+
+    # Hyperparameter Tuning
+    - wandb # Experiment tracking and visualization
+
+    # Deep Learning Frameworks
+    - lightning # Lightning framework for scalable AI
+    - pytorch-lightning # High-level interface for PyTorch
+    - pytorch::torchvision # Computer vision utilities for PyTorch
+    - pytorch::torchaudio # Audio utilities for PyTorch
+    - cuda-version=12.5 # Specific CUDA version # Should be commented out for MAC Silicon
+    - pytorch::pytorch=*=*cuda* # PyTorch with CUDA support, version to be resolved by Conda # Should be commented out for MAC Silicon
+    - nvidia::cuda # CUDA Toolkit for GPU support # Should be commented out for MAC Silicon
+    - cutensor # CUDA Tensor Core library # Should be commented out for MAC Silicon
+    - cusparselt # CUDA sparse library # Should be commented out for MAC Silicon
+    - cudnn # CUDA Deep Neural Network library # Should be commented out for MAC Silicon
+    - cupy # CUDA array library for Python # Should be commented out for MAC Silicon
+    - numba # Just-in-time compiler for Python # Should be commented out for MAC Silicon
+    - jaxlib=0.4.23 # JAX library dependencies
+    - jax=0.4.23 # High-performance machine learning library
+    - chex=0.1.86 # Utilities for JAX # scib-metrics dependency
+
+    # Further integration models. Could not include due to memory issues choose this block or the one above.
+    - scvi-tools=1.2.2 # Single-cell variational inference tools
+    - scanpy=1.10.4 # Single-cell analysis tools
+    - anndata=0.11.2 # Annotated data structures for single-cell
+    - igraph>=0.10,<0.12 # Network analysis library
+    - python-igraph # Python interface for igraph
+    - leidenalg==0.10.2 # Community detection algorithms
+    - loompy==3.0.6 # Single-cell data analysis
+    - python-louvain # Louvain community detection
+    - louvain==0.8.2 # Community detection algorithm
+    - bioconda::harmonypy==0.0.10 # Integrating multiple high-dimensional datasets
+    - bioconda::scanorama==1.7.4 # anoramic stitching of heterogeneous single-cell transcriptomic data
+    - bioconda::mnnpy==0.1.9.5 # Mutual nearest neighbors correction in python # only until python 3.10
+    - bioconda::bbknn==1.6.0 # Batch balanced KNN
+    - bioconda::scarches==0.6.1 # Transfer learning with Architecture Surgery on Single-cell data

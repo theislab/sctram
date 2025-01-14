@@ -4,12 +4,12 @@ import logging
 
 
 class Utils:
-    
+
     logger: logging.Logger
-    
+
     def sget(self, dictionary, key, default=None):
         """Retrieves the value associated with a specified key in the given dictionary.
-        
+
         If the key does not exist, a default value is returned and a warning is logged.
 
         Parameters:
@@ -29,4 +29,3 @@ class Utils:
         else:
             self.logger.warning(f"Default value {default!r} used for missing key {key!r}.")
             return default
-        

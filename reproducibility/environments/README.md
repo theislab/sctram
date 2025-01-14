@@ -67,6 +67,10 @@ For managing Python packages and ensuring that your development environment is i
         conda activate sctram_poetry_3_9_env
         ```
     -   You are now ready to run scTRAM within this isolated environment.
+    -   Run the following to make sure the widgets etc is built:
+        ```bash
+        jupyter lab build
+        ```
 
 -   **Removing the Environment**:
 
