@@ -82,7 +82,7 @@ dependencies:
     - pyarrow>=9.0 # Apache Arrow for columnar data
     - joblib # Lightweight pipelining in Python
     - pymysql # MySQL client for Python
-    - click>=7.1.2  # celltypist dependency
+    - click>=7.1.2 # celltypist dependency
     - numpy_groupies>=0.9.22 # sctk dependency
 
     # Scientific Computing
@@ -94,7 +94,7 @@ dependencies:
     - deprecated # Deprecation utilities # scib dependency
     - umap-learn>=0.5.0 # Dimensionality reduction technique # scib dependency
     - gudhi # Library for topological data analysis (TDA) and simplicial complexes
-    - openpyxl>=3.0.4  # celltypist dependency
+    - openpyxl>=3.0.4 # celltypist dependency
 
     # Visualization
     - matplotlib>=3.7 # Plotting library
