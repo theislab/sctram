@@ -1,4 +1,4 @@
-# new_env Environment
+# sctram_integration_env Environment
 
 name: sctram_integration_env
 
@@ -43,7 +43,7 @@ dependencies:
     - joblib # Lightweight pipelining in Python
 
     # Scientific Computing
-    - scipy>=1.6.0 # Scientific computing library # scarches and bbknn dependency
+    - scipy>=1.6.0,<1.13 # Scientific computing library # scarches and bbknn dependency
 
     # Hyperparameter Tuning
     - wandb # Experiment tracking and visualization

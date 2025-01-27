@@ -1,4 +1,4 @@
-# new_env Environment
+# sctram_dev_env Environment
 
 name: sctram_dev_env
 
@@ -86,7 +86,7 @@ dependencies:
     - numpy_groupies>=0.9.22 # sctk dependency
 
     # Scientific Computing
-    - scipy>=1.6.0 # Scientific computing library # scarches and bbknn dependency
+    - scipy>=1.6.0,<1.13 # Scientific computing library # scarches and bbknn dependency
     - networkx # Network analysis and graph theory
     - fa2 # The fastest ForceAtlas2 algorithm
     - statsmodels>=0.12 # Statistical models and tests

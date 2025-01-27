@@ -133,14 +133,18 @@ class PseudotimeEvaluationBase(Utils, EvaluationBase):
         self.logger.debug(f"Subset inferred adjacency matrix shape: {subset_inferred.shape}")
         return subset_given, subset_inferred, subset_labels
 
+        # TODO: uniformize subsetting method across adjacency, pseudotime and embedding.
+
     @abstractmethod
     def _prepare_after_subset(self) -> Tuple[np.ndarray, np.ndarray]:
         """This need to be implemented in the subclasses.
 
         Raises:
-            NotImplementedError: This method is not supposed to be running.
+            NotImplementedError: This is abstract method.
         """
-        raise NotImplementedError("This method is not supposed to be running.")
+        raise NotImplementedError(
+            "This method should be implemented in 'PseudotimeCategoricalEvaluation' or 'PseudotimeValuesEvaluation'."
+        )
 
 
 class PseudotimeCategoricalEvaluation(PseudotimeCategoricalMetricsMixin, PseudotimeEvaluationBase):
@@ -206,13 +210,12 @@ class PseudotimeValuesEvaluation(PseudotimeValuesMetricsMixin, PseudotimeEvaluat
         )
 
         # Retrieve pseudotime computation parameters from prepare_params_after_subset
-        converter_parameters = self.sget(self.prepare_params_after_subset, "converter", dict())
-        # TODO: make it with "get or warn method".
-        method = self.sget(converter_parameters, "method", "diffusion_with_damping")
-        handle_disconnected = self.sget(converter_parameters, "handle_disconnected", "assign_max_plus_one")
-        alternative_distance = self.sget(converter_parameters, "alternative_distance", None)
+        converter_parameters = self.sget(self.prepare_params_after_subset, key="converter", default=dict())
+        method = self.sget(converter_parameters, key="method", default="diffusion_with_damping")
+        handle_disconnected = self.sget(converter_parameters, key="handle_disconnected", default="assign_max_plus_one")
+        alternative_distance = self.sget(converter_parameters, key="alternative_distance", default=None)
         # Needs root_label
-        root_label = self.sget(converter_parameters, "root_label", None)
+        root_label = self.sget(converter_parameters, key="root_label", default=None)
         root_label_index = np.where(unique_labels == root_label)[0][0] if root_label is not None else 0
         # Extract additional method-specific parameters
         method_specific_params = {

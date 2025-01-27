@@ -197,7 +197,7 @@ class EvaluationBase(ABC):
 
             # Perform the evaluation calculation
             self.logger.debug("Performing evaluation calculation.")
-            self._calculate()
+            self._calculate()  # in MetricsMixin classes.
 
             self.logger.info("Evaluation completed successfully.")
             return self.get_result()
