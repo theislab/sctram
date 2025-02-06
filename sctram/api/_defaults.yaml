@@ -1,0 +1,55 @@
+# defaults.yaml
+
+combinations:
+  - evaluate: PseudotimeValuesEvaluation
+    infer: DPTInference
+    description: "Default metrics for pseudotime evaluation."  # edit
+    metrics:
+      - pearson
+      - spearman
+      - kendall
+      - mse
+      - mae
+      - r2
+      - r2_with_spline
+      - concordance_index
+      - dynamic_time_warping
+      - wasserstein_distance
+
+  - evaluate: AdjacencyMatrixEvaluation
+    infer: PAGAInference
+    description: "Default metrics for adjacency evaluation."  # edit
+    metrics:
+      - frobenius
+      - L1
+      - accuracy
+      - graph_edit_distance
+      - spectral_distance
+      - jaccard
+      - hamming
+      - precision
+      - recall
+      - f1_score
+      - mantel_correlation
+
+  - evaluate: EmbeddingTrajectoryEvaluation
+    infer: ObsmEmbedding
+    description: "Default metrics for embedding evaluation using provided obsm."  # edit
+    metrics:
+      - normalized_mean_curvature
+      - distance_correlation
+      - stress
+      - neighborhood_preservation_score
+      - branch_silhouette_score
+      - transition_smoothness
+      - trustworthiness
+      - leaf_node_separation
+      - morans_i
+      - gearys_c
+      - lisa
+      - getis_ord_gi_star
+
+  - evaluate: EmbeddingTrajectoryEvaluation
+    infer: PCAEmbedding
+    description: "Embedding evaluation using PCA with no default metrics."  # edit
+    metrics: []
