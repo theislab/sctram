@@ -1,26 +1,27 @@
 #!/usr/bin/env python3
 
-# TODO: Codebase is not tested and/or runned.
-# Note: The codebase here actually belongs to the previous version of the codebase.
-# It was kept as reference.
+# TODO: There is fundemental misunderstanding in the implementation here.
 
-from typing import Any, Optional
+
+from typing import Any, Optional, Callable, Tuple, Union
 
 import numpy as np
-from scipy.sparse import csr_matrix, isspmatrix_csr
+import networkx as nx
+from scipy.sparse import csr_matrix, isspmatrix_csr, coo_matrix
 from sklearn.metrics.pairwise import rbf_kernel
 from sklearn.neighbors import kneighbors_graph
+from sklearn.metrics.pairwise import rbf_kernel
+
+from sctram._utils import Utils
 
 
 class SpatialMetricsMixin:
     """Mixin class providing spatial autocorrelation metrics for trajectory evaluation.
 
     This mixin implements various spatial autocorrelation metrics, including Moran's I,
-    Geary's C, Local Moran's I (LISA), and Getis-Ord Gi*. It supports different types of
-    trajectory representations such as adjacency matrices, pseudotime vectors, and
-    diffusion map embeddings. The mixin handles the computation of spatial weights based
-    on the input type and provides methods to calculate each metric.
-
+    Geary's C, Local Moran's I (LISA), and Getis-Ord Gi*. The mixin handles the computation of spatial weights 
+    and data preperation based on the input type and provides methods to calculate each metric.
+    
     Mathematical Foundations:
         - Moran's I: Measures global spatial autocorrelation.
         - Geary's C: Measures spatial autocorrelation with emphasis on local differences.
@@ -28,211 +29,208 @@ class SpatialMetricsMixin:
         - Getis-Ord Gi*: Identifies spatial clusters (hotspots and coldspots).
 
     Computational Considerations:
-        - Utilizes sparse matrix operations for efficiency.
-        - Designed to handle large datasets.
         - Avoids reliance on external spatial libraries like `pysal`.
     """
-
-    def _compute_spatial_weights(
-        self,
-        data: Any,
-        input_type: str,
-        weight_method: Optional[str] = None,
-        k: Optional[int] = 90,  # Set default here
-        sigma: Optional[float] = None,
-        gamma: Optional[float] = None,
-    ) -> csr_matrix:
-        """Compute spatial weights based on the input data type.
-
-        Spatial weights define the spatial relationships between units. The computation
-        method varies depending on whether the input is an adjacency matrix, pseudotime vector,
-        or embedding (e.g., diffusion map embeddings).
-
-        Args:
-            data (Any): The data representing the trajectory.
-                - For 'adjacency': 2D numpy array (adjacency matrix).
-                - For 'pseudotime': 1D numpy array (pseudotime values).
-                - For 'embedding': 2D numpy array (embeddings such as diffusion maps or PCA).
-                - For 'precalculated': Already computed spatial weights matrix.
-            input_type (str): The type of input data. Must be one of:
-                - 'adjacency'
-                - 'pseudotime'
-                - 'embedding'
-                - 'precalculated'
-            weight_method (Optional[str]): Method to compute weights.
-                - For 'pseudotime':
-                    - 'inverse' (default)
-                    - 'gaussian'
-                - For 'embedding':
-                    - 'knn' (default)
-                    - 'rbf'
-                - Ignored for 'adjacency' and 'precalculated'.
-            k (Optional[int]): Number of neighbors for 'knn' weighting. Default is 10.
-                Applicable only when input_type is 'embedding' and weight_method is 'knn'.
-            sigma (Optional[float]): Parameter for 'gaussian' weighting. Default is 1.0.
-                Applicable only when input_type is 'pseudotime' and weight_method is 'gaussian'.
-            gamma (Optional[float]): Parameter for 'rbf' weighting. Default is 1.0.
-                Applicable only when input_type is 'embedding' and weight_method is 'rbf'.
-
-        Returns:
-            csr_matrix: The computed spatial weights matrix in sparse CSR format.
-
-        Raises:
-            ValueError: If input_type is unsupported, required parameters are missing,
-                        or input data is invalid.
-        """
-        supported_input_types = {"adjacency", "pseudotime", "embedding", "precalculated"}
-        if input_type not in supported_input_types:
-            raise ValueError(f"Unsupported input_type {input_type!r}. Supported types are: {supported_input_types}.")
-
-        if input_type == "precalculated":
-            if not isspmatrix_csr(data):
-                raise ValueError("For 'precalculated' input_type, data must be a scipy.sparse CSR matrix.")
-            return data.copy()
-
-        spatial_weights = None
-
-        if input_type == "adjacency":
-            spatial_weights = self._compute_adjacency_weights(data)
-
-        elif input_type == "pseudotime":
-            spatial_weights = self._compute_pseudotime_weights(
-                data, weight_method=weight_method or "inverse", sigma=sigma
-            )
-
-        elif input_type == "embedding":
-            spatial_weights = self._compute_embedding_weights(
-                data, weight_method=weight_method or "knn", k=k, gamma=gamma
-            )
-
-        # Normalize the spatial weights
-        spatial_weights = self._normalize_weights(spatial_weights)
-
-        return spatial_weights
-
-    def _compute_adjacency_weights(self, adjacency_matrix: np.ndarray) -> csr_matrix:
-        """Compute spatial weights from an adjacency matrix.
-
-        Args:
-            adjacency_matrix (np.ndarray): 2D square numpy array representing adjacency.
-
-        Raises:
-            ValueError: If the `adjacency_matrix` is not in correct format.
-
-        Returns:
-            csr_matrix: Normalized spatial weights matrix.
-        """
-        if not isinstance(adjacency_matrix, np.ndarray):
-            raise ValueError("Adjacency matrix must be a numpy array.")
-        if adjacency_matrix.ndim != 2:
-            raise ValueError("Adjacency matrix must be 2-dimensional.")
-        if adjacency_matrix.shape[0] != adjacency_matrix.shape[1]:
-            raise ValueError("Adjacency matrix must be square (same number of rows and columns).")
-        if not np.allclose(adjacency_matrix, adjacency_matrix.T):
-            raise ValueError("Adjacency matrix must be symmetric.")
-        spatial_weights = csr_matrix(adjacency_matrix)
-        return spatial_weights
-
-    def _compute_pseudotime_weights(
-        self, pseudotime: np.ndarray, weight_method: str, sigma: Optional[float]
-    ) -> csr_matrix:
-        """Compute spatial weights based on pseudotime data.
-
-        Args:
-            pseudotime (np.ndarray): 1D array of pseudotime values.
-            weight_method (str): Method to compute weights ('inverse' or 'gaussian').
-            sigma (Optional[float]): Parameter for 'gaussian' weighting.
-
-        Returns:
-            csr_matrix: Spatial weights matrix.
-
-        Raises:
-            ValueError: If weight_method is invalid or required parameters are missing.
-        """
-        if not isinstance(pseudotime, np.ndarray):
-            raise ValueError("Pseudotime data must be a numpy array.")
-        if pseudotime.ndim != 1:
-            raise ValueError("Pseudotime data must be a 1D array.")
-        if np.isnan(pseudotime).any() or np.isinf(pseudotime).any():
-            raise ValueError("Pseudotime data contains NaN or Inf values.")
-
-        if weight_method == "inverse":
-            distance_matrix = np.abs(pseudotime[:, np.newaxis] - pseudotime[np.newaxis, :])
-            weights = 1.0 / (distance_matrix + 1e-5)  # Avoid division by zero
-        elif weight_method == "gaussian":
-            sigma = sigma if sigma is not None else 1.0  # Default value
-            if sigma <= 0:
-                raise ValueError("Sigma must be positive for 'gaussian' weight_method.")
-            distance_matrix = np.abs(pseudotime[:, np.newaxis] - pseudotime[np.newaxis, :])
-            weights = np.exp(-(distance_matrix**2) / (2 * sigma**2))
-        else:
-            raise ValueError(f"Unknown weight_method {weight_method!r} for 'pseudotime' input_type.")
-
-        return csr_matrix(weights)
-
-    def _compute_embedding_weights(
-        self, embedding: np.ndarray, weight_method: str, k: Optional[int], gamma: Optional[float]
-    ) -> csr_matrix:
-        """Compute spatial weights based on embedding data.
-
-        Args:
-            embedding (np.ndarray): 2D array of embeddings (e.g., diffusion maps, PCA).
-            weight_method (str): Method to compute weights ('knn' or 'rbf').
-            k (Optional[int]): Number of neighbors for 'knn' weighting.
-            gamma (Optional[float]): Parameter for 'rbf' weighting.
-
-        Returns:
-            csr_matrix: Spatial weights matrix.
-
-        Raises:
-            ValueError: If weight_method is invalid or required parameters are missing.
-        """
-        if not isinstance(embedding, np.ndarray):
-            raise ValueError("Embedding data must be a numpy array.")
-        if embedding.ndim != 2:
-            raise ValueError("Embedding data must be a 2D array.")
-        if np.isnan(embedding).any() or np.isinf(embedding).any():
-            raise ValueError("Embedding data contains NaN or Inf values.")
-
-        if weight_method == "knn":
-            if k is None or k <= 0:
-                raise ValueError("Number of neighbors k must be positive for 'knn' weight_method.")
-            spatial_weights = kneighbors_graph(
-                embedding, n_neighbors=k, mode="connectivity", include_self=True, n_jobs=-1
-            )
-        elif weight_method == "rbf":
-            gamma = gamma if gamma is not None else 1.0  # Default gamma
-            if gamma is None or gamma <= 0:
-                raise ValueError("Gamma must be positive for 'rbf' weight_method.")
-            weights = rbf_kernel(embedding, gamma=gamma)
-            spatial_weights = csr_matrix(weights)
-        else:
-            raise ValueError(f"Unknown weight_method {weight_method!r} for 'embedding' input_type.")
-
-        return spatial_weights
-
-    def _normalize_weights(self, weights: csr_matrix) -> csr_matrix:
-        """Normalize spatial weights by row to ensure that the sum of weights for each unit is 1.
-
-        Args:
-            weights (csr_matrix): Spatial weights matrix.
-
-        Returns:
-            csr_matrix: Normalized spatial weights matrix.
-        """
-        row_sums = np.array(weights.sum(axis=1)).flatten()
-        # To avoid division by zero, set zero sums to one (isolated units will have zero weights)
-        with np.errstate(divide="ignore"):
-            inv_row_sums = 1.0 / row_sums
-            inv_row_sums[np.isinf(inv_row_sums)] = 0.0
-        diagonal_inv = csr_matrix(
-            (inv_row_sums, (np.arange(len(inv_row_sums)), np.arange(len(inv_row_sums)))),
-            shape=(len(inv_row_sums), len(inv_row_sums)),
+    
+    def _compute_embedding_weights(self) -> csr_matrix:
+        cell_labels = self.labels  # self.labels for embedding evaluate class is simply labels for the embedding.
+        adjacency_labels = np.array(list(self.prepared_after_subset_given.nodes())).flatten()  # the order does not matter here
+        adj_matrix = Utils.adjacency_graph_to_matrix(g=self.prepared_after_subset_given, nodelist_filter_and_order=adjacency_labels)
+        Utils.validate_adjacency_matrix(adj_matrix)
+        
+        return self._create_sparse_cell_adjacency(
+            adj_matrix=adj_matrix,
+            adjacency_labels=adjacency_labels,
+            cell_labels=cell_labels
         )
-        normalized_weights = diagonal_inv.dot(weights)
-        return normalized_weights
+        
+    def _compute_pseudotime_weights(self):
+        unique_labels = np.unique(self.subset_labels)
+        subset_adjacency_matrix = Utils.adjacency_graph_to_matrix(g=self.subset_given, nodelist_filter_and_order=unique_labels)
+        Utils.validate_adjacency_matrix(subset_adjacency_matrix)
+        
+        return self._create_sparse_cell_adjacency(
+            adj_matrix=subset_adjacency_matrix,
+            adjacency_labels=unique_labels,
+            cell_labels=self.subset_labels
+        )
+  
+    def _create_sparse_cell_adjacency(self, adj_matrix: np.ndarray, adjacency_labels: np.ndarray, cell_labels: np.ndarray) -> csr_matrix:
+        """Create an nxn sparse cell-cell adjacency matrix from an lxl PAGA adjacency matrix.
+        
+        This implementation groups cells by their label and then, for each pair of labels,
+        creates the block of cell-cell interactions. This avoids iterating over all n^2 cell pairs.
+        
+        Args:
+            cell_labels: array-like of shape (n,) or (n,1). Array containing the label for each cell.
+            adj_matrix: array-like of shape (l, l). e.g. the PAGA connectivity (adjacency) matrix among the l labels.
+            adjacency_labels : array-like of shape (l,) or (l,1). The list of label names corresponding to 
+                the rows/columns of paga_adj.
+        
+        Returns:
+            csr_matrix: A sparse cell-cell adjacency matrix where for each pair of cells (i, j)
+                cell_adj[i, j] = paga_adj[label_index(cell_i), label_index(cell_j)]
+                where label_index(cell) is determined by the mapping defined in adjacency_labels.
+        """ 
+        if not isinstance(adjacency_labels, np.ndarray) or not isinstance(cell_labels, np.ndarray):
+            raise ValueError("Expected both 'cell_labels' and 'adjacency_labels' to be a numpy array.")
+        if adjacency_labels.ndim != 1 or cell_labels.ndim != 1:
+            raise ValueError("Both 'adjacency_labels' and 'cell_labels' must be one-dimensional arrays.")
+        if len(adjacency_labels) != len(adj_matrix):
+            raise ValueError("Mismatch between the number of labels in 'adjacency_labels' and the size of the data.")
+        
+        # Build a mapping from label value to its index in adjacency_labels.
+        label_to_index = {label: idx for idx, label in enumerate(adjacency_labels)}
+        
+        try:  # Map each cell's label to its index in the PAGA matrix.
+            mapped_labels = np.array([label_to_index[label] for label in cell_labels])
+        except KeyError as e:
+            raise ValueError(f"Cell label {e} not found in adjacency_labels.") from None
 
-    def calculate_morans_i(self, x: np.ndarray, spatial_weights: csr_matrix) -> float:
+        n = cell_labels.size
+        l = adjacency_labels.size
+
+        # Group cell indices by their mapped label (which is an integer in 0,...,l-1)
+        groups = {}
+        for cell_idx, lab_idx in enumerate(mapped_labels):
+            groups.setdefault(lab_idx, []).append(cell_idx)        
+        for key in groups:
+            groups[key] = np.array(groups[key], dtype=np.int64)
+        
+        # Prepare lists to accumulate sparse matrix data.
+        row_inds = []
+        col_inds = []
+        data_vals = []
+        
+        # Loop over label pairs.
+        # We only add blocks when paga_adj[i, j] is nonzero and when both groups exist.
+        for i in range(l):
+            if i not in groups:
+                continue  # No cell has label adjacency_labels[i]
+            idx_i = groups[i]
+            for j in range(l):
+                if j not in groups:
+                    continue  # No cell has label adjacency_labels[j]
+                val = adj_matrix[i, j]
+                if val == 0:
+                    continue  # Skip blocks that contribute no value
+                
+                idx_j = groups[j]
+                # Create the block indices:
+                # Every cell in group i connects to every cell in group j.
+                # We use np.repeat and np.tile to create the full index arrays.
+                block_rows = np.repeat(idx_i, idx_j.size)
+                block_cols = np.tile(idx_j, idx_i.size)
+                block_data = np.full(block_rows.shape, val)
+                
+                row_inds.append(block_rows)
+                col_inds.append(block_cols)
+                data_vals.append(block_data)
+        
+        # If no blocks were added, return an empty sparse matrix.
+        if row_inds:
+            row_inds = np.concatenate(row_inds)
+            col_inds = np.concatenate(col_inds)
+            data_vals = np.concatenate(data_vals)
+        else:
+            row_inds = np.array([], dtype=np.int64)
+            col_inds = np.array([], dtype=np.int64)
+            data_vals = np.array([], dtype=adj_matrix.dtype)
+        
+        # Create a COO-format sparse matrix and then convert to CSR.
+        cell_adj = coo_matrix((data_vals, (row_inds, col_inds)), shape=(n, n)).tocsr()
+        return cell_adj
+                    
+    def _normalize_weights(
+        self, 
+        weights: Union[np.ndarray, csr_matrix]
+    ) -> Union[np.ndarray, csr_matrix]:
+        """Normalize spatial weights to ensure appropriate scaling.
+
+        For 2D numpy arrays or CSR matrices, normalizes each row to sum to 1.
+
+        Args:
+            weights: Input spatial weights, which can be a 1D/2D numpy array or CSR matrix.
+
+        Returns:
+            Normalized weights of the same type as input.
+
+        Raises:
+            ValueError: If the input has unsupported dimensions.
+        """
+        if isspmatrix_csr(weights):
+            # Normalize each row in the CSR matrix to sum to 1
+            row_sums = np.array(weights.sum(axis=1)).flatten()
+            inv_row_sums = np.divide(1.0, row_sums, out=np.zeros_like(row_sums), where=row_sums != 0)
+            normalized_weights = weights.multiply(inv_row_sums[:, np.newaxis])
+            return normalized_weights.tocsr()
+        else:
+            raise ValueError(f"Unsupported weights type {type(weights)}. Must be numpy array or CSR matrix.")
+
+    def _calculate_spatial_autocorrelation(self, metric: str, input_type: str, normalize_weights: bool = True):
+        """Calculates the specified spatial metric using SpatialMetricsMixin.
+
+        Args:
+            metric (str): The spatial metric to calculate. Must be one of:
+                - "morans_i"
+                - "gearys_c"
+                - "local_morans_i"
+                - "getis_ord_gi_star"
+        """
+        metrics: dict[str, Callable[[np.ndarray, np.ndarray], float]] = {
+            'morans_i': self._calculate_morans_i,
+            'gearys_c': self._calculate_gearys_c,
+            # Get the mean to have a single value. Note that this makes the metric a bit arguable.
+            'lisa': lambda data, weights: np.mean(self._calculate_lisa(data, weights)),
+            'getis_ord_gi_star': lambda data, weights: np.mean(self._calculate_getis_ord_gi_star(data, weights))
+        }
+        metric_func = metrics.get(metric)
+        if not metric_func:
+            raise ValueError(f"Unsupported metric '{metric}'. Choose from {list(metrics.keys())}.")
+        
+        method_print_str = metric.replace('_', ' ').title()
+        try:  
+            if input_type == "pseudotime":
+                spatial_weights = self._compute_pseudotime_weights()
+            elif input_type == "embedding":
+                spatial_weights = self._compute_embedding_weights()
+            else:
+                raise ValueError(f"Unsupported input_type {input_type!r}")
+
+            if normalize_weights:
+                spatial_weights = self._normalize_weights(spatial_weights)
+            x = self.prepared_after_subset_inferred
+            
+            if not isinstance(x, np.ndarray):
+                raise ValueError("x must be either a numpy array or a csr_matrix.")
+            if not isinstance(spatial_weights, csr_matrix):
+                raise ValueError(f"'spatial_weights' must be either a numpy array or a csr_matrix: {type(spatial_weights)!r}")
+            if spatial_weights.ndim != 2:
+                raise ValueError("'spatial_weights' must be 2-dimensional.")
+            if x.shape[0] != spatial_weights.shape[0]:
+                raise ValueError("Mismatch in number of rows between x and spatial weights.")
+            
+            if input_type == "embedding":            
+                if x.ndim != 2:
+                    raise ValueError("For elementwise computation, x must be 2-dimensional.")
+                # Compute metric element-wise across columns. Slicing works for both numpy arrays and csr_matrix
+                results = [metric_func(x[:, col], spatial_weights) for col in range(x.shape[1])]
+                value = np.mean(results)
+            elif input_type == "pseudotime":
+                if x.ndim != 1:
+                    raise ValueError("For global computation, x must be 1-dimensional.")
+                value = metric_func(x, spatial_weights)
+            else:
+                raise ValueError(f"Unsupported input_type {input_type!r}")
+
+            self.result[metric] = value
+            self.logger.debug(f"{method_print_str!r} calculated for {input_type!r}): {value}")
+        except Exception as e:
+            self.logger.error(f"Failed to calculate {method_print_str!r} for {input_type!r}: {e}")
+            self.result[metric] = np.nan
+
+
+    def _calculate_morans_i(self, x: np.ndarray, spatial_weights: csr_matrix) -> float:
         """Calculates Moran's I for the given data and spatial weights.
 
         Moran's I is a measure of spatial autocorrelation that assesses the degree to which
@@ -285,24 +283,21 @@ class SpatialMetricsMixin:
         Raises:
             ValueError: If input data is invalid.
         """
-        if not isinstance(x, np.ndarray):
-            raise ValueError("Input x must be a numpy array.")
-        if x.ndim != 1:
-            raise ValueError("Input x must be a 1D array.")
-        if not isinstance(spatial_weights, csr_matrix):
-            raise ValueError("Spatial weights must be a scipy.sparse CSR matrix.")
         n = len(x)
         w = spatial_weights.sum()
         if w == 0:
             raise ValueError("Sum of spatial weights W must not be zero.")
+
         x_mean = np.mean(x)
         x_diff = x - x_mean
+
         numerator = x_diff @ (spatial_weights @ x_diff)
-        denominator = np.sum(x_diff**2)
+        denominator = np.sum(x_diff ** 2)
+
         morans_i = (n / w) * (numerator / denominator)
         return morans_i
 
-    def calculate_gearys_c(self, x: np.ndarray, spatial_weights: csr_matrix) -> float:
+    def _calculate_gearys_c(self, x: np.ndarray, spatial_weights: csr_matrix) -> float:
         """Calculates Geary's C for the given data and spatial weights.
 
         Geary's C is a measure of spatial autocorrelation that focuses more on local differences
@@ -352,38 +347,36 @@ class SpatialMetricsMixin:
         Raises:
             ValueError: If input data is invalid.
         """
-        if not isinstance(x, np.ndarray):
-            raise ValueError("Input x must be a numpy array.")
-        if x.ndim != 1:
-            raise ValueError("Input x must be a 1D array.")
-        if not isinstance(spatial_weights, csr_matrix):
-            raise ValueError("Spatial weights must be a scipy.sparse CSR matrix.")
         n = len(x)
         w = spatial_weights.sum()
         if w == 0:
             raise ValueError("Sum of spatial weights W must not be zero.")
+
         x_mean = np.mean(x)
         x_diff = x - x_mean
+        denominator = 2 * np.sum(x_diff ** 2)
+
         # Compute (x_i - x_j)^2 for all i, j
-        # Efficient computation using sparse matrix operations
+        # Efficient computation using sparse matrix operations:
         # (x_i - x_j)^2 = x_i^2 + x_j^2 - 2 * x_i * x_j
-        # Compute x_i^2 * w_ij
-        x_i_sq = x_diff**2
-        x_j_sq = x_diff**2
-        # Compute x_i * w_ij * x_j
-        cross_term = 2 * (x_diff @ (spatial_weights @ x_diff))
-        # Numerator: Σi Σj w_ij (x_i - x_j)^2 = Σi Σj w_ij x_i^2 + Σi Σj w_ij x_j^2 - 2 Σi Σj w_ij x_i x_j
-        # Since w_ij is symmetric, Σi Σj w_ij x_i^2 = Σi x_i^2 Σj w_ij = Σi x_i^2 * row_sums
-        # Similarly for Σi Σj w_ij x_j^2
-        sum_wx_sq = (spatial_weights.multiply(x_i_sq[:, np.newaxis])).sum() + (spatial_weights.multiply(x_j_sq).sum())
-        # Since spatial_weights is symmetric, sum_wx_sq = 2 * Σi Σj w_ij x_i^2
-        # Numerator is Σi Σj w_ij (x_i - x_j)^2 = 2 * Σi Σj w_ij x_i^2 - 2 * Σi Σj w_ij x_i x_j
-        numerator = sum_wx_sq - cross_term
-        denominator = 2 * np.sum(x_diff**2)
+        x_diff_squared = x_diff ** 2
+
+        # Σi Σj w_ij x_i^2
+        sum_wx_i_sq = spatial_weights.multiply(x_diff_squared[:, np.newaxis]).sum()
+
+        # Σi Σj w_ij x_j^2
+        sum_wx_j_sq = spatial_weights.multiply(x_diff_squared).sum()
+
+        # Σi Σj w_ij x_i x_j
+        cross_term = x_diff @ (spatial_weights @ x_diff)
+
+        # Σi Σj w_ij (x_i - x_j)^2 = Σi Σj w_ij x_i^2 + Σi Σj w_ij x_j^2 - 2 Σi Σj w_ij x_i x_j
+        numerator = sum_wx_i_sq + sum_wx_j_sq - 2 * cross_term
+
         gearys_c = ((n - 1) / (2 * w)) * (numerator / denominator)
         return gearys_c
 
-    def calculate_lisa(self, x: np.ndarray, spatial_weights: csr_matrix) -> np.ndarray:
+    def _calculate_lisa(self, x: np.ndarray, spatial_weights: csr_matrix) -> np.ndarray:
         """Calculates Local Moran's I (LISA) for each spatial unit.
 
         Local Moran's I, also known as LISA (Local Indicators of Spatial Association), measures spatial
@@ -432,24 +425,19 @@ class SpatialMetricsMixin:
         Raises:
             ValueError: If input data is invalid.
         """
-        if not isinstance(x, np.ndarray):
-            raise ValueError("Input x must be a numpy array.")
-        if x.ndim != 1:
-            raise ValueError("Input x must be a 1D array.")
-        if not isinstance(spatial_weights, csr_matrix):
-            raise ValueError("Spatial weights must be a scipy.sparse CSR matrix.")
-        _ = len(x)
         x_mean = np.mean(x)
         s2 = np.var(x, ddof=1)
         if s2 == 0:
             raise ValueError("Variance of x must not be zero.")
+
         x_diff = x - x_mean
         # Compute spatial lag: Σj w_ij (x_j - x̄)
         spatial_lag = spatial_weights @ x_diff
+        # Calculate Local Moran's I for each unit
         lisa = (x_diff / s2) * spatial_lag
-        return lisa
+        return np.array(lisa).flatten()
 
-    def calculate_getis_ord_gi_star(self, x: np.ndarray, spatial_weights: csr_matrix) -> np.ndarray:
+    def _calculate_getis_ord_gi_star(self, x: np.ndarray, spatial_weights: csr_matrix) -> np.ndarray:
         """Calculates the Getis-Ord Gi* statistic for each spatial unit.
 
         The Getis-Ord Gi* statistic measures the degree of clustering of high or low values in the data.
@@ -499,26 +487,29 @@ class SpatialMetricsMixin:
         Raises:
             ValueError: If input data is invalid.
         """
-        if not isinstance(x, np.ndarray):
-            raise ValueError("Input x must be a numpy array.")
-        if x.ndim != 1:
-            raise ValueError("Input x must be a 1D array.")
-        if not isinstance(spatial_weights, csr_matrix):
-            raise ValueError("Spatial weights must be a scipy.sparse CSR matrix.")
         n = len(x)
         x_mean = np.mean(x)
         s = np.std(x, ddof=1)
         if s == 0:
             raise ValueError("Standard deviation of x must not be zero.")
+
         # Σj w_ij x_j for each i
         sum_wx = spatial_weights @ x
+        sum_wx = np.array(sum_wx).flatten()
+
         # Σj w_ij for each i
-        sum_w = spatial_weights.sum(axis=1).A1
+        sum_w = np.array(spatial_weights.sum(axis=1)).flatten()
+
+        # Numerator: Σj w_ij x_j - x̄ Σj w_ij
         numerator = sum_wx - (x_mean * sum_w)
-        # Compute denominator
-        sum_w2 = spatial_weights.multiply(spatial_weights).sum(axis=1).A1
-        denominator = s * np.sqrt((n * sum_w2 - sum_w**2) / (n - 1))
-        # Handle division by zero
+
+        # Σj w_ij^2 for each i
+        sum_w2 = spatial_weights.power(2).sum(axis=1).A1
+
+        # Denominator: S * sqrt((n Σj w_ij^2 - (Σj w_ij)^2) / (n - 1))
+        denominator = s * np.sqrt((n * sum_w2 - sum_w ** 2) / (n - 1))
+
+        # Handle division by zero by setting denominator to a small number
         denominator[denominator == 0] = 1e-10
         gi_star = numerator / denominator
-        return gi_star
+        return np.array(gi_star).flatten()

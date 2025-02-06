@@ -43,6 +43,8 @@ dependencies:
     - scikit-learn
     - scikit-sparse
     - scikit-plot
+    - scikit-image
+    - scikit-bio
     - statsmodels>=0.12
     - matplotlib>=3.7
     - cycler

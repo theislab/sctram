@@ -12,7 +12,7 @@ from sctram.evaluate._base import EvaluationBase
 from sctram.evaluate._metricsmixin._adjacencymetricsmixin import AdjacencyMetricsMixin
 
 
-class AdjacencyMatrixEvaluation(Utils, AdjacencyMetricsMixin, EvaluationBase):
+class AdjacencyMatrixEvaluation(AdjacencyMetricsMixin, EvaluationBase):
     """Evaluation method to compare given and inferred adjacency matrices using advanced metrics.
 
     This class compares the adjacency matrix of the given trajectory (converted from a NetworkX graph)
@@ -108,8 +108,7 @@ class AdjacencyMatrixEvaluation(Utils, AdjacencyMetricsMixin, EvaluationBase):
             ValueError: If the adjacency matrices cannot be prepared due to incompatible shapes or types.
         """
         self.logger.debug("Converting given trajectory to adjacency matrix.")
-        symetrical_graph = self.given_trajectory.to_symetrical_multidigraph()  # to have symetrical adjacency matrices
-        given_adj_matrix = nx.to_numpy_array(symetrical_graph, nodelist=self.labels)
+        given_adj_matrix = Utils.adjacency_graph_to_matrix(g=self.given_trajectory, nodelist_filter_and_order=self.labels)
         self.logger.debug(f"Given adjacency matrix shape: {given_adj_matrix.shape}")
         # Note: this method assumes the inferred numpy array is already in correct order of labels.
         # See the paga return_mode `label` and `adjacency`.
@@ -134,8 +133,8 @@ class AdjacencyMatrixEvaluation(Utils, AdjacencyMetricsMixin, EvaluationBase):
             ValueError: If subsetting parameters are invalid or result in incompatible matrices.
         """
         self.logger.debug("Subsetting trajectories based on subset parameters.")
-        labels_to_keep = self.sget(self.subset_params, "labels_to_keep", None)
-        labels_to_remove = self.sget(self.subset_params, "labels_to_remove", None)
+        labels_to_keep = Utils.sget(dictionary=self.subset_params, key="labels_to_keep", default=None, logger=self.logger)
+        labels_to_remove = Utils.sget(dictionary=self.subset_params, key="labels_to_remove", default=None, logger=self.logger)
 
         if labels_to_keep is not None and labels_to_remove is None:
             self.logger.debug(f"Subsetting to keep nodes: {labels_to_keep}")

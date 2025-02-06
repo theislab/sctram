@@ -10,9 +10,10 @@ from scipy.sparse import csgraph, diags, issparse
 from scipy.sparse.linalg import eigsh
 
 from sctram._utils import Utils
+from sklearn.preprocessing import MinMaxScaler
 
 
-class AdjacencyPseudotimeConverter(Utils):
+class AdjacencyPseudotimeConverter:
     """A class to convert an adjacency matrix into a pseudotime array using various methods.
 
     Trajectory inference aims to order cells along a developmental or differentiation pathway,
@@ -428,7 +429,7 @@ class AdjacencyPseudotimeConverter(Utils):
         return pseudotime
 
 
-class LabelAdjacencyPseudotimeConverter(Utils):
+class LabelAdjacencyPseudotimeConverter:
     """A class to convert a label-level adjacency matrix into a cell-level pseudotime array.
 
     This involves two main steps:
@@ -530,27 +531,29 @@ class LabelAdjacencyPseudotimeConverter(Utils):
                 alternative_distance=alternative_distance,
             )
         elif method == "diffusion_with_damping":
-            alpha = self.sget(kwargs, "alpha", 0.5)
-            n_steps = self.sget(kwargs, "n_steps", 100)
-            tol = self.sget(kwargs, "tol", 1e-6)
+            alpha = Utils.sget(dictionary=kwargs, key="alpha", default=0.5, logger=self.logger)
+            n_steps = Utils.sget(dictionary=kwargs, key="n_steps", default=100, logger=self.logger)
+            tol = Utils.sget(dictionary=kwargs, key="tol", default=1e-6, logger=self.logger)
 
             self.label_pseudotime = converter.to_diffusion_pseudotime_with_damping(
                 alpha=alpha, n_steps=n_steps, tol=tol, root_label_index=root_label_index
             )
         elif method == "diffusion_with_eigen":
-            n_steps = self.sget(kwargs, "n_steps", 100)
-            n_components = self.sget(kwargs, "n_components", 100)
+            n_steps = Utils.sget(dictionary=kwargs, key="n_steps", default=100, logger=self.logger)
+            n_components = Utils.sget(dictionary=kwargs, key="n_components", default=100, logger=self.logger)
             self.label_pseudotime = converter.to_diffusion_pseudotime_with_eigen(
                 n_steps=n_steps, root_label_index=root_label_index, n_components=n_components
             )
         elif method == "spectral":
-            n_components = self.sget(kwargs, "n_components", 2)
+            n_components = Utils.sget(dictionary=kwargs, key="n_components", default=2, logger=self.logger)
             self.label_pseudotime = converter.to_spectral_pseudotime(
                 n_components=n_components, root_label_index=root_label_index
             )
         else:
             raise ValueError(f"Unsupported method {method!r}.")
 
+        # MinMax scaling
+        self.label_pseudotime = MinMaxScaler().fit_transform(self.label_pseudotime.reshape(-1, 1)).flatten()
         return self.label_pseudotime
 
     def assign_cell_pseudotime(

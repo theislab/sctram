@@ -2,8 +2,9 @@
 
 # TODO: Codebase is not tested and/or runned.
 
-import numpy as np
 from typing import Any, Dict, Optional, Tuple
+
+import numpy as np
 
 from sctram._constants import sctram_operate_key
 from sctram.evaluate._base import EvaluationBase
@@ -51,7 +52,7 @@ class EmbeddingTrajectoryEvaluation(EmbeddingTrajectoryMetricsMixin, EvaluationB
         if not self.result:
             raise ValueError("No result available. Have you run the evaluation?")
         return self.result
-    
+
     def _verify_inferred_trajectory(self, inferred_embedding: np.ndarray) -> np.ndarray:
         """Verifies the embedding."""
         if not isinstance(inferred_embedding, np.ndarray):
@@ -65,7 +66,7 @@ class EmbeddingTrajectoryEvaluation(EmbeddingTrajectoryMetricsMixin, EvaluationB
         if inferred_embedding.size == 0:
             raise ValueError("Embedding cannot be empty.")
         return inferred_embedding
-        
+
     def _verify_labels_data_specific(self):
         """Verifies that labels is consistent with input trajectory and/or inferred embedding.
 
@@ -77,7 +78,7 @@ class EmbeddingTrajectoryEvaluation(EmbeddingTrajectoryMetricsMixin, EvaluationB
         self.logger.debug("Checking the consistency between the given graph and labels.")
         if len(self.inferred_trajectory) != len(self.labels):
             raise ValueError("Datapoint amount in the inferred embedding does not match the number of given labels.")
-    
+
     def _prepare_before_subset(self) -> Tuple[np.ndarray, np.ndarray]:
         """Prepares the trajectories after subsetting.
 
@@ -85,7 +86,7 @@ class EmbeddingTrajectoryEvaluation(EmbeddingTrajectoryMetricsMixin, EvaluationB
             NotImplementedError: This method is not supposed to be running.
         """
         raise NotImplementedError("This method is not supposed to be running.")
-    
+
     def _subset(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Subsets the trajectories based on `subset_params`.
 
@@ -93,7 +94,7 @@ class EmbeddingTrajectoryEvaluation(EmbeddingTrajectoryMetricsMixin, EvaluationB
             NotImplementedError: Will be implemented.
         """
         raise NotImplementedError("Will be implemented.")
-    
+
     def _prepare_after_subset(self) -> Tuple[np.ndarray, np.ndarray]:
         """Prepares the trajectories after subsetting.
 

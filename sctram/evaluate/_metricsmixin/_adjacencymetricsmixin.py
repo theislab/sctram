@@ -9,7 +9,7 @@ from sctram.evaluate._metricsmixin._metricsmixinbase import MetricsMixinBase
 from sctram.evaluate._metricsmixin._spatialmetricsmixin import SpatialMetricsMixin
 
 
-class AdjacencyMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
+class AdjacencyMetricsMixin(MetricsMixinBase):
     """Metrics to compare two adjacency matrixes, that is, two networkx graphs."""
 
     available_metrics = [
@@ -23,6 +23,8 @@ class AdjacencyMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
         "precision",
         "recall",
         "f1_score",
+        "mantel_correlation",
+        "ssim",
         "avg_shortest_path_diff",
         "degree_emd",
         "clustering_coeff_diff",
@@ -32,11 +34,6 @@ class AdjacencyMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
         "persistence_diagram_distance",
         "maximum_common_subgraph_distance",
         "random_walk_kernel_distance",
-        # Spatial metrics
-        # "morans_i",
-        # "gearys_c",
-        # "local_morans_i",
-        # "getis_ord_gi_star",
     ]
 
     def _calculate(self):
@@ -63,6 +60,10 @@ class AdjacencyMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
                 self._calculate_hamming_distance()
             elif metric in ["precision", "recall", "f1_score"]:
                 self._calculate_precision_recall_f1(metric)
+            elif metric == "mantel_correlation":
+                self._calculate_mantel_correlation()    
+            elif metric == "ssim":
+                self._calculate_ssim()
             elif metric == "avg_shortest_path_diff":
                 self._calculate_avg_shortest_path_diff()
             elif metric == "degree_emd":
@@ -81,14 +82,6 @@ class AdjacencyMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
                 self._calculate_maximum_common_subgraph_distance()
             elif metric == "random_walk_kernel_distance":
                 self._calculate_random_walk_kernel_distance()
-            # elif metric == "morans_i":
-            #     self._calculate_morans_i()
-            # elif metric == "gearys_c":
-            #     self._calculate_gearys_c()
-            # elif metric == "local_morans_i":
-            #     self._calculate_local_morans_i()
-            # elif metric == "getis_ord_gi_star":
-            #     self._calculate_getis_ord_gi_star()
             else:
                 self.logger.warning(f"Unknown metric {metric!r} specified. Skipping.")
 
@@ -344,6 +337,72 @@ class AdjacencyMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
         else:
             raise ValueError(f"Invalid metric {metric!r} for precision/recall/F1 calculation.")
 
+    def _calculate_ssim(self):
+        try:
+            from skimage.metrics import structural_similarity as ssim
+            data_range = self.prepared_after_subset_given.max() - self.prepared_after_subset_given.min()
+            similarity, _ = ssim(self.prepared_after_subset_given, self.prepared_after_subset_inferred, full=True, data_range=data_range)
+            self.result["ssim"] = similarity
+        except (ImportError, ModuleNotFoundError):
+            self.logger.debug("scikit-image is required for Structural Similarity Index (SSIM) but is not installed.")
+            self.result["ssim"] = np.nan
+        except Exception as e:
+            self.logger.debug(f"Error computing Structural Similarity Index (SSIM): {e}")
+            self.result["ssim"] = np.nan
+
+    def _get_average_shortest_path_lengths(self):
+        g1 = nx.from_numpy_array(self.prepared_after_subset_given)
+        g2 = nx.from_numpy_array(self.prepared_after_subset_inferred)
+
+        if nx.is_connected(g1):
+            avg_given = nx.average_shortest_path_length(g1)
+        else:
+            self.logger.warning("Given graph is not connected. Shortest path distances will include infinities.")
+            avg_given = np.nan  # Undefined for disconnected graphs
+
+        if nx.is_connected(g2):
+            avg_inferred = nx.average_shortest_path_length(g2)
+        else:
+            self.logger.warning("Inferred graph is not connected. Shortest path distances will include infinities.")
+            avg_inferred = np.nan
+        
+        return avg_given, avg_inferred
+    
+    def _calculate_mantel_correlation(self):
+        """Calculates the Mantel test statistic between the two adjacency matrices.
+
+        The Mantel test assesses the correlation between two distance matrices derived from the
+        given and inferred adjacency matrices. It returns the correlation coefficient and the
+        p-value indicating the significance of the correlation.
+
+        Advantages:
+            - Provides a statistical measure of similarity between two network structures.
+            - Accounts for spatial or structural dependencies via distance matrices.
+
+        Limitations:
+            - Computationally intensive for large networks due to permutation testing.
+            - Assumes that the distance matrices are meaningful representations of network structure.
+        """
+        try:
+            from skbio.stats.distance import DistanceMatrix
+            from skbio.stats.distance import mantel
+            avg_given, avg_inferred = self._get_average_shortest_path_lengths()
+            if np.isnan(avg_given) or np.isnan(avg_inferred):
+                raise ValueError("One or both graphs are disconnected. Mantel correlation is undefined.")
+            
+            dm_given = DistanceMatrix(self.prepared_after_subset_given)
+            dm_inferred = DistanceMatrix(self.prepared_after_subset_inferred)
+            
+            mantel_result = mantel(dm_given, dm_inferred, method='pearson', permutations=999)
+            self.result["mantel_correlation"] = mantel_result[0]
+            
+        except (ImportError, ModuleNotFoundError):
+            self.logger.debug("scikit-bio is required for Mantel correlation but is not installed.")
+            self.result["mantel_correlation"] = np.nan
+        except Exception as e:
+            self.logger.debug(f"Error computing Mantel correlation: {e}")
+            self.result["mantel_correlation"] = np.nan
+
     def _calculate_avg_shortest_path_diff(self):
         """Calculates the difference in average shortest path lengths between the two graphs.
 
@@ -366,18 +425,7 @@ class AdjacencyMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
             - Returns `NaN` if one or both graphs are disconnected.
         """
         try:
-            g1 = nx.from_numpy_array(self.prepared_after_subset_given)
-            g2 = nx.from_numpy_array(self.prepared_after_subset_inferred)
-
-            if nx.is_connected(g1):
-                avg_g1 = nx.average_shortest_path_length(g1)
-            else:
-                avg_g1 = np.nan  # Undefined for disconnected graphs
-
-            if nx.is_connected(g2):
-                avg_g2 = nx.average_shortest_path_length(g2)
-            else:
-                avg_g2 = np.nan
+            avg_g1, avg_g2 = self._get_average_shortest_path_lengths()
 
             if np.isnan(avg_g1) or np.isnan(avg_g2):
                 avg_shortest_path_diff = np.nan
@@ -842,40 +890,3 @@ class AdjacencyMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
         except Exception as e:
             self.logger.error(f"Error computing Random Walk Kernel Distance: {e}")
             self.result["random_walk_kernel_distance"] = np.nan
-
-    # def _calculate_morans_i(self):
-    #     """Calculates Moran's I for the adjacency matrix. See the method in `SpatialMixin` class."""
-    #     x = self.prepared_after_subset_given.flatten()
-    #     spatial_weights = self._compute_spatial_weights(data=x, input_type="adjacency", **self.method_params)
-    #     morans_i = self.calculate_morans_i(x, spatial_weights)
-    #     # params = self.method_params.get("morans_i_params", dict())
-    #     # spatial_weights_given = self._compute_spatial_weights(data=self.prepared_after_subset_given, input_type="adjacency", **params)
-    #     # spatial_weights_inferred = self._compute_spatial_weights(data=self.prepared_after_subset_inferred, input_type="adjacency", **params)
-    #     self.result["morans_i"] = morans_i
-    #     self.logger.debug(f"Moran's I: {morans_i}")
-
-    # def _calculate_gearys_c(self):
-    #     """Calculates Geary's C for the adjacency matrix. See the method in `SpatialMixin` class."""
-    #     x = self.prepared_after_subset_given.flatten()
-    #     spatial_weights = self._compute_spatial_weights(data=x, input_type="adjacency", **self.method_params)
-    #     gearys_c = self.calculate_gearys_c(x, spatial_weights)
-    #     self.result["gearys_c"] = gearys_c
-    #     self.logger.debug(f"Geary's C: {gearys_c}")
-
-    # def _calculate_local_morans_i(self):
-    #     """Calculates Local Moran's I (LISA) for the adjacency matrix. See the method in `SpatialMixin` class."""
-    #     self.logger.warning("Local Moran's I (LISA) statistic produces an array instead of single scalar.")
-    #     x = self.prepared_after_subset_given.flatten()
-    #     spatial_weights = self._compute_spatial_weights(data=x, input_type="adjacency", **self.method_params)
-    #     lisa = self.calculate_lisa(x, spatial_weights)
-    #     self.result["local_morans_i"] = lisa
-    #     self.logger.debug(f"Local Moran's I: {lisa}")
-
-    # def _calculate_getis_ord_gi_star(self):
-    #     """Calculates the Getis-Ord Gi* statistic for the adjacency matrix. See the method in `SpatialMixin` class."""
-    #     self.logger.warning("Getis-Ord Gi* statistic produces an array instead of single scalar.")
-    #     x = self.prepared_after_subset_given.flatten()
-    #     spatial_weights = self._compute_spatial_weights(data=x, input_type="adjacency", **self.method_params)
-    #     gi_star = self.calculate_getis_ord_gi_star(x, spatial_weights)
-    #     self.result["getis_ord_gi_star"] = gi_star
-    #     self.logger.debug(f"Getis-Ord Gi* statistic: {gi_star}")

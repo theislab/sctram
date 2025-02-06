@@ -120,6 +120,8 @@ dependencies:
 
     # Machine Learning
     - scikit-learn # Machine learning library
+    - scikit-image
+    - scikit-bio
     - scikit-sparse # Sparse matrix operations for scikit-learn
     - scikit-learn-intelex # Intel optimizations for scikit-learn # Should be commented out for MAC Silicon
     - xgboost>=2.0.3 # Gradient boosting framework

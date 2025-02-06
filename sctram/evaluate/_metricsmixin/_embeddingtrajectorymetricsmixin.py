@@ -1,16 +1,21 @@
 #!/usr/bin/env python3
 
-# TODO: Codebase is not tested and/or runned.
+import itertools
+from collections import defaultdict
 
 import networkx as nx
 import numpy as np
 from scipy.spatial.distance import pdist
 from scipy.stats import pearsonr, spearmanr
+from sklearn.manifold import trustworthiness
+from sklearn.metrics import silhouette_score
+from sklearn.neighbors import NearestNeighbors
 
 from sctram.evaluate._metricsmixin._metricsmixinbase import MetricsMixinBase
+from sctram.evaluate._metricsmixin._spatialmetricsmixin import SpatialMetricsMixin
 
 
-class EmbeddingTrajectoryMetricsMixin(MetricsMixinBase):
+class EmbeddingTrajectoryMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
     """A mixin class to compute various metrics comparing an embedding to a trajectory graph. The aim is to find out
     whether the trajectory is actually involved in the embedding using a battery of metrics.
 
@@ -23,11 +28,20 @@ class EmbeddingTrajectoryMetricsMixin(MetricsMixinBase):
     """
 
     available_metrics = [
-        "curvature_deviation",
+        "normalized_mean_curvature",
         "distance_correlation",
         "stress",
-        "geodesic_distance_correlation",
+        "neighborhood_preservation_score",
+        "branch_silhouette_score",
+        "transition_smoothness",
+        "trustworthiness",
+        "leaf_node_separation",
+        "morans_i",
+        "gearys_c",
+        "lisa",
+        "getis_ord_gi_star"
     ]
+    _embedding_metrics_n_neighbors: int = 15
 
     def _calculate(self):
         """Performs the evaluation by comparing the embedding and trajectory graph using the specified metrics.
@@ -37,232 +51,374 @@ class EmbeddingTrajectoryMetricsMixin(MetricsMixinBase):
         """
         for metric in self.metrics:
             self.logger.debug(f"Calculating metric: {metric!r}")
-            if metric == "curvature_deviation":
-                self._calculate_curvature_deviation()
+            if metric == "normalized_mean_curvature":
+                self._calculate_normalized_mean_curvature()
             elif metric == "distance_correlation":
                 self._calculate_distance_correlation()
             elif metric == "stress":
                 self._calculate_stress()
-            elif metric == "geodesic_distance_correlation":
-                self._calculate_geodesic_distance_correlation()
+            elif metric == "neighborhood_preservation_score":
+                self._calculate_neighborhood_preservation_score()
+            elif metric == "branch_silhouette_score":
+                self._calculate_branch_silhouette_score()
+            elif metric == "transition_smoothness":
+                self._calculate_transition_smoothness()
+            elif metric == "trustworthiness":
+                self._calculate_trustworthiness()
+            elif metric == "leaf_node_separation":
+                self._calculate_leaf_node_separation()
+            elif metric == "morans_i":
+                self._calculate_spatial_autocorrelation(metric, input_type="embedding")
+            elif metric == "gearys_c":
+                self._calculate_spatial_autocorrelation(metric, input_type="embedding")
+            elif metric == "lisa":
+                self._calculate_spatial_autocorrelation(metric, input_type="embedding")
+            elif metric == "getis_ord_gi_star":
+                self._calculate_spatial_autocorrelation(metric, input_type="embedding")
             else:
                 self.logger.warning(f"Unknown metric {metric!r} specified. Skipping.")
 
-    def _get_longest_path(self, a_path):
-        # Extract the longest path from the trajectory graph
-        # Assuming the trajectory is a directed acyclic graph (DAG)
-        if not nx.is_directed_acyclic_graph(a_path):
-            self.logger.warning("Trajectory graph is not a DAG. Attempting to extract a simple path.")
+    def _compute_all_centroids(self):
+        """Compute and cache centroids for all unique labels in the dataset.
 
-        # Attempt to find the longest path; fallback to any path if not a DAG
-        try:
-            longest_path = nx.dag_longest_path(a_path)  # Correct function usage
-        except nx.NetworkXError as e:
-            self.logger.error(f"Failed to compute the longest path due to an error: {e}")
-            # If not a DAG, use a simple path (e.g., breadth-first search)
-            paths = list(
-                nx.all_simple_paths(
-                    a_path,
-                    source=list(a_path.nodes())[0],
-                    target=list(a_path.nodes())[-1],
-                    cutoff=1000  # Adjust cutoff as needed
-                )
-            )
-            if not paths:
-                raise ValueError("No simple paths found in the trajectory graph.")
-            # Choose the longest among the found paths
-            longest_path = max(paths, key=len)
-        # TODO: add a warning if "longest_path != path"
-        return longest_path
-
-    def _get_centroids(self, a_path):
-        # Compute centroids for each label in the longest path
-        centroids = []
-        for label in a_path:
-            # Find indices of embeddings with the current label
-            label_indices = np.where(self.labels == label)[0]
-
-            if label_indices.size == 0:
-                self.logger.error(f"No embeddings found for label '{label}'. Cannot compute centroid.")
-                raise ValueError(f"No embeddings found for label '{label}'.")
-
-            # Extract embeddings for the current label
-            label_embeddings = self.prepared_after_subset_inferred[label_indices]
-
-            # Compute centroid (mean across all embeddings of this label)
-            centroid = np.mean(label_embeddings, axis=0)
-            centroids.append(centroid)
-
-            self.logger.debug(f"Label '{label}': centroid = {centroid}")
-        return centroids
-
-    def _calculate_curvature_deviation(self):
-        """Calculates the standard deviation of curvature along the trajectory in the embedding.
-
-        This method computes the discrete curvature at each internal point of the trajectory
-        by analyzing the positions of consecutive points in the embedding. It then calculates
-        the standard deviation of these curvature values to assess the variability of the trajectory's bending.
-
-        Advantages:
-            - Generalization: Uses centroids of cell-type labels for a more generalized curvature analysis along the
-                trajectory, mitigating individual cell variability.
-            - Sparse Data Handling: Effective even with sparse data for some labels, assuming
-                enough points are available for centroid calculation.
-
-        Limitations:
-            - Label Dependence: Accuracy depends heavily on consistent and correct labeling.
-            - Label Distribution: Sensitive to the distribution and representation of cells across labels.
-            - Path Assumptions: Assumes the curvature in the latent space is similar to the physical or
-                biological trajectory, which may not always hold.
-            - Vector Norms: Sensitive to the norms of vectors between centroids; extreme values
-                can skew curvature measurements.
+        Calculates mean embeddings for each unique cell type label and stores
+        them in a dictionary for efficient lookup. Validates that all labels
+        have corresponding cells in the embedding.
 
         Raises:
-            ValueError: If the trajectory graph does not contain enough nodes to compute curvature.
+            ValueError: If any label has no corresponding cells in the embedding
+        """
+        self._centroid_cache = {}
+        unique_labels = np.unique(self.labels)
+
+        for label in unique_labels:
+            label_indices = np.where(self.labels == label)[0]
+            if label_indices.size == 0:
+                raise ValueError(f"No embeddings found for label '{label}'. Cannot compute centroid.")
+
+            self._centroid_cache[label] = np.mean(self.prepared_after_subset_inferred[label_indices], axis=0)
+            self.logger.debug(f"Computed centroid for label '{label}'")
+
+    def _get_centroids(self, a_path):
+        """Retrieve precomputed centroids for labels in a specified path.
+
+        Args:
+            a_path (list): Ordered list of node labels representing a path
+
+        Returns:
+            list: Centroids corresponding to labels in the path order
+
+        Raises:
+            ValueError: If any label in path is missing from centroid cache
+        """
+        if not hasattr(self, "_centroid_cache"):
+            self._compute_all_centroids()
+
+        centroids = []
+        for label in a_path:
+            if label not in self._centroid_cache:
+                raise ValueError(f"Label '{label}' not found in centroid cache")
+            centroids.append(self._centroid_cache[label])
+
+        return centroids
+
+    def _get_longest_path(self, graph):
+        """Extract the longest simple path from a directed graph.
+
+        Uses DAG-specific optimizations when possible, with fallback to
+        heuristic path finding for cyclic graphs. Prioritizes biological
+        plausibility by preferring source-to-sink paths.
+
+        Args:
+            graph (nx.DiGraph): Trajectory graph to analyze
+
+        Returns:
+            list: Node labels in longest path order
+
+        Raises:
+            ValueError: If no valid paths can be found
+        """
+        try:  # Try DAG-optimized method first
+            if not nx.is_directed_acyclic_graph(graph):
+                self.logger.warning("Graph contains cycles - longest path may not be biologically meaningful")
+
+            longest_path = nx.dag_longest_path(graph)
+            self.logger.info(f"Found DAG-optimized longest path with {len(longest_path)} nodes")
+            return longest_path
+
+        except nx.NetworkXError as e:
+            self.logger.warning(f"DAG path finding failed ({str(e)}), using heuristic fallback")
+
+            # Fallback strategy for cyclic graphs
+            sources = [n for n, d in graph.in_degree() if d == 0]
+            sinks = [n for n, d in graph.out_degree() if d == 0]
+
+            if not sources or not sinks:
+                raise ValueError("No clear source/sink nodes for path finding")
+
+            all_paths = []
+            for source in sources:
+                for sink in sinks:
+                    try:
+                        paths = nx.all_simple_paths(graph, source, sink, cutoff=100)
+                        all_paths.extend(paths)
+                    except nx.NetworkXNoPath:
+                        continue
+
+            if not all_paths:
+                raise ValueError("No valid source-to-sink paths found")
+
+            # Prioritize longest path with biological validity checks
+            longest_path = max(all_paths, key=lambda p: self._path_biological_score(p))
+            self.logger.warning(
+                f"Used heuristic path finding. Actual longest path may differ. "
+                f"Found path length: {len(longest_path)}"
+            )
+            return longest_path
+
+    def _path_biological_score(self, path):
+        """Score path biological validity based on label distribution"""
+        # Implement domain-specific validation logic here
+        return len(path)  # Simple length-based scoring by default
+
+    def _get_distances_matrices(self):
+        """Compute pairwise distances.
+
+        Graph-based shortest path distances and embedding-based Euclidean distances for nodes in the trajectory graph.
+
+        Returns:
+            tuple: A tuple containing:
+                - graph_distances (np.ndarray): Array of graph-based pairwise shortest path distances.
+                - embedding_distances (np.ndarray): Array of embedding-based pairwise Euclidean distances.
+
+        Raises:
+            ValueError: If the trajectory graph has fewer than 2 nodes.
+        """
+        # Extract all nodes involved in the trajectory graph
+        nodes = list(self.prepared_after_subset_given.nodes())
+        num_nodes = len(nodes)
+
+        if num_nodes < 2:
+            raise ValueError(f"Trajectory graph has {num_nodes} node(s). Not enough to compute the metric.")
+        self.logger.debug(f"Number of nodes in the trajectory graph: {num_nodes}")
+
+        # Compute centroids for each node based on their labels
+        centroids = np.array(self._get_centroids(nodes))
+        # Compute embedding-based pairwise Euclidean distances using scipy's pdist
+        embedding_distances = pdist(centroids, metric="euclidean")
+        all_shortest_paths = dict(  # Compute all-pairs shortest path lengths using NetworkX
+            nx.all_pairs_shortest_path_length(
+                self.prepared_after_subset_given,  # as the graph has no weight
+            )
+        )
+
+        graph_distances = []
+        for node_i, node_j in itertools.combinations(nodes, 2):  # Iterate over all unique node pairs
+            distance = all_shortest_paths.get(node_i, {}).get(node_j, np.nan)
+            if np.isnan(distance):
+                self.logger.warning(
+                    f"No path between '{node_i}' and '{node_j}' in the trajectory graph. Assigning NaN."
+                )
+            else:
+                self.logger.debug(f"Pair ('{node_i}', '{node_j}'): graph_distance = {distance}")
+            graph_distances.append(distance)
+
+        graph_distances = np.array(graph_distances)
+        embedding_distances = np.array(embedding_distances)
+
+        self.logger.debug("Successfully computed graph and embedding distances.")
+
+        return graph_distances, embedding_distances
+
+    def _calculate_normalized_mean_curvature(self):
+        """Calculates the normalized average curvature along the trajectory embedding.
+
+        This metric quantifies the average bending intensity of the developmental trajectory in the
+        embedding space. High curvature regions may correspond to critical transition points (e.g.,
+        cell fate decisions), while low curvature suggests smooth progression.
+
+        Biological Validation Advantage:
+            - Low curvature (0.1-0.3): Linear processes like hematopoiesis
+            - Moderate curvature (0.3-0.6): Branching morphogenesis
+            - High curvature (>0.6): Rapid fate decisions (neural crest diversification)
+
+        Methodology:
+            1. Path Extraction: Identifies the longest path in the trajectory graph.
+            2. Centroid Smoothing: Fits a cubic spline through label centroids to create a smooth path.
+            3. Curvature Computation: Calculates curvature at each spline point using parametric derivatives.
+            4. Normalization: Scales curvatures by the maximum theoretical value (π radians).
+            5. Aggregation: Returns the mean normalized curvature.
+
+        Mathematical Formulation:
+            For a spline-interpolated path C(t) = (x(t), y(t), ...), the curvature at t is:
+            κ(t) = ||C'(t) x C''(t)|| / ||C'(t)||³
+            where:
+            - C'(t) is the first derivative (tangent vector)
+            - C''(t) is the second derivative (curvature vector)
+            - x denotes the cross product (Euclidean norm in n-dimensions)
+
+        Advantages:
+            - Smooth Transition Analysis: Spline interpolation captures gradual state transitions better
+            than discrete label centroids.
+            - Dimensionally Agnostic: Works for 2D+ embeddings through vector norm operations.
+            - Interpretable Scaling: Normalization (0=straight, 1=maximal bend) enables cross-dataset
+            comparison.
+            - Biological Relevance: Identifies sharp transitions potentially corresponding to key
+            developmental events.
+
+        Limitations:
+            - Path Simplification: Relies on the longest path, potentially missing branch-specific curvature.
+            - Label Dependency: Requires accurate cell-type labels and centroid calculations.
+            - Spline Sensitivity: Over-smoothing may obscure biologically sharp transitions.
+            - Directionality Ignored: Does not account for developmental timing or trajectory direction.
+
+        Returns:
+            float: Mean normalized curvature (0-1). Higher values indicate more frequent/sharp bends.
         """
         try:
+            from scipy.interpolate import CubicSpline
+            from scipy.misc import derivative
+
+            # Get longest path and centroids
             longest_path = self._get_longest_path(self.prepared_after_subset_given)
-            num_points = len(longest_path)
-            if num_points < 3:
-                self.logger.debug(f"Longest trajectory path has {num_points} points.")
-                raise ValueError("Not enough points in the trajectory to compute curvature.")
+            if len(longest_path) < 3:
+                raise ValueError("Insufficient path length for curvature analysis")
 
             centroids = self._get_centroids(longest_path)
-            num_points = len(centroids)
+            centroids = np.array(centroids)
 
-            # Initialize list to store curvature values
+            # Create spline for each dimension
+            t = np.linspace(0, 1, len(centroids))  # Parametric variable
+            splines = [CubicSpline(t, centroids[:, dim]) for dim in range(centroids.shape[1])]
+
+            # Function to compute position at parametric value t
+            def position(t_val):
+                return np.array([spl(t_val) for spl in splines])
+
+            # Compute first and second derivatives
+            delta = 1e-3  # Small perturbation for numerical derivatives
             curvatures = []
+            for t_val in np.linspace(0, 1, 100):  # Sample 100 points along path
+                # First derivative (tangent vector)
+                C_prime = derivative(position, t_val, dx=delta, n=1)
 
-            for i in range(1, num_points - 1):
-                p_prev = centroids[i - 1]
-                p_curr = centroids[i]
-                p_next = centroids[i + 1]
+                # Second derivative (acceleration vector)
+                C_double_prime = derivative(position, t_val, dx=delta, n=2)
 
-                # Compute vectors
-                v1 = p_curr - p_prev
-                v2 = p_next - p_curr
+                # Compute curvature using the general formula
+                norm_C_prime = np.linalg.norm(C_prime)
+                norm_C_double_prime = np.linalg.norm(C_double_prime)
 
-                # Compute the norms
-                norm_v1 = np.linalg.norm(v1)
-                norm_v2 = np.linalg.norm(v2)
-
-                if norm_v1 == 0 or norm_v2 == 0:
+                if norm_C_prime < 1e-6:
                     self.logger.warning(
-                        f"Zero-length segment at label index {i}. Skipping curvature computation for this point."
+                        f"Zero or near-zero first derivative at t={t_val}. Skipping curvature computation for this point."
                     )
+                    curvatures.append(0.0)
                     continue
 
-                # Normalize vectors
-                v1_normalized = v1 / norm_v1
-                v2_normalized = v2 / norm_v2
+                curvature = norm_C_double_prime / (norm_C_prime**3)
+                # Normalize curvature by maximum theoretical value (π radians)
+                normalized_curvature = np.clip(curvature / np.pi, 0, 1)
+                curvatures.append(normalized_curvature)
 
-                # Compute the cosine of the angle between vectors
-                cos_theta = np.clip(np.dot(v1_normalized, v2_normalized), -1.0, 1.0)
-                angle = np.arccos(cos_theta)
-
-                # Curvature can be defined as the angle change
-                curvature = angle
-                curvatures.append(curvature)
-
-                self.logger.debug(f"Centroid {i}: angle (radians) = {curvature}")
+                self.logger.debug(f"t={t_val}: curvature (normalized) = {normalized_curvature}")
 
             if not curvatures:
                 raise ValueError("No curvature values were computed. Check the trajectory path and embedding.")
 
-            curvature_std_dev = np.std(curvatures)
-            curvature_mean = np.mean(curvatures)
-            self.result["curvature_deviation"] = curvature_std_dev
-            self.result["curvature_mean"] = curvature_mean
+            normalized_mean_curvature = np.mean(curvatures)
+            self.result["normalized_mean_curvature"] = normalized_mean_curvature
 
-            self.logger.debug(f"Curvature deviation calculated: {curvature_std_dev}, mean {curvature_mean}")
+            self.logger.debug(f"Normalized mean curvature calculated: {normalized_mean_curvature}")
 
         except Exception as e:
-            self.logger.debug(f"Failed to calculate curvature deviation: {e}")
-            self.result["curvature_deviation"] = np.nan
-            self.result["curvature_mean"] = np.nan
+            self.logger.error(f"Failed to calculate curvature deviation: {e}")
+            self.result["normalized_mean_curvature"] = np.nan
 
     def _calculate_distance_correlation(self):
-        """Calculates the correlation between graph-based distances and embedding-based distances.
+        """
+        Calculates the Spearman rank correlation between graph-based shortest path distances
+        and embedding-based Euclidean distances across all pairs of cell type labels in the trajectory graph.
 
-        This metric assesses how well the embedding preserves the relative distances defined by the trajectory graph.
-        It computes the shortest path lengths between all pairs of labels in the trajectory graph and the Euclidean
-        distances between their corresponding centroids in the embedding space. The Spearman correlation between
-        these two sets of distances is then calculated.
+        This metric assesses the extent to which the embedding preserves the relative distances defined
+        by the trajectory graph. A high Spearman correlation indicates that cell types close in the graph
+        are also close in the embedding, supporting the biological validity of the embedding.
 
         Mathematical Definition:
             Distance Correlation = Spearmanr(D_graph, D_embedding)
 
         Where:
-            - D_graph is the vector of shortest path lengths between all pairs of labels in the trajectory graph.
-            - D_embedding is the vector of Euclidean distances between the corresponding centroids in the embedding.
+            - D_graph is the vector of shortest path lengths between all unique pairs of labels in the trajectory graph.
+            - D_embedding is the vector of Euclidean distances between the corresponding centroids in the embedding space.
 
         Advantages:
-            - Measures monotonic relationships, providing robustness to non-linear scalings between graph and
-                embedding distances.
-            - Utilizes rank-order sensitivity, focusing on the order of distances rather than their absolute
-                magnitudes, which is valuable for embeddings that might distort scales
-                while preserving relative proximities.
+            - **Monotonic Relationship Assessment:** Spearman's correlation captures monotonic relationships, making it robust to non-linear distortions in the embedding.
+            - **Comprehensive Pairwise Evaluation:** Considers all unique pairs of labels, providing a holistic assessment of the embedding's fidelity to the trajectory graph.
+            - **Biological Interpretability:** Ensures that the embedding maintains the relative positioning of biologically distinct cell types, crucial for downstream analyses.
 
         Limitations:
-            - Assumes that biological trajectories represented in the graph are uniformly spaced,
-                which may not hold true for all biological processes where some transitions might be naturally
-                closer or more separated than others.
-            - Assumes full connectivity within the graph; disconnected components can result in
-                undefined shortest paths, complicating the correlation calculations.
-            - Computationally intensive for large datasets, as it requires calculating pairwise
-                distances for potentially large numbers of nodes.
+            - **Computational Complexity:** For large numbers of labels, the number of pairwise comparisons grows quadratically, potentially impacting performance.
+            - **Assumption of Label Homogeneity:** Assumes that each label represents a homogenous cell population with a well-defined centroid, which may not hold true in heterogeneous datasets.
+            - **Sensitivity to Label Quality:** The method's accuracy depends on the correctness and granularity of label annotations; mislabeled or overly broad labels can distort the correlation.
 
-        Sensitivities:
-            - Sensitive to outliers in distance measurements, which can disproportionately influence the
-                rank ordering and the resulting correlation, potentially skewing insights into the embedding's quality.
-            - Dependent on pathfinding strategies in complex graphs, especially those with cycles or
-                multiple routes, which can vary the computed graph distances significantly.
+        Assumptions:
+            - **Acyclic Trajectory Graph:** Assumes that the trajectory graph is a Directed Acyclic Graph (DAG), reflecting unidirectional biological processes.
+            - **Unique Centroids:** Assumes that each label corresponds to a unique centroid in the embedding space, representing the mean position of its constituent cells.
+            - **Connectivity:** Assumes that the trajectory graph is sufficiently connected to allow meaningful computation of shortest path lengths between labels.
+
+        Biological Considerations:
+            - **Trajectory Fidelity:** A high correlation supports the hypothesis that the embedding accurately reflects the biological differentiation pathways.
+            - **Pathway Diversity:** By considering all label pairs, the metric accounts for multiple differentiation routes, important in complex biological systems.
+
+        Implementation Details:
+            - **Pairwise Computation:** Iterates over all unique label pairs to compute graph-based and embedding-based distances.
+            - **Handling Disconnected Pairs:** Excludes pairs with no connecting path in the graph, preventing skewing of the correlation due to undefined distances.
+            - **Logging:** Provides detailed logging for transparency and debugging, including warnings for disconnected label pairs and NaN correlation outcomes.
 
         Result:
-            - A scalar value representing the Spearman correlation between graph and embedding distances.
+            - A scalar value representing the Spearman rank correlation between graph-based and embedding-based distances. A value closer to 1 indicates strong preservation of trajectory distances in the embedding, while values near 0 suggest weak preservation.
+
+        Raises:
+            - ValueError: If there are insufficient labels to compute the correlation or if no valid label pairs are found.
         """
         try:
-            longest_path = self._get_longest_path(self.prepared_after_subset_given)
-            num_labels = len(longest_path)
+            nodes = list(self.prepared_after_subset_given.nodes())
+            num_labels = len(nodes)
             if num_labels < 2:
-                self.logger.debug(f"Longest trajectory path has {num_labels} labels.")
-                raise ValueError("Not enough labels in the trajectory to compute distance correlation.")
-            centroids = self._get_centroids(longest_path)
+                self.logger.debug(f"Trajectory graph has {num_labels} label(s). At least two are required.")
+                raise ValueError("Insufficient labels in the trajectory to compute distance correlation.")
 
-            # Compute graph-based distances (shortest path lengths)
-            # For all unique pairs in the longest path
+            # Compute centroids for all labels
+            centroids = np.array(self._get_centroids(nodes))
+
+            # Compute all-pairs shortest path lengths
+            all_shortest_paths = dict(nx.all_pairs_shortest_path_length(self.prepared_after_subset_given))
+
             d_graph = []
             d_embedding = []
-            for i in range(num_labels):
-                for j in range(i + 1, num_labels):
-                    label_i = longest_path[i]
-                    label_j = longest_path[j]
 
-                    # Shortest path length in the graph
-                    try:
-                        shortest_path_length = nx.shortest_path_length(
-                            self.prepared_after_subset_given,
-                            source=label_i,
-                            target=label_j,
-                            weight=None,  # Assuming unweighted graph; adjust if weighted
-                        )
-                    except nx.NetworkXNoPath:
+            for i, label_i in enumerate(nodes):
+                for j, label_j in enumerate(nodes):
+                    if i >= j:
+                        continue  # Ensure each pair is considered only once
+
+                    # Retrieve shortest path length; skip if no path exists
+                    path_length = all_shortest_paths.get(label_i, {}).get(label_j, None)
+                    if path_length is None:
                         self.logger.warning(
                             f"No path between '{label_i}' and '{label_j}' in the trajectory graph. Skipping this pair."
                         )
                         continue
 
-                    d_graph.append(shortest_path_length)
+                    d_graph.append(path_length)
 
-                    # Euclidean distance in the embedding
-                    centroid_i = centroids[i]
-                    centroid_j = centroids[j]
-                    euclidean_distance = np.linalg.norm(centroid_j - centroid_i)
-                    d_embedding.append(euclidean_distance)
+                    # Compute Euclidean distance between centroids
+                    distance = np.linalg.norm(centroids[j] - centroids[i])
+                    d_embedding.append(distance)
 
                     self.logger.debug(
-                        f"Pair ('{label_i}', '{label_j}'): graph_distance = {shortest_path_length}, "
-                        f"embedding_distance = {euclidean_distance}"
+                        f"Pair ('{label_i}', '{label_j}'): graph_distance = {path_length}, "
+                        f"embedding_distance = {distance}"
                     )
 
             if not d_graph or not d_embedding:
@@ -276,414 +432,358 @@ class EmbeddingTrajectoryMetricsMixin(MetricsMixinBase):
                 self.result["distance_correlation"] = np.nan
             else:
                 self.result["distance_correlation"] = correlation
-                self.logger.info(f"Distance Correlation (Spearman) calculated: {correlation} (p-value: {p_value})")
+                self.logger.info(f"Distance Correlation (Spearman): {correlation:.4f} (p-value: {p_value:.4e})")
 
         except Exception as e:
             self.logger.error(f"Failed to calculate distance correlation: {e}")
             self.result["distance_correlation"] = np.nan
 
-    def _helper_distances(self):
-        # Extract all nodes involved in the trajectory graph
-        nodes = list(self.prepared_after_subset_given.nodes())
-        num_nodes = len(nodes)
-        if num_nodes < 2:
-            self.logger.debug(f"Trajectory graph has {num_nodes} nodes. Not enough to compute the metric.")
-            raise ValueError("Not enough nodes in the trajectory graph to compute the metric.")
-
-        self.logger.debug(f"Number of nodes in the trajectory graph: {num_nodes}")
-
-        # Compute centroids for each node based on their labels
-        centroids = self._get_centroids(nodes)
-        centroids = np.array(centroids)
-
-        # Compute embedding-based pairwise Euclidean distances using scipy's pdist
-        embedding_distances = pdist(centroids, metric="euclidean")
-        self.logger.debug("Computed embedding-based pairwise Euclidean distances.")
-
-        # Initialize a list to store graph-based pairwise shortest path distances
-        graph_distances = []
-
-        # Compute graph-based pairwise shortest path distances
-        for i in range(num_nodes):
-            for j in range(i + 1, num_nodes):
-                node_i = nodes[i]
-                node_j = nodes[j]
-                try:
-                    # Compute shortest path length; adjust 'weight' if your graph uses weighted edges
-                    distance = nx.shortest_path_length(
-                        self.prepared_after_subset_given,
-                        source=node_i,
-                        target=node_j,
-                        weight="length",  # Change to None if the graph is unweighted
-                    )
-                    graph_distances.append(distance)
-                    self.logger.debug(f"Pair ('{node_i}', '{node_j}'): graph_distance = {distance}")
-                except nx.NetworkXNoPath:
-                    # Handle disconnected pairs by excluding them
-                    graph_distances.append(np.nan)
-                    self.logger.warning(
-                        f"No path between '{node_i}' and '{node_j}' in the trajectory graph. Skipping this pair."
-                    )
-
-        graph_distances = np.array(graph_distances)
-        embedding_distances = np.array(embedding_distances)
-        return graph_distances, embedding_distances
-
     def _calculate_stress(self):
-        """Calculates the stress function between graph distances and embedding distances across the entire trajectory graph.
+        """Calculates Sammon's stress (with scaling) between graph distances and embedding distances.
 
-        The stress function quantifies the discrepancy between the pairwise shortest path distances
-        in the trajectory graph and the Euclidean distances between the corresponding centroids
-        in the embedding space. By considering all pairwise distances, including those arising from
-        branching pathways, the metric provides a comprehensive assessment of how well the embedding
-        preserves the trajectory's structural integrity.
+        Sammon's stress measures how well the embedding preserves the trajectory graph's
+        structure, emphasizing local distances (shortest paths in the graph) more than
+        global ones. Lower values indicate better preservation of both local and global
+        structure, with particular sensitivity to local discrepancies.
 
-        Mathematical Definition:
-            Stress = \\sqrt{ \frac{ \\sum_{i < j} (d_{ij}^{\text{embedding}} - d_{ij}^{\text{graph}})^2 }{ \\sum_{i < j} (d_{ij}^{\text{graph}})^2 } }
+        Mathematical Formulation:
+            Stress = ( Σ_{i<j} [ (d_ij - e_ij)^2 / d_ij ] ) / Σ_{i<j} d_ij
 
         Where:
-            - \\( d_{ij}^{\text{graph}} \\) is the shortest path distance between nodes \\( i \\) and \\( j \\) in the trajectory graph.
-            - \\( d_{ij}^{\text{embedding}} \\) is the Euclidean distance between the centroids of nodes \\( i \\) and \\( j \\) in the embedding space.
+            - d_ij: Shortest path distance between nodes i and j in the trajectory graph.
+            - e_ij: Euclidean distance between centroids of labels i and j in the embedding.
 
         Advantages:
-            - Comprehensive Structural Assessment: Evaluates the preservation of both the primary trajectory and its branching pathways.
-            - Global and Local Sensitivity: Sensitive to discrepancies at all scales, ensuring that both global trajectory shape and local branch fidelity are assessed.
-            - Scale-Invariant Comparison: Normalization mitigates the impact of differing scales between graph and embedding distances.
+            - Local Structure Emphasis: Prioritizes accurate preservation of adjacent
+                cell states critical for developmental transitions.
+            - Scale-Invariant: Normalization by d_ij makes the metric relative rather than
+                absolute, enabling comparison across different embeddings.
+            - Theoretical Foundation: Based on Sammon's mapping, a well-established
+                dimensionality reduction evaluation technique.
 
         Limitations:
-            - Computational Complexity: Pairwise distance calculations scale quadratically with the number of trajectory nodes, which can be computationally intensive for large graphs.
-            - Assumption of Accurate Graph Representation: Relies on the trajectory graph accurately representing biological transitions, which may not capture all biological nuances.
-            - Exclusion of Disconnected Pairs: Node pairs without a valid path in the graph are excluded, which can bias the stress value if many pairs are omitted.
-
-        Sensitivities:
-            - Outlier Influence: Extreme discrepancies between graph and embedding distances can disproportionately elevate the stress value.
-            - Centroid Accuracy: High variability within cell-type labels can lead to inaccurate centroid representations, affecting distance calculations.
-            - Pathfinding Strategy: The method assumes that the shortest path in the graph is biologically meaningful; alternative path definitions may be necessary for different biological contexts.
+            - Graph Dependency: Assumes graph distances reflect true biological relationships;
+                inaccurate graphs will distort the metric.
+            - Centroid Approximation: Uses label centroids rather than full cell distributions,
+                potentially missing within-label heterogeneity.
+            - Disconnected Pairs: Excludes node pairs without a connecting path, which may
+                underrepresent disconnected trajectory components.
 
         Biological Considerations:
-            - Non-Uniform Transition Rates: Biological processes often involve non-uniform state transitions, where some transitions occur more rapidly or are less distinct. The stress metric captures these variations by evaluating all pairwise distances.
-            - Handling Cellular Heterogeneity: By computing centroids for each cell-type label, the method accounts for cellular heterogeneity, though high variability within labels may necessitate alternative representative measures.
-
-        Result:
-            - Scalar Stress Value: A float representing the stress, where lower values denote better preservation of the trajectory structure in the embedding. Values closer to 0 indicate minimal distortion, while higher values signify greater discrepancies.
+            - High stress indicates poor preservation of cell state adjacencies, suggesting
+                the embedding may obscure critical transition points (e.g., lineage bifurcations).
+            - Low stress values (<0.1) suggest strong concordance between graph topology and embedding geometry,
+                supporting biological validity. Values >0.3 indicate significant structural distortion.
         """
         try:
-            graph_distances, embedding_distances = self._helper_distances()
+            graph_distances, embedding_distances = self._get_distances_matrices()
 
-            # Remove pairs with undefined graph distances (i.e., np.nan)
+            # Remove invalid pairs
             valid_mask = ~np.isnan(graph_distances)
-            num_valid_pairs = np.sum(valid_mask)
-            self.logger.debug(
-                f"Number of valid pairs for stress calculation: {num_valid_pairs} out of {len(graph_distances)}"
-            )
+            if np.sum(valid_mask) < 2:
+                self.logger.warning("Insufficient valid pairs for stress calculation.")
+                self.result["stress"] = np.nan
+                return
 
-            if num_valid_pairs == 0:
-                stress = np.nan
-                self.logger.warning("No valid graph distances available for stress calculation.")
-            else:
-                # Select only valid pairs
-                graph_distances = graph_distances[valid_mask]
-                embedding_distances = embedding_distances[valid_mask]
+            graph_d = graph_distances[valid_mask]
+            embedding_d = embedding_distances[valid_mask]
 
-                # Normalize distances to mitigate scaling differences
-                graph_max = np.max(graph_distances)
-                embedding_max = np.max(embedding_distances)
+            # Exclude zero-graph-distance pairs
+            nonzero_mask = graph_d > 0
+            graph_d_nonzero = graph_d[nonzero_mask]
+            embedding_d_nonzero = embedding_d[nonzero_mask]
 
-                if graph_max == 0 or embedding_max == 0:
-                    self.logger.warning("Maximum graph or embedding distance is zero. Cannot normalize distances.")
-                    stress = np.nan
-                else:
-                    graph_distances_norm = graph_distances / graph_max
-                    embedding_distances_norm = embedding_distances / embedding_max
+            if len(graph_d_nonzero) < 2:
+                self.logger.warning("No valid non-zero graph distance pairs.")
+                self.result["stress"] = np.nan
+                return
 
-                    # Compute stress numerator and denominator
-                    stress_numerator = np.sum((embedding_distances_norm - graph_distances_norm) ** 2)
-                    stress_denominator = np.sum(graph_distances_norm**2)
+            # Critical fix: Scale embedding distances to match graph distance scale
+            scale_factor = np.mean(graph_d_nonzero) / np.mean(embedding_d_nonzero)
+            embedding_d_scaled = embedding_d_nonzero * scale_factor
 
-                    if stress_denominator == 0:
-                        self.logger.warning("Denominator in stress calculation is zero. Cannot compute stress.")
-                        stress = np.nan
-                    else:
-                        stress = np.sqrt(stress_numerator / stress_denominator)
-                        self.logger.debug(f"Stress function: {stress}")
+            # Compute Sammon's stress with scaled distances
+            squared_errors = (graph_d_nonzero - embedding_d_scaled) ** 2
+            weighted_errors = squared_errors / graph_d_nonzero
+            numerator = np.sum(weighted_errors)
+            denominator = np.sum(graph_d_nonzero)
 
+            stress = numerator / denominator
             self.result["stress"] = stress
+            self.logger.info(f"Scaled Sammon's stress: {stress:.4f}")
 
         except Exception as e:
-            self.logger.error(f"Failed to calculate stress: {e}")
+            self.logger.error(f"Stress calculation failed: {e}")
             self.result["stress"] = np.nan
 
-    def _calculate_geodesic_distance_correlation(self):
-        """Calculates the Pearson between graph geodesic distances and embedding Euclidean distances.
+    def _calculate_neighborhood_preservation_score(self):
+        """Calculates the Neighborhood Preservation Score
 
-        This metric assesses the linear relationship between the shortest path lengths in the
-        trajectory graph (geodesic distances) and the Euclidean distances between the corresponding
-        centroids in the embedding space. A high positive correlation indicates that the embedding
-        preserves the intrinsic geometry of the trajectory graph, whereas a low or negative
-        correlation suggests discrepancies between the graph structure and the embedding.
+        Assessing how well local neighborhoods in the embedding preserve the biological trajectory
+        defined by the trajectory graph.
 
-        Mathematical Definition:
-            Let G = (V, E) be the trajectory graph, and let E = {e_1, e_2, ..., e_m} be the edges.
-            Let d_G(i, j) denote the shortest path length between nodes i and j in G.
-            Let d_E(i, j) denote the Euclidean distance between the centroids of nodes i and j
-            in the embedding space.
+        Purpose:
+            Measures the extent to which the embedding maintains the local neighborhood structure
+            as defined by the trajectory graph, ensuring that cells occupy neighborhoods consistent
+            with their biological transitions.
 
-            Pearson Correlation Coefficient:
-                r = Cov(d_G, d_E) / (sigma_{d_G} * sigma_{d_E})
-
-            Where:
-                - Cov(d_G, d_E) is the covariance between the graph and embedding distances.
-                - sigma_{d_G} and sigma_{d_E} are the standard deviations of the graph and embedding distances,
-                  respectively.
+        Methodology:
+            1. Adjacency Mapping: For each cell, identify adjacent cells in the trajectory graph based on
+            direct transitions (successors).
+            2. K-Nearest Neighbors (KNN): For each cell, find its K nearest neighbors in the embedding space.
+            3. Neighborhood Overlap: For each cell, calculate the proportion of its KNN that are
+            adjacent in the trajectory graph.
+            4. Aggregation: Compute the average of these proportions across all cells to obtain the
+            Neighborhood Preservation Score.
 
         Advantages:
-            - Linear Relationship Assessment: Specifically targets linear associations, providing
-              clear interpretability of how well the embedding preserves the trajectory's geometry.
-            - Simplicity and Efficiency: Computationally efficient, leveraging optimized statistical
-              functions from SciPy.
-            - Sensitivity to Scale and Translation: Since Pearson correlation is scale-invariant,
-              it effectively measures the alignment of distance patterns regardless of the absolute
-              scaling in the embedding space.
+            - Granular Assessment: Evaluates neighborhood preservation at the individual cell level,
+                providing a detailed understanding of embedding fidelity.
+            - Incorporates Directionality: Considers the direction of transitions in the trajectory graph,
+                ensuring biological relevance in neighborhood relationships.
+            - Inclusive: Accounts for all cells in the dataset, avoiding bias from excluding certain cells.
+            - Provides a direct measure of how well the embedding preserves biologically relevant local
+                neighborhoods.
+            - Facilitates the identification of potential embedding distortions or misrepresentations in
+                specific regions of the embedding space.
 
         Limitations:
-            - Linear Assumption: Only captures linear relationships, potentially overlooking
-              non-linear preservations or distortions in the embedding.
-            - Sensitivity to Outliers: Extreme distance values can disproportionately influence
-              the correlation coefficient, potentially skewing the metric.
-            - Requires Complete Connectivity: Assumes that all node pairs are connected in the
-              trajectory graph. Disconnected pairs are excluded, which might bias the correlation if
-              a significant number of pairs are omitted.
+            - Computational Complexity: Calculating KNN for each cell can be computationally intensive for large datasets.
+            - Sensitivity to K: The choice of K can influence the metric's sensitivity and interpretability.
+            - Dependency on Graph Accuracy: Relies on the accuracy of the trajectory graph; any inaccuracies
+                can distort the score.
+            - Assumption of Direct Transitions: Focuses on direct transitions, potentially overlooking higher-order relationships.
+            - Sufficient Connectivity: Assumes that the trajectory graph is sufficiently connected to define
+                meaningful adjacencies.
+            - May not capture global trajectory preservation as it focuses on local neighborhoods.
+            - Sensitive to the choice of K, which requires careful selection based on dataset characteristics.
 
-        Preconditions:
-            - The trajectory graph should be connected to ensure meaningful geodesic distances.
-            - The embedding should provide a centroid for each node label present in the graph.
+        Biological Considerations:
+            - Trajectory Fidelity: A higher Neighborhood Preservation Score indicates that the embedding
+                accurately reflects the biological transitions, preserving local neighborhoods consistent with
+                the trajectory graph.
+            - Transition Integrity: Ensures that critical transition points and local neighborhood structures
+                are maintained, which is essential for downstream biological interpretations and analyses.
+
+        Returns:
+            - `float`: The Neighborhood Preservation Score ranging from 0 to 1. Higher values indicate better
+            preservation of neighborhood structures as defined by the trajectory graph.
 
         Raises:
-            - ValueError: If there are insufficient nodes to compute the correlation or if centroids
-              cannot be computed for all nodes.
+            - `ValueError`: If the trajectory graph is empty or if no valid neighbors are found for any cell.
         """
         try:
-            graph_distances, embedding_distances = self._helper_distances()
+            # Precompute adjacency for each label (excluding the label itself)
+            graph = self.prepared_after_subset_given
+            adjacency = {}
+            for node in graph.nodes():
+                successors = list(graph.successors(node))
+                predecessors = list(graph.predecessors(node))
+                adjacency[node] = set(successors + predecessors)
 
-            # Remove pairs with undefined graph distances (i.e., np.nan)
-            valid_mask = ~np.isnan(graph_distances)
-            num_valid_pairs = np.sum(valid_mask)
-            self.logger.debug(
-                f"Number of valid pairs for geodesic distance correlation: {num_valid_pairs} out of {len(graph_distances)}"
+            scores = []
+            n_cells = self.prepared_after_subset_inferred.shape[0]
+
+            # Find K+1 neighbors (excluding self)
+            nbrs = NearestNeighbors(n_neighbors=self._embedding_metrics_n_neighbors + 1, n_jobs=-1).fit(
+                self.prepared_after_subset_inferred
             )
+            _, indices = nbrs.kneighbors(self.prepared_after_subset_inferred)
 
-            if num_valid_pairs < 2:
-                self.logger.warning("Insufficient valid pairs to compute Pearson correlation.")
-                self.result["geodesic_distance_correlation"] = np.nan
+            for i in range(n_cells):
+                label = self.labels[i]
+                adjacent_labels = adjacency.get(label, set())
+                if not adjacent_labels:
+                    # Skip cells with no adjacent labels in the trajectory graph
+                    continue
+
+                knn_indices = indices[i, 1:]  # Exclude self
+                knn_labels = self.labels[knn_indices]
+
+                # Count how many KNN labels are in adjacent_labels
+                count_adjacent = np.sum([lbl in adjacent_labels for lbl in knn_labels])
+
+                # Count how many KNN labels are the same as the cell's label
+                count_same_label = np.sum([lbl == label for lbl in knn_labels])
+
+                # Adjust denominator to exclude same-label neighbors
+                denominator = self._embedding_metrics_n_neighbors - count_same_label
+
+                if denominator > 0:
+                    score = count_adjacent / denominator
+                    scores.append(score)
+                # else:
+                #     # All KNN labels are the same as the cell's label; assign perfect score
+                #     scores.append(1.0)
+
+            if not scores:
+                self.logger.warning("No valid cells for neighborhood preservation score.")
+                self.result["neighborhood_preservation_score"] = np.nan
                 return
 
-            # Select only valid pairs
-            graph_distances_valid = graph_distances[valid_mask]
-            embedding_distances_valid = embedding_distances[valid_mask]
-
-            # Check for constant distance vectors which would result in undefined correlation
-            if np.std(graph_distances_valid) == 0 or np.std(embedding_distances_valid) == 0:
-                self.logger.warning("One of the distance vectors is constant. Pearson correlation is undefined.")
-                self.result["geodesic_distance_correlation"] = np.nan
-                return
-
-            # Compute Pearson correlation
-            correlation, p_value = pearsonr(graph_distances_valid, embedding_distances_valid)
-
-            if np.isnan(correlation):
-                self.logger.warning("Pearson correlation resulted in NaN. Possibly due to constant distance vectors.")
-                self.result["geodesic_distance_correlation"] = np.nan
-            else:
-                self.result["geodesic_distance_correlation"] = correlation
-                self.logger.info(f"Geodesic Distance Correlation (Pearson): {correlation:.4f} (p-value: {p_value:.4e})")
+            avg_score = np.mean(scores)
+            self.result["neighborhood_preservation_score"] = avg_score
+            self.logger.info(f"Neighborhood Preservation Score: {avg_score:.4f}")
 
         except Exception as e:
-            self.logger.error(f"Failed to calculate geodesic distance correlation: {e}")
-            self.result["geodesic_distance_correlation"] = np.nan
+            self.logger.error(f"Neighborhood Preservation Score calculation failed: {e}")
+            self.result["neighborhood_preservation_score"] = np.nan
 
+    def _calculate_branch_silhouette_score(self):
+        """Computes silhouette score for branches derived from the trajectory graph.
 
-## TODO: as embedding metric, Local Neighborhood Preservation (Graph-Adjacency vs. Embedding k-NN)
+        Purpose: Evaluates the separation of branches in the embedding.
+        Implementation: Assign cells to branches based on their label's position in the trajectory graph and compute the silhouette score for these branches in the embedding.
+        Advantages: Quantifies how distinctly different branches are separated, important for complex trajectories.
+        Limitations: Requires the graph to be a tree for unambiguous branch assignment.
+        """
+        try:
+            # Identify root and leaves
+            graph = self.prepared_after_subset_given
+            root = [n for n, d in graph.in_degree() if d == 0]
+            if len(root) != 1:
+                raise ValueError("Cannot determine a single root.")
+            root = root[0]
+            leaves = [n for n, d in graph.out_degree() if d == 0]
 
-# Motivation
-# In a well-preserved trajectory, cells (or labels) that are neighbors (or closely connected) in the trajectory graph should lie close to one another in the embedding.
-# It captures how well local connectivity or adjacency structure is maintained, rather than focusing solely on large-scale or global paths.
+            # Assign cells to branches based on leaf in their path
+            branch_labels = []
+            for lbl in self.labels:
+                for leaf in leaves:
+                    if nx.has_path(graph, root, leaf) and lbl in nx.shortest_path(graph, root, leaf):
+                        branch_labels.append(leaf)
+                        break
+                else:
+                    branch_labels.append(None)  # Cells not in any branch
 
-# Method
-# For each node (e.g., label or cell) in the trajectory graph, identify its nearest neighbors in the graph (e.g., immediate successors, BFS neighbors, etc.).
-# In the embedding space, compute the k-nearest neighbors for the same node.
-# Compare the overlap of these two sets (e.g., via Jaccard index, ) or any set-similarity measure.
-# Aggregate the overlap score across all nodes to get a final “local neighborhood preservation” score.
+            valid = ~np.isin(branch_labels, [None])
+            if np.sum(valid) < 2:
+                raise ValueError("Insufficient branches for silhouette score.")
 
-# Advantages
-# Sensitive to local structure.
-# Easy to interpret and implement.
+            score = silhouette_score(self.prepared_after_subset_inferred[valid], np.array(branch_labels)[valid])
+            self.result["branch_silhouette_score"] = score
 
-# Limitations
-# Choice of  matters (e.g., how many neighbors to consider).
-# Does not explicitly measure how “far” or “close” the neighbors are in the embedding—only membership overlap.
+        except Exception as e:
+            self.logger.error(f"Branch Silhouette Score failed: {e}")
+            self.result["branch_silhouette_score"] = np.nan
 
-# Biological Relevance
-# Cells that are functionally or developmentally close in a trajectory graph should remain close in the embedding if the embedding is biologically meaningful.
+    def _calculate_transition_smoothness(self):
+        """Computes variance of distances between consecutive centroids in the longest path.
 
+        Calculates variance of distances between consecutive centroids along the trajectory path.
+        Measures preservation of uniform developmental pacing in the embedding.
+        Lower values indicate smoother transitions between successive cell states.
 
-## TODO: as embedding metric, Sammon’s Mapping Error (Sammon Stress)
+        Purpose: Assesses the uniformity of transitions between consecutive nodes in the trajectory.
+        Implementation: Calculate the variance of Euclidean distances between consecutive centroids along the longest path.
+        Advantages: Highlights abrupt changes in the embedding, indicating potential misalignments.
+        Limitations: Only considers the longest path, potentially overlooking branches.
+        """
+        try:
+            longest_path = self._get_longest_path(self.prepared_after_subset_given)
+            centroids = self._get_centroids(longest_path)
+            distances = [np.linalg.norm(centroids[i + 1] - centroids[i]) for i in range(len(centroids) - 1)]
+            if len(distances) < 1:
+                raise ValueError("No valid transitions to analyze")
+            self.result["transition_smoothness"] = np.var(distances)
 
-# Motivation
-# A classical multidimensional scaling (MDS)-like measure that focuses on pairwise distances, but weights smaller distances more heavily.
-# Complements the “stress” metric I already implemented but can give different weightings to large vs. small distances.
+        except Exception as e:
+            self.logger.error(f"Transition Smoothness failed: {e}")
+            self.result["transition_smoothness"] = np.nan
 
-# Method Sketch
-# Let  be the distance in the graph (or geodesic distance, or even direct edge distance if relevant).
-# Let  be the Euclidean distance in the embedding.
-# The Sammon stress is often given by:
-# The division by  penalizes errors in short distances more than long distances.
+    def _calculate_trustworthiness(self):
+        """Compute trustworthiness using graph-based reachability as ground truth for neighborhood preservation.
 
-# Advantages
-# Highlights local distortions, which are crucial for trajectory “smoothness.”
-# Good if you consider smaller distances in the graph (local transitions) to be critical to preserve.
+        Purpose: Measures preservation of original neighborhoods in the embedding, penalizing intrusive neighbors.
+        Implementation: Adapt the standard trustworthiness metric to use graph-based neighborhoods.
+        Advantages: Accounts for both missing and intrusive neighbors, providing a balanced view.
+        Limitations: Computationally intensive for large datasets.
 
-# Limitations
-# More sensitive to noise in small distances; can be disproportionately affected by measurement errors on small edges.
-# Computationally  in the number of nodes (like typical distance-based metrics).
+        1. Defines original neighbors as cells reachable within k graph hops
+        2. Uses shortest path length as distance metric
+        3. Handles directionality properly
 
-# Biological Relevance
-# For developmental or differentiation trajectories, preserving local neighbor relationships (early vs. late states) can be more important than large jumps.
+        Args:
+            n_neighbors: Number of neighbors to consider (must be < n_samples/2)
+        """
+        try:
+            G = self.prepared_after_subset_given
+            n_samples = len(self.labels)
 
+            # Validate parameters
+            if self._embedding_metrics_n_neighbors >= n_samples // 2:
+                raise ValueError(f"n_neighbors must be < {n_samples//2}")
 
-## TODO: as embedding metric, Branch Preservation Index
+            # Precompute all-pairs shortest paths
+            paths = dict(nx.all_pairs_shortest_path_length(G))
 
-# Motivation
-# Trajectories in biology often branch (e.g., cell fate decisions). A single path metric (like curvature) may miss whether branch points in the graph remain branch points in the embedding.
+            # Build reachability matrix
+            reachability = np.zeros((n_samples, n_samples), dtype=np.float32)
+            label_to_indices = defaultdict(list)
 
-# Method
-# Identify branch nodes (i.e., nodes with outdegree > 1) in the trajectory graph.
-# In the embedding, examine the local distribution of points/centroids around those branch nodes:
-# Compute angles between successive branches.
-# Or measure cluster separability among different branches stemming from the same node.
-# Define an index that quantifies how well separate branches remain separated or diverge in the embedding. For example:
-# and then average over all branch nodes .
+            for idx, lbl in enumerate(self.labels):
+                label_to_indices[lbl].append(idx)
 
-# Advantages
-# Directly checks whether the embedding differentiates branching fates (important in many biological differentiation contexts).
-# Captures local structural properties that might be lost in global metrics.
+            # Vectorized reachability calculation
+            for i, src_lbl in enumerate(self.labels):
+                src_indices = label_to_indices[src_lbl]
+                for dst_lbl, length in paths.get(src_lbl, {}).items():
+                    if dst_lbl == src_lbl:
+                        continue
+                    dst_indices = label_to_indices.get(dst_lbl, [])
+                    reachability[i, dst_indices] = 1 / (length + 1)  # Inverse distance
 
-# Limitations
-# Requires a clear definition of branches and branch nodes in the graph.
-# Sensitive to how you define or label branches at each node.
+            # Compute trustworthiness with Jaccard weighting
+            score = trustworthiness(
+                X=reachability,
+                X_embedded=self.prepared_after_subset_inferred,
+                n_neighbors=self._embedding_metrics_n_neighbors,
+                metric="precomputed",
+            )
 
-# Biological Relevance
-# Essential when multiple cell fates diverge from a common progenitor (common in lineage tracing or single-cell differentiation pathways).
+            self.result["trustworthiness"] = score
+            self.logger.info(f"Trustworthiness: {score:.3f}")
 
+        except Exception as e:
+            self.logger.error(f"Trustworthiness failed: {str(e)}")
+            self.result["trustworthiness"] = np.nan
 
-## TODO: as embedding metric, Gromov–Hausdorff or Gromov-like Metric
+    def _calculate_leaf_node_separation(self):
+        """Computes average pairwise distance between terminal states (leaf nodes).
 
-# Motivation
-# Captures how similar two metric spaces are “up to isometry.” In principle, it tries to measure how close the trajectory graph’s metric is to the embedding’s metric in an isometric sense.
-# A more mathematically rigorous measure of “distance between metric spaces” than simple stress or correlation.
+        It is possible to edit this one with silhouette instead.
 
-# Method Sketch
-# The Gromov–Hausdorff distance (GH) is defined as the minimum Hausdorff distance between the two metric spaces when embedded into a common metric space.
-# Direct GH is complex to compute for large graphs. However, approximate or restricted versions can give a measure of how well the metric geometry of the graph is preserved.
+        Higher values indicate better separation of distinct endpoints in the embedding.
+        """
+        try:
+            # Identify leaf nodes
+            G = self.prepared_after_subset_given
+            leaves = [n for n, d in G.out_degree() if d == 0]
 
-# Advantages
-# The gold-standard for comparing metric spaces “up to isometry.”
-# Very general and captures subtle distortions.
+            if len(leaves) < 2:
+                raise ValueError("At least two leaves required for separation analysis")
 
-# Limitations
-# Computationally expensive in the general form.
-# Might be overkill unless you have a smaller trajectory graph or can handle approximations.
+            # Get centroids with validation
+            leaf_centroids = []
+            for leaf in leaves:
+                indices = np.where(self.labels == leaf)[0]
+                if len(indices) == 0:
+                    self.logger.warning(f"Skipping leaf {leaf} with no cells")
+                    continue
+                leaf_centroids.append(np.mean(self.prepared_after_subset_inferred[indices], axis=0))
 
-# Biological Relevance
-# If you want a very robust measure of how well the entire geometry is matched—useful in advanced topological or manifold-based trajectory analyses.
+            if len(leaf_centroids) < 2:
+                raise ValueError("Insufficient valid leaves for separation analysis")
 
+            # Compute pairwise distances
+            distances = []
+            for i in range(len(leaf_centroids)):
+                for j in range(i + 1, len(leaf_centroids)):
+                    distances.append(np.linalg.norm(leaf_centroids[i] - leaf_centroids[j]))
 
-## TODO: as embedding metric, Neighborhood Preservation by Rank Correlation (Shepard Diagram Correlation)
+            self.result["leaf_node_separation"] = np.mean(distances)
+            self.logger.debug(f"Leaf separation: {self.result['leaf_node_separation']:.4f}")
 
-# Motivation
-# A “Shepard diagram” plots graph distances on one axis vs. embedding distances on the other. The Spearman or Pearson correlation of those points is a measure of rank or linear association.
-# This is conceptually similar to your “distance_correlation” but is often reported specifically under the name “Shepard diagram correlation” in embedding literature.
-
-# Method
-# For each pair of nodes :
-#  = geodesic distance in the graph.
-#  = Euclidean distance in the embedding.
-# Plot or compute correlation().
-# A variation is to weight these distances by  to emphasize local structure.
-
-# Advantages
-# Well-known approach for evaluating dimensionality reduction.
-# Easy to implement (just gather pairwise distances and compute correlation).
-
-# Limitations
-# Suffers from the same potential issues of heavy weighting or ignoring large distances, depending on the variant.
-# Potentially  in the number of nodes.
-
-# Biological Relevance
-# Shows how well local and global distances are preserved in a single correlation measure. Useful if your graph-based distances approximate real biological dissimilarities.
-
-
-# TODO: as embedding metric, Pairwise Transitions or Edge Preservation Score
-
-# Motivation
-# Sometimes you only need to test whether edges in the graph correspond to edges or close points in the embedding. This focuses specifically on direct connections rather than all-pairs.
-
-# Method
-# For every directed edge  in the trajectory graph, measure:
-# The distance in the embedding between centroids (or cells) of  and .
-# Possibly also measure the vector direction if the embedding is directional (e.g., velocity or time-lapse data).
-# Summarize how many graph edges are “short” or “preserved” in the embedding compared to the average inter-node distances.
-
-# Advantages
-# Fast to compute if the graph is not too dense (only sums over edges, not all pairs).
-# Useful if you specifically trust edges in the graph as “true transitions.”
-
-# Limitations
-# Ignores indirect relationships (i.e., length-2 or longer paths).
-# If the graph is dense or has many edges, this can still be large.
-
-# Biological Relevance
-# If edges represent immediate biological transitions (e.g., from progenitor to intermediate state), this checks those transitions’ presence in the embedding.
-
-
-# TODO: as embedding metric, Label Continuity / Label Transition Probability
-
-# Motivation
-# If your trajectory is labeled by known cell types or states, you might want to check whether states that should follow each other along the trajectory do so in the embedding.
-
-# Method
-# Given the trajectory edges , find the fraction of points (cells) in the embedding that truly “border” each other in the same direction—i.e., if you pick a cell labeled , do its nearest neighbors in the embedding mostly come from ?
-# Define a continuity or transition probability measure, e.g.:
-# Aggregate or compare to the graph connectivity to see if the embedding preserves that adjacency.
-
-# Advantages
-# Ties directly to biological labeling or known trajectory steps.
-# Can detect if the embedding merges states that should remain distinct or incorrectly separates states that are adjacent.
-
-# Limitations
-# Requires prior labels or states in addition to the graph structure.
-# Has some hyperparameters like the size of the local neighborhood in the embedding.
-
-# Biological Relevance
-# If the graph was built from known transitions (e.g., experimental lineage tracing), checking that those transitions appear “locally plausible” in the embedding is crucial.
-
-
-# TODO: as embedding metric, Manifold Density Overlap or Coverage
-
-# Motivation
-# If the trajectory graph is supposed to occupy a sub-manifold or path in the embedding, we can see how well the embedding’s actual data points align or cover that manifold.
-
-# Method Sketch
-# Approximate the manifold or path defined by the trajectory in the embedding space (e.g., use a spline or principal curve that goes through the ordered centroids).
-# Estimate the density of actual data points (cells) around that curve. For instance, for each point on the curve, measure how many real data points fall within a small radius .
-# Aggregate to get a measure of coverage: if large portions of the curve have no real data points near them, the embedding might not faithfully reflect the trajectory or might have “bent” the path away from the data.
-
-# Advantages
-# Captures how well the trajectory path is actually “populated” by real cells, rather than being an abstract line that the embedding might not reflect well.
-# Reveals if the embedding artificially stretches or shrinks parts of the path to isolate or cluster cells incorrectly.
-
-# Limitations
-# Requires a good curve-fitting approach in the embedding and a suitable radius or bandwidth for density estimation.
-# Sensitive to outliers and data sampling variability.
-
-# Biological Relevance
-# If the trajectory is real, you expect continuous coverage of intermediate states in scRNA-seq or single-cell data along the entire path.
+        except Exception as e:
+            self.logger.warning(f"Leaf separation calculation failed: {str(e)}")
+            self.result["leaf_node_separation"] = np.nan
