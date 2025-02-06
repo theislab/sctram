@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
 
-# TODO: There is fundemental misunderstanding in the implementation here.
-
-
 from typing import Any, Optional, Callable, Tuple, Union
 
 import numpy as np

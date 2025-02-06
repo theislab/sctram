@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import logging
 from typing import Any, Dict, List
 
 import numpy as np

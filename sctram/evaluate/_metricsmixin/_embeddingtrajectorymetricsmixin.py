@@ -24,7 +24,7 @@ class EmbeddingTrajectoryMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
         prepared_after_subset_given (nx.MultiDiGraph): The trajectory graph as a NetworkX MultiDiGraph.
         labels (np.ndarray): 1D array of strings representing cell-type labels for each cell in the embedding.
         result (dict): Dictionary to store computed metric results.
-        logger (logging.Logger): Logger for debugging and information messages.
+        logger (loguru.logger): Logger for debugging and information messages.
     """
 
     available_metrics = [
@@ -373,7 +373,6 @@ class EmbeddingTrajectoryMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
         Implementation Details:
             - **Pairwise Computation:** Iterates over all unique label pairs to compute graph-based and embedding-based distances.
             - **Handling Disconnected Pairs:** Excludes pairs with no connecting path in the graph, preventing skewing of the correlation due to undefined distances.
-            - **Logging:** Provides detailed logging for transparency and debugging, including warnings for disconnected label pairs and NaN correlation outcomes.
 
         Result:
             - A scalar value representing the Spearman rank correlation between graph-based and embedding-based distances. A value closer to 1 indicates strong preservation of trajectory distances in the embedding, while values near 0 suggest weak preservation.

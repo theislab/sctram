@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import logging
+from loguru._logger import Logger
 import numpy as np
 import networkx as nx
 
@@ -8,7 +8,7 @@ import networkx as nx
 class Utils:
 
     @staticmethod
-    def sget(dictionary, key, logger: logging.Logger, default=None, logger_mode="warning"):
+    def sget(dictionary, key, logger: Logger, default=None, logger_mode="warning"):
         """Retrieves the value associated with a specified key in the given dictionary.
 
         If the key does not exist, a default value is returned and a warning is logged.

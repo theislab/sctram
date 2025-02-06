@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import logging
+from loguru import logger
 from typing import Optional
 
 import networkx as nx
@@ -53,7 +53,7 @@ class AdjacencyPseudotimeConverter:
         self.graph = nx.from_numpy_array(adjacency_matrix)
         self._converted_to_distance = False
 
-        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger = logger.bind(name="AdjacencyPseudotimeConverter")
 
     def _ensure_distance_weights(self):
         """Ensures that the adjacency matrix represents distances.
@@ -486,7 +486,7 @@ class LabelAdjacencyPseudotimeConverter:
         self.label_pseudotime: Optional[np.ndarray] = None
         self.cell_pseudotime: Optional[np.ndarray] = None
 
-        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger = logger.bind(name="LabelAdjacencyPseudotimeConverter")
 
     def get_label_pseudotime(
         self,

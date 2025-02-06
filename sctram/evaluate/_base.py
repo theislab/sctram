@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import logging
+from loguru import logger
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -25,7 +25,7 @@ class EvaluationBase(ABC):
         subset_params (Dict[str, Any]): Parameters for subsetting the data.
         prepare_params_before_subset (Dict[str, Any]): Parameters for preparing the data before subsetting.
         prepare_params_after_subset (Dict[str, Any]): Parameters for preparing the data after subsetting.
-        logger (logging.Logger): Logger for the class.
+        logger (loguru.logger): Logger for the class.
         given_trajectory (InputTrajectory): The ground truth trajectory.
         inferred (Any): The inferred trajectory.
         subset_given (Any): Subset of the given trajectory.
@@ -59,7 +59,7 @@ class EvaluationBase(ABC):
         self.prepare_params_before_subset = self._params_variable_prepare(prepare_params_before_subset)
         self.prepare_params_after_subset = self._params_variable_prepare(prepare_params_after_subset)
 
-        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger = logger.bind(name="EvaluationBase")
 
         # Labels given in `evaluate` method.
         self.labels: Any = None  # New attribute to store labels

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import logging
+from loguru import logger
 import random
 from abc import ABC, abstractmethod
 from typing import Any, Literal, Optional, Union
@@ -46,7 +46,7 @@ class AnndataPreperation:
         Args:
             random_state (Optional[int], optional): See `TrajectoryEmbeddingBase.__init__`.
         """
-        self.logger = logging.getLogger(self.__class__.__name__)  # Configure logging
+        self.logger = logger.bind(name="AnndataPreperation")
         self.random_state = random_state
 
     def initialize_adata(
@@ -460,7 +460,7 @@ class InferenceAndEmbeddingBase(ABC):
             raise ValueError("'subclass_mode' must be 'trajectory inference' or 'embedding calculation'")
 
         self.random_state = random_state
-        self.logger = logging.getLogger(self.__class__.__name__)  # Configure logging
+        self.logger = logger.bind(name="InferenceAndEmbeddingBase")
 
         if self.random_state is not None:  # Set random seed
             sc.settings.seed = self.random_state

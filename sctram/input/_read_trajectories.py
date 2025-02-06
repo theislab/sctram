@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import logging
+from loguru import logger
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, Optional, Union
@@ -17,7 +17,7 @@ from sctram._constants import (
 from sctram.input._input_trajectories import InputTrajectories
 
 # Logger
-logger = logging.getLogger(name="read_trajectories")
+_logger = logger.bind(name="ReadTrajectories")
 
 
 def convert_to_dict_tuples(obj: InputGraphPossibleTypes) -> InputGraphDictWithEdge:
@@ -318,7 +318,7 @@ def read_dict(
     for u, v, data in gtt.edges(data=True):
         missing_keys = all_keys - data.keys()
         if missing_keys:
-            logger.warning(f"Edge ({u}, {v}) is missing attribute keys: {missing_keys}")
+            _logger.warning(f"Edge ({u}, {v}) is missing attribute keys: {missing_keys}")
             for key in missing_keys:
                 data[key] = None
 
@@ -357,7 +357,7 @@ def read_dict(
         for node in gtt.nodes():
             missing_keys = all_node_keys - gtt.nodes[node].keys()
             if missing_keys:
-                logger.warning(f"Node {node} is missing attribute keys: {missing_keys}")
+                _logger.warning(f"Node {node} is missing attribute keys: {missing_keys}")
                 for key in missing_keys:
                     gtt.nodes[node][key] = None
 
