@@ -15,6 +15,13 @@ combinations:
       - concordance_index
       - dynamic_time_warping
       - wasserstein_distance
+      - mutual_information
+      - mutual_information_kde
+      - cumulative_density_difference
+      - morans_i
+      - gearys_c
+      - lisa
+      - getis_ord_gi_star
 
   - evaluate: AdjacencyMatrixEvaluation
     infer: PAGAInference
@@ -31,6 +38,16 @@ combinations:
       - recall
       - f1_score
       - mantel_correlation
+      - ssim
+      - avg_shortest_path_diff
+      - degree_emd
+      - clustering_coeff_diff
+      - graphlet_degree_vector
+      - weisfeiler_lehman_distance
+      - gnn_embedding_distance
+      - persistence_diagram_distance
+      - maximum_common_subgraph_distance
+      - random_walk_kernel_distance
 
   - evaluate: EmbeddingTrajectoryEvaluation
     infer: ObsmEmbedding

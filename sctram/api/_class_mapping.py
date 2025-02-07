@@ -17,17 +17,17 @@ from sctram.evaluate._embedding import EmbeddingTrajectoryEvaluation
 
 # Mapping of Method Names to Classes
 
-PSEUDOTIME_METHODS = {
+PSEUDOTIME_INFER_METHODS = {
     "DPTInference": DPTInference,
     # Add other pseudotime inference classes as needed.
 }
 
-ADJACENCY_METHODS = {
+ADJACENCY_INFER_METHODS = {
     "PAGAInference": PAGAInference,
     # Add other adjacency inference classes as needed.
 }
 
-EMBEDDING_METHODS = {
+EMBEDDING_INFER_METHODS = {
     "ObsmEmbedding": ObsmEmbedding,
     "PCAEmbedding": PCAEmbedding,
     "UMAPEmbedding": UMAPEmbedding,
@@ -44,7 +44,7 @@ EVALUATION_METHODS = {
 }
 
 EVALUATION_ALLOWED_INFER = {
-    "PseudotimeValuesEvaluation": list(PSEUDOTIME_METHODS.keys()),
-    "AdjacencyMatrixEvaluation": list(ADJACENCY_METHODS.keys()),
-    "EmbeddingTrajectoryEvaluation": list(EMBEDDING_METHODS.keys()),
+    "PseudotimeValuesEvaluation": list(PSEUDOTIME_INFER_METHODS.keys()),
+    "AdjacencyMatrixEvaluation": list(ADJACENCY_INFER_METHODS.keys()),
+    "EmbeddingTrajectoryEvaluation": list(EMBEDDING_INFER_METHODS.keys()),
 }
