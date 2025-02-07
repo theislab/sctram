@@ -146,3 +146,6 @@ dmypy.json
 
 # development
 __temp__/
+
+# pickles
+*.pickle

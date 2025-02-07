@@ -40,6 +40,7 @@ requests = ">=2.22.0"
 tqdm = ">=4.37.0"
 gdown = ">=3.8.3"
 scanpy = ">=1.4.4.post1"
+loguru = "^0.7.3"
 
 [tool.poetry.dev-dependencies]
 click = ">=8.0.0"
@@ -82,6 +83,9 @@ isort = "^5.12.0"
 
 [tool.poetry.scripts]
 sctram = "sctram.__main__:main"
+
+[tool.poetry.group.dev.dependencies]
+ipykernel = "^6.29.5"
 
 [tool.black]
 line-length = 120
