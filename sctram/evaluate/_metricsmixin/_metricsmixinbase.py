@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-from loguru._logger import Logger
 from typing import Any, Dict, List
 
 import numpy as np
+from loguru._logger import Logger
 
 
 class MetricsMixinBase:

@@ -39,7 +39,7 @@ class EmbeddingTrajectoryMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
         "morans_i",
         "gearys_c",
         "lisa",
-        "getis_ord_gi_star"
+        "getis_ord_gi_star",
     ]
     _embedding_metrics_n_neighbors: int = 15
 

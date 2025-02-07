@@ -9,6 +9,7 @@ from scanpy import settings
 
 from sctram.generate.real._constants import DATASETS
 from sctram.generate.real._download import download_dataset
+from sctram.utils._loguru_scanpy_capture import redirect_scanpy_logs_to_loguru
 
 
 def _inherit_docstring(source):
@@ -77,7 +78,8 @@ class _DatasetDownloader:
             unzip=False,
         )
 
-        return sc.read_h5ad(output_file_path)
+        with redirect_scanpy_logs_to_loguru(custom_caller="sc.read_h5ad"):
+            return sc.read_h5ad(output_file_path)
 
 
 # Function factory to create downloader functions

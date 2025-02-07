@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 
-from loguru import logger
 from typing import Optional
 
 import networkx as nx
 import numpy as np
+from loguru import logger
 from scipy.linalg import eigh
 from scipy.sparse import csgraph, diags, issparse
 from scipy.sparse.linalg import eigsh
-
-from sctram._utils import Utils
 from sklearn.preprocessing import MinMaxScaler
+
+from sctram.utils._utils import Utils
 
 
 class AdjacencyPseudotimeConverter:

@@ -7,8 +7,9 @@ import scanpy as sc
 from anndata import AnnData
 from pandas import DataFrame, Series
 
-from sctram._constants import x_pca_key
 from sctram.infer._base import EmbeddingBase
+from sctram.utils._constants import x_pca_key
+from sctram.utils._loguru_scanpy_capture import redirect_scanpy_logs_to_loguru
 
 
 class PCAEmbedding(EmbeddingBase):
@@ -46,7 +47,8 @@ class PCAEmbedding(EmbeddingBase):
 
     def _calculate(self):
         """Performs the PCA calculation."""
-        sc.pp.pca(self.adata_prepared, **self.pca_params)
+        with redirect_scanpy_logs_to_loguru(custom_caller="sc.pp.pca"):
+            sc.pp.pca(self.adata_prepared, **self.pca_params)
 
     def get_result(self, return_mode: str) -> Union[AnnData, Any]:
         """Retrieves the result of the PCA calculation.

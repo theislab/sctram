@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-from loguru import logger
 import tempfile
 from pathlib import Path
 from random import choice
@@ -12,6 +11,7 @@ from zipfile import BadZipFile, ZipFile
 import gdown
 import requests
 from filelock import SoftFileLock, Timeout
+from loguru import logger
 from tqdm import tqdm
 
 _logger = logger.bind(name="DatasetDownloader")

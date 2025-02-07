@@ -61,7 +61,7 @@ class AdjacencyMetricsMixin(MetricsMixinBase):
             elif metric in ["precision", "recall", "f1_score"]:
                 self._calculate_precision_recall_f1(metric)
             elif metric == "mantel_correlation":
-                self._calculate_mantel_correlation()    
+                self._calculate_mantel_correlation()
             elif metric == "ssim":
                 self._calculate_ssim()
             elif metric == "avg_shortest_path_diff":
@@ -340,8 +340,11 @@ class AdjacencyMetricsMixin(MetricsMixinBase):
     def _calculate_ssim(self):
         try:
             from skimage.metrics import structural_similarity as ssim
+
             data_range = self.prepared_after_subset_given.max() - self.prepared_after_subset_given.min()
-            similarity, _ = ssim(self.prepared_after_subset_given, self.prepared_after_subset_inferred, full=True, data_range=data_range)
+            similarity, _ = ssim(
+                self.prepared_after_subset_given, self.prepared_after_subset_inferred, full=True, data_range=data_range
+            )
             self.result["ssim"] = similarity
         except (ImportError, ModuleNotFoundError):
             self.logger.debug("scikit-image is required for Structural Similarity Index (SSIM) but is not installed.")
@@ -365,9 +368,9 @@ class AdjacencyMetricsMixin(MetricsMixinBase):
         else:
             self.logger.warning("Inferred graph is not connected. Shortest path distances will include infinities.")
             avg_inferred = np.nan
-        
+
         return avg_given, avg_inferred
-    
+
     def _calculate_mantel_correlation(self):
         """Calculates the Mantel test statistic between the two adjacency matrices.
 
@@ -384,18 +387,18 @@ class AdjacencyMetricsMixin(MetricsMixinBase):
             - Assumes that the distance matrices are meaningful representations of network structure.
         """
         try:
-            from skbio.stats.distance import DistanceMatrix
-            from skbio.stats.distance import mantel
+            from skbio.stats.distance import DistanceMatrix, mantel
+
             avg_given, avg_inferred = self._get_average_shortest_path_lengths()
             if np.isnan(avg_given) or np.isnan(avg_inferred):
                 raise ValueError("One or both graphs are disconnected. Mantel correlation is undefined.")
-            
+
             dm_given = DistanceMatrix(self.prepared_after_subset_given)
             dm_inferred = DistanceMatrix(self.prepared_after_subset_inferred)
-            
-            mantel_result = mantel(dm_given, dm_inferred, method='pearson', permutations=999)
+
+            mantel_result = mantel(dm_given, dm_inferred, method="pearson", permutations=999)
             self.result["mantel_correlation"] = mantel_result[0]
-            
+
         except (ImportError, ModuleNotFoundError):
             self.logger.debug("scikit-bio is required for Mantel correlation but is not installed.")
             self.result["mantel_correlation"] = np.nan

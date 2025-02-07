@@ -8,12 +8,12 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 
-from sctram._constants import sctram_operate_key
-from sctram._utils import Utils
 from sctram.evaluate._base import EvaluationBase
 from sctram.evaluate._converters._adjacency2pseudotime import LabelAdjacencyPseudotimeConverter
 from sctram.evaluate._metricsmixin._pseudotimecategoricalmetricsmixin import PseudotimeCategoricalMetricsMixin
 from sctram.evaluate._metricsmixin._pseudotimevaluesmetricsmixin import PseudotimeValuesMetricsMixin
+from sctram.utils._constants import sctram_operate_key
+from sctram.utils._utils import Utils
 
 
 class PseudotimeEvaluationBase(EvaluationBase):
@@ -100,8 +100,12 @@ class PseudotimeEvaluationBase(EvaluationBase):
             ValueError: If subsetting parameters are invalid or result in incompatible matrices.
         """
         self.logger.debug("Subsetting trajectories based on subset parameters.")
-        labels_to_keep = Utils.sget(dictionary=self.subset_params, key="labels_to_keep", default=None, logger=self.logger)
-        labels_to_remove = Utils.sget(dictionary=self.subset_params, key="labels_to_remove", default=None, logger=self.logger)
+        labels_to_keep = Utils.sget(
+            dictionary=self.subset_params, key="labels_to_keep", default=None, logger=self.logger
+        )
+        labels_to_remove = Utils.sget(
+            dictionary=self.subset_params, key="labels_to_remove", default=None, logger=self.logger
+        )
         unique_labels = np.unique(self.labels)
 
         if labels_to_keep is not None and labels_to_remove is None:
@@ -199,7 +203,9 @@ class PseudotimeValuesEvaluation(PseudotimeValuesMetricsMixin, PseudotimeEvaluat
         # Convert subset_given (In) to adjacency matrix
         self.logger.debug("Converting `InputTrajectory` to adjacency matrix.")
         unique_labels = np.unique(self.subset_labels)
-        subset_adjacency_matrix = Utils.adjacency_graph_to_matrix(g=self.subset_given, nodelist_filter_and_order=unique_labels)
+        subset_adjacency_matrix = Utils.adjacency_graph_to_matrix(
+            g=self.subset_given, nodelist_filter_and_order=unique_labels
+        )
         self.logger.debug("Initializing `LabelAdjacencyPseudotimeConverter`.")
         converter = LabelAdjacencyPseudotimeConverter(
             label_adjacency_matrix=subset_adjacency_matrix,
@@ -208,10 +214,21 @@ class PseudotimeValuesEvaluation(PseudotimeValuesMetricsMixin, PseudotimeEvaluat
         )
 
         # Retrieve pseudotime computation parameters from prepare_params_after_subset
-        converter_parameters = Utils.sget(dictionary=self.prepare_params_after_subset, key="converter", default=dict(), logger=self.logger)
-        method = Utils.sget(dictionary=converter_parameters, key="method", default="diffusion_with_damping", logger=self.logger)
-        handle_disconnected = Utils.sget(dictionary=converter_parameters, key="handle_disconnected", default="assign_max_plus_one", logger=self.logger)
-        alternative_distance = Utils.sget(dictionary=converter_parameters, key="alternative_distance", default=None, logger=self.logger)
+        converter_parameters = Utils.sget(
+            dictionary=self.prepare_params_after_subset, key="converter", default=dict(), logger=self.logger
+        )
+        method = Utils.sget(
+            dictionary=converter_parameters, key="method", default="diffusion_with_damping", logger=self.logger
+        )
+        handle_disconnected = Utils.sget(
+            dictionary=converter_parameters,
+            key="handle_disconnected",
+            default="assign_max_plus_one",
+            logger=self.logger,
+        )
+        alternative_distance = Utils.sget(
+            dictionary=converter_parameters, key="alternative_distance", default=None, logger=self.logger
+        )
         # Needs root_label
         root_label = Utils.sget(dictionary=converter_parameters, key="root_label", default=None, logger=self.logger)
         root_label_index = np.where(unique_labels == root_label)[0][0] if root_label is not None else 0

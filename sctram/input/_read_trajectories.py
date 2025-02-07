@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 
-from loguru import logger
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, Optional, Union
 
 import yaml
+from loguru import logger
 
-from sctram._constants import (
+from sctram.input._input_trajectories import InputTrajectories
+from sctram.utils._constants import (
     InputGraphDictWithEdge,
     InputGraphPossibleTypes,
     edge_reserved_keys,
     key_trajectories,
     node_reserved_keys,
 )
-from sctram.input._input_trajectories import InputTrajectories
 
 # Logger
 _logger = logger.bind(name="ReadTrajectories")

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
+import logging
 import os
-import yaml
+
 import networkx as nx
 import pytest
-import logging
+import yaml
 
 # Import your evaluation class (adjust the import path as needed)
 from sctram.evaluate._adjacency import AdjacencyMatrixEvaluation
@@ -13,12 +14,14 @@ from sctram.evaluate._adjacency import AdjacencyMatrixEvaluation
 # Helper functions
 # =============================================================================
 
+
 def load_test_cases():
     """Load the YAML file with test cases."""
-    test_file = os.path.join(os.path.dirname(__file__), 'resources', 'trajectories_test.yaml')
-    with open(test_file, 'r') as f:
+    test_file = os.path.join(os.path.dirname(__file__), "resources", "trajectories_test.yaml")
+    with open(test_file) as f:
         test_cases = yaml.safe_load(f)
-    return test_cases['test_cases']
+    return test_cases["test_cases"]
+
 
 def create_graph_from_edges(edges):
     """
@@ -29,6 +32,7 @@ def create_graph_from_edges(edges):
     G.add_edges_from([tuple(edge) for edge in edges])
     return G
 
+
 def create_dummy_labels(graph):
     """
     Create a dummy labels dictionary mapping each node to itself.
@@ -36,13 +40,16 @@ def create_dummy_labels(graph):
     """
     return {node: node for node in graph.nodes()}
 
+
 # =============================================================================
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture(scope="module")
 def test_cases():
     return load_test_cases()
+
 
 @pytest.fixture
 def evaluation_instance():
@@ -72,9 +79,11 @@ def evaluation_instance():
     ]
     return AdjacencyMatrixEvaluation(method_params={"metrics": metrics})
 
+
 # =============================================================================
 # Test Functions
 # =============================================================================
+
 
 @pytest.mark.parametrize("case", load_test_cases())
 def test_trajectory_metrics(case, evaluation_instance):
@@ -83,41 +92,35 @@ def test_trajectory_metrics(case, evaluation_instance):
     for a perfect (ground truth) trajectory and an imperfect one.
     """
     # Create the graphs from YAML definitions.
-    gt_graph = create_graph_from_edges(case['ground_truth']['edges'])
-    perfect_graph = create_graph_from_edges(case['trajectories']['perfect']['edges'])
-    
+    gt_graph = create_graph_from_edges(case["ground_truth"]["edges"])
+    perfect_graph = create_graph_from_edges(case["trajectories"]["perfect"]["edges"])
+
     # Here we assume a test case defines an alternative trajectory (e.g., 'imperfect' or 'linear').
     # You can extend this loop to compare several variants if needed.
-    for test_variant, trajectory_def in case['trajectories'].items():
+    for test_variant, trajectory_def in case["trajectories"].items():
         if test_variant == "perfect":
             continue  # we use perfect as the baseline
 
-        variant_graph = create_graph_from_edges(trajectory_def['edges'])
+        variant_graph = create_graph_from_edges(trajectory_def["edges"])
         labels = create_dummy_labels(gt_graph)
-        
+
         # Evaluate metrics for the perfect trajectory vs. ground truth.
-        evaluation_instance.evaluate(
-            given_trajectory=gt_graph,
-            inferred_trajectory=perfect_graph,
-            labels=labels
-        )
+        evaluation_instance.evaluate(given_trajectory=gt_graph, inferred_trajectory=perfect_graph, labels=labels)
         results_perfect = evaluation_instance.get_result()
-        
+
         # Evaluate metrics for the test (imperfect) trajectory vs. ground truth.
-        evaluation_instance.evaluate(
-            given_trajectory=gt_graph,
-            inferred_trajectory=variant_graph,
-            labels=labels
-        )
+        evaluation_instance.evaluate(given_trajectory=gt_graph, inferred_trajectory=variant_graph, labels=labels)
         results_variant = evaluation_instance.get_result()
-        
+
         # Depending on whether lower scores indicate a better match (or vice-versa),
         # compare the results. (You might want to add per–metric rules if needed.)
-        lower_better = case.get('expected_ordering', {}).get('lower_better', True)
+        lower_better = case.get("expected_ordering", {}).get("lower_better", True)
         for metric, perfect_score in results_perfect.items():
             variant_score = results_variant.get(metric)
             # Log the scores for debugging purposes.
-            logging.info(f"Test case '{case['name']}', variant '{test_variant}', metric '{metric}': perfect={perfect_score} vs variant={variant_score}")
+            logging.info(
+                f"Test case '{case['name']}', variant '{test_variant}', metric '{metric}': perfect={perfect_score} vs variant={variant_score}"
+            )
             if lower_better:
                 assert perfect_score <= variant_score, (
                     f"For metric '{metric}', the perfect trajectory should have a lower (better) score. "

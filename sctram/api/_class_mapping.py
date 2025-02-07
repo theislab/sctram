@@ -2,18 +2,18 @@
 
 # Inference Modules
 
+from sctram.evaluate._adjacency import AdjacencyMatrixEvaluation
+from sctram.evaluate._embedding import EmbeddingTrajectoryEvaluation
+from sctram.evaluate._pseudotime import PseudotimeValuesEvaluation
+from sctram.infer._diffmap import DiffmapEmbedding
 from sctram.infer._dpt import DPTInference
+from sctram.infer._obsm import ObsmEmbedding
 from sctram.infer._paga import PAGAInference
 from sctram.infer._pca import PCAEmbedding
 from sctram.infer._umap import UMAPEmbedding
-from sctram.infer._diffmap import DiffmapEmbedding
-from sctram.infer._obsm import ObsmEmbedding
 
 # Evaluation Modules
 
-from sctram.evaluate._pseudotime import PseudotimeValuesEvaluation
-from sctram.evaluate._adjacency import AdjacencyMatrixEvaluation
-from sctram.evaluate._embedding import EmbeddingTrajectoryEvaluation
 
 # Mapping of Method Names to Classes
 

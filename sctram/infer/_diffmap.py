@@ -6,8 +6,8 @@ import numpy as np
 from anndata import AnnData
 from pandas import DataFrame, Series
 
-from sctram._constants import x_diffmap_key
 from sctram.infer._base import EmbeddingBase
+from sctram.utils._constants import x_diffmap_key
 
 
 class DiffmapEmbedding(EmbeddingBase):

@@ -7,8 +7,9 @@ import scanpy as sc
 from anndata import AnnData
 from pandas import DataFrame, Series
 
-from sctram._constants import x_umap_key
 from sctram.infer._base import EmbeddingBase
+from sctram.utils._constants import x_umap_key
+from sctram.utils._loguru_scanpy_capture import redirect_scanpy_logs_to_loguru
 
 
 class UMAPEmbedding(EmbeddingBase):
@@ -50,7 +51,8 @@ class UMAPEmbedding(EmbeddingBase):
     def _calculate(self):
         """Performs the UMAP calculation."""
         self._needs_neighbors(neighbors_params=self.neighbors_params)
-        sc.tl.umap(self.adata_prepared, **self.umap_params)
+        with redirect_scanpy_logs_to_loguru(custom_caller="sc.tl.umap"):
+            sc.tl.umap(self.adata_prepared, **self.umap_params)
 
     def get_result(self, return_mode: str) -> Union[AnnData, Any]:
         """Retrieves the result of the UMAP calculation.

@@ -9,3 +9,5 @@ class DocTest:
             x2 (int): Inecik
         """
         pass
+        # It is just for making sure the html creator script works
+        # Please remove at some point.

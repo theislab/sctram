@@ -8,8 +8,9 @@ from anndata import AnnData
 from pandas import DataFrame, Series
 from scipy.stats import zscore
 
-from sctram._constants import iroot_key, labels_key, x_diffmap_key
 from sctram.infer._base import InferenceBase
+from sctram.utils._constants import iroot_key, labels_key, x_diffmap_key
+from sctram.utils._loguru_scanpy_capture import redirect_scanpy_logs_to_loguru
 
 
 class DPTInference(InferenceBase):
@@ -117,7 +118,8 @@ class DPTInference(InferenceBase):
 
         # Perform DPT with the specified root in `iroot`
         self.logger.info("Performing DPT trajectory calculation.")
-        sc.tl.dpt(self.adata_prepared, **self.dpt_params)
+        with redirect_scanpy_logs_to_loguru(custom_caller="sc.tl.dpt"):
+            sc.tl.dpt(self.adata_prepared, **self.dpt_params)
         self.logger.debug("DPT calculation completed successfully.")
 
     def get_result(self, return_mode: str) -> Union[AnnData, np.ndarray]:

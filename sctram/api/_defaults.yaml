@@ -1,72 +1,72 @@
 # defaults.yaml
 
 combinations:
-  - evaluate: PseudotimeValuesEvaluation
-    infer: DPTInference
-    description: "Default metrics for pseudotime evaluation."  # edit
-    metrics:
-      - pearson
-      - spearman
-      - kendall
-      - mse
-      - mae
-      - r2
-      - r2_with_spline
-      - concordance_index
-      - dynamic_time_warping
-      - wasserstein_distance
-      - mutual_information
-      - mutual_information_kde
-      - cumulative_density_difference
-      - morans_i
-      - gearys_c
-      - lisa
-      - getis_ord_gi_star
+    - evaluate: PseudotimeValuesEvaluation
+      infer: DPTInference
+      description: "Default metrics for pseudotime evaluation." # edit
+      metrics:
+          - pearson
+          - spearman
+          - kendall
+          - mse
+          - mae
+          - r2
+          - r2_with_spline
+          - concordance_index
+          - dynamic_time_warping
+          - wasserstein_distance
+          - mutual_information
+          - mutual_information_kde
+          - cumulative_density_difference
+          - morans_i
+          - gearys_c
+          - lisa
+          - getis_ord_gi_star
 
-  - evaluate: AdjacencyMatrixEvaluation
-    infer: PAGAInference
-    description: "Default metrics for adjacency evaluation."  # edit
-    metrics:
-      - frobenius
-      - L1
-      - accuracy
-      - graph_edit_distance
-      - spectral_distance
-      - jaccard
-      - hamming
-      - precision
-      - recall
-      - f1_score
-      - mantel_correlation
-      - ssim
-      - avg_shortest_path_diff
-      - degree_emd
-      - clustering_coeff_diff
-      - graphlet_degree_vector
-      - weisfeiler_lehman_distance
-      - gnn_embedding_distance
-      - persistence_diagram_distance
-      - maximum_common_subgraph_distance
-      - random_walk_kernel_distance
+    - evaluate: AdjacencyMatrixEvaluation
+      infer: PAGAInference
+      description: "Default metrics for adjacency evaluation." # edit
+      metrics:
+          - frobenius
+          - L1
+          - accuracy
+          - graph_edit_distance
+          - spectral_distance
+          - jaccard
+          - hamming
+          - precision
+          - recall
+          - f1_score
+          - mantel_correlation
+          - ssim
+          - avg_shortest_path_diff
+          - degree_emd
+          - clustering_coeff_diff
+          - graphlet_degree_vector
+          - weisfeiler_lehman_distance
+          - gnn_embedding_distance
+          - persistence_diagram_distance
+          - maximum_common_subgraph_distance
+          - random_walk_kernel_distance
 
-  - evaluate: EmbeddingTrajectoryEvaluation
-    infer: ObsmEmbedding
-    description: "Default metrics for embedding evaluation using provided obsm."  # edit
-    metrics:
-      - normalized_mean_curvature
-      - distance_correlation
-      - stress
-      - neighborhood_preservation_score
-      - branch_silhouette_score
-      - transition_smoothness
-      - trustworthiness
-      - leaf_node_separation
-      - morans_i
-      - gearys_c
-      - lisa
-      - getis_ord_gi_star
+    - evaluate: EmbeddingTrajectoryEvaluation
+      infer: ObsmEmbedding
+      description: "Default metrics for embedding evaluation using provided obsm." # edit
+      metrics:
+          - normalized_mean_curvature
+          - distance_correlation
+          - stress
+          - neighborhood_preservation_score
+          - branch_silhouette_score
+          - transition_smoothness
+          - trustworthiness
+          - leaf_node_separation
+          - morans_i
+          - gearys_c
+          - lisa
+          - getis_ord_gi_star
 
-  - evaluate: EmbeddingTrajectoryEvaluation
-    infer: PCAEmbedding
-    description: "Embedding evaluation using PCA with no default metrics."  # edit
-    metrics: []
+    - evaluate: EmbeddingTrajectoryEvaluation
+      infer: PCAEmbedding
+      description: "Embedding evaluation using PCA with no default metrics." # edit
+      metrics: []

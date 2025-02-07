@@ -1,24 +1,23 @@
 #!/usr/bin/env python3
 
-from typing import Any, Optional, Callable, Tuple, Union
+from typing import Any, Callable, Optional, Tuple, Union
 
-import numpy as np
 import networkx as nx
-from scipy.sparse import csr_matrix, isspmatrix_csr, coo_matrix
+import numpy as np
+from scipy.sparse import coo_matrix, csr_matrix, isspmatrix_csr
 from sklearn.metrics.pairwise import rbf_kernel
 from sklearn.neighbors import kneighbors_graph
-from sklearn.metrics.pairwise import rbf_kernel
 
-from sctram._utils import Utils
+from sctram.utils._utils import Utils
 
 
 class SpatialMetricsMixin:
     """Mixin class providing spatial autocorrelation metrics for trajectory evaluation.
 
     This mixin implements various spatial autocorrelation metrics, including Moran's I,
-    Geary's C, Local Moran's I (LISA), and Getis-Ord Gi*. The mixin handles the computation of spatial weights 
+    Geary's C, Local Moran's I (LISA), and Getis-Ord Gi*. The mixin handles the computation of spatial weights
     and data preperation based on the input type and provides methods to calculate each metric.
-    
+
     Mathematical Foundations:
         - Moran's I: Measures global spatial autocorrelation.
         - Geary's C: Measures spatial autocorrelation with emphasis on local differences.
@@ -28,57 +27,61 @@ class SpatialMetricsMixin:
     Computational Considerations:
         - Avoids reliance on external spatial libraries like `pysal`.
     """
-    
+
     def _compute_embedding_weights(self) -> csr_matrix:
         cell_labels = self.labels  # self.labels for embedding evaluate class is simply labels for the embedding.
-        adjacency_labels = np.array(list(self.prepared_after_subset_given.nodes())).flatten()  # the order does not matter here
-        adj_matrix = Utils.adjacency_graph_to_matrix(g=self.prepared_after_subset_given, nodelist_filter_and_order=adjacency_labels)
-        Utils.validate_adjacency_matrix(adj_matrix)
-        
-        return self._create_sparse_cell_adjacency(
-            adj_matrix=adj_matrix,
-            adjacency_labels=adjacency_labels,
-            cell_labels=cell_labels
+        adjacency_labels = np.array(
+            list(self.prepared_after_subset_given.nodes())
+        ).flatten()  # the order does not matter here
+        adj_matrix = Utils.adjacency_graph_to_matrix(
+            g=self.prepared_after_subset_given, nodelist_filter_and_order=adjacency_labels
         )
-        
+        Utils.validate_adjacency_matrix(adj_matrix)
+
+        return self._create_sparse_cell_adjacency(
+            adj_matrix=adj_matrix, adjacency_labels=adjacency_labels, cell_labels=cell_labels
+        )
+
     def _compute_pseudotime_weights(self):
         unique_labels = np.unique(self.subset_labels)
-        subset_adjacency_matrix = Utils.adjacency_graph_to_matrix(g=self.subset_given, nodelist_filter_and_order=unique_labels)
-        Utils.validate_adjacency_matrix(subset_adjacency_matrix)
-        
-        return self._create_sparse_cell_adjacency(
-            adj_matrix=subset_adjacency_matrix,
-            adjacency_labels=unique_labels,
-            cell_labels=self.subset_labels
+        subset_adjacency_matrix = Utils.adjacency_graph_to_matrix(
+            g=self.subset_given, nodelist_filter_and_order=unique_labels
         )
-  
-    def _create_sparse_cell_adjacency(self, adj_matrix: np.ndarray, adjacency_labels: np.ndarray, cell_labels: np.ndarray) -> csr_matrix:
+        Utils.validate_adjacency_matrix(subset_adjacency_matrix)
+
+        return self._create_sparse_cell_adjacency(
+            adj_matrix=subset_adjacency_matrix, adjacency_labels=unique_labels, cell_labels=self.subset_labels
+        )
+
+    def _create_sparse_cell_adjacency(
+        self, adj_matrix: np.ndarray, adjacency_labels: np.ndarray, cell_labels: np.ndarray
+    ) -> csr_matrix:
         """Create an nxn sparse cell-cell adjacency matrix from an lxl PAGA adjacency matrix.
-        
+
         This implementation groups cells by their label and then, for each pair of labels,
         creates the block of cell-cell interactions. This avoids iterating over all n^2 cell pairs.
-        
+
         Args:
             cell_labels: array-like of shape (n,) or (n,1). Array containing the label for each cell.
             adj_matrix: array-like of shape (l, l). e.g. the PAGA connectivity (adjacency) matrix among the l labels.
-            adjacency_labels : array-like of shape (l,) or (l,1). The list of label names corresponding to 
+            adjacency_labels : array-like of shape (l,) or (l,1). The list of label names corresponding to
                 the rows/columns of paga_adj.
-        
+
         Returns:
             csr_matrix: A sparse cell-cell adjacency matrix where for each pair of cells (i, j)
                 cell_adj[i, j] = paga_adj[label_index(cell_i), label_index(cell_j)]
                 where label_index(cell) is determined by the mapping defined in adjacency_labels.
-        """ 
+        """
         if not isinstance(adjacency_labels, np.ndarray) or not isinstance(cell_labels, np.ndarray):
             raise ValueError("Expected both 'cell_labels' and 'adjacency_labels' to be a numpy array.")
         if adjacency_labels.ndim != 1 or cell_labels.ndim != 1:
             raise ValueError("Both 'adjacency_labels' and 'cell_labels' must be one-dimensional arrays.")
         if len(adjacency_labels) != len(adj_matrix):
             raise ValueError("Mismatch between the number of labels in 'adjacency_labels' and the size of the data.")
-        
+
         # Build a mapping from label value to its index in adjacency_labels.
         label_to_index = {label: idx for idx, label in enumerate(adjacency_labels)}
-        
+
         try:  # Map each cell's label to its index in the PAGA matrix.
             mapped_labels = np.array([label_to_index[label] for label in cell_labels])
         except KeyError as e:
@@ -90,15 +93,15 @@ class SpatialMetricsMixin:
         # Group cell indices by their mapped label (which is an integer in 0,...,l-1)
         groups = {}
         for cell_idx, lab_idx in enumerate(mapped_labels):
-            groups.setdefault(lab_idx, []).append(cell_idx)        
+            groups.setdefault(lab_idx, []).append(cell_idx)
         for key in groups:
             groups[key] = np.array(groups[key], dtype=np.int64)
-        
+
         # Prepare lists to accumulate sparse matrix data.
         row_inds = []
         col_inds = []
         data_vals = []
-        
+
         # Loop over label pairs.
         # We only add blocks when paga_adj[i, j] is nonzero and when both groups exist.
         for i in range(l):
@@ -111,7 +114,7 @@ class SpatialMetricsMixin:
                 val = adj_matrix[i, j]
                 if val == 0:
                     continue  # Skip blocks that contribute no value
-                
+
                 idx_j = groups[j]
                 # Create the block indices:
                 # Every cell in group i connects to every cell in group j.
@@ -119,11 +122,11 @@ class SpatialMetricsMixin:
                 block_rows = np.repeat(idx_i, idx_j.size)
                 block_cols = np.tile(idx_j, idx_i.size)
                 block_data = np.full(block_rows.shape, val)
-                
+
                 row_inds.append(block_rows)
                 col_inds.append(block_cols)
                 data_vals.append(block_data)
-        
+
         # If no blocks were added, return an empty sparse matrix.
         if row_inds:
             row_inds = np.concatenate(row_inds)
@@ -133,15 +136,12 @@ class SpatialMetricsMixin:
             row_inds = np.array([], dtype=np.int64)
             col_inds = np.array([], dtype=np.int64)
             data_vals = np.array([], dtype=adj_matrix.dtype)
-        
+
         # Create a COO-format sparse matrix and then convert to CSR.
         cell_adj = coo_matrix((data_vals, (row_inds, col_inds)), shape=(n, n)).tocsr()
         return cell_adj
-                    
-    def _normalize_weights(
-        self, 
-        weights: Union[np.ndarray, csr_matrix]
-    ) -> Union[np.ndarray, csr_matrix]:
+
+    def _normalize_weights(self, weights: Union[np.ndarray, csr_matrix]) -> Union[np.ndarray, csr_matrix]:
         """Normalize spatial weights to ensure appropriate scaling.
 
         For 2D numpy arrays or CSR matrices, normalizes each row to sum to 1.
@@ -175,18 +175,18 @@ class SpatialMetricsMixin:
                 - "getis_ord_gi_star"
         """
         metrics: dict[str, Callable[[np.ndarray, np.ndarray], float]] = {
-            'morans_i': self._calculate_morans_i,
-            'gearys_c': self._calculate_gearys_c,
+            "morans_i": self._calculate_morans_i,
+            "gearys_c": self._calculate_gearys_c,
             # Get the mean to have a single value. Note that this makes the metric a bit arguable.
-            'lisa': lambda data, weights: np.mean(self._calculate_lisa(data, weights)),
-            'getis_ord_gi_star': lambda data, weights: np.mean(self._calculate_getis_ord_gi_star(data, weights))
+            "lisa": lambda data, weights: np.mean(self._calculate_lisa(data, weights)),
+            "getis_ord_gi_star": lambda data, weights: np.mean(self._calculate_getis_ord_gi_star(data, weights)),
         }
         metric_func = metrics.get(metric)
         if not metric_func:
             raise ValueError(f"Unsupported metric '{metric}'. Choose from {list(metrics.keys())}.")
-        
-        method_print_str = metric.replace('_', ' ').title()
-        try:  
+
+        method_print_str = metric.replace("_", " ").title()
+        try:
             if input_type == "pseudotime":
                 spatial_weights = self._compute_pseudotime_weights()
             elif input_type == "embedding":
@@ -197,17 +197,19 @@ class SpatialMetricsMixin:
             if normalize_weights:
                 spatial_weights = self._normalize_weights(spatial_weights)
             x = self.prepared_after_subset_inferred
-            
+
             if not isinstance(x, np.ndarray):
                 raise ValueError("x must be either a numpy array or a csr_matrix.")
             if not isinstance(spatial_weights, csr_matrix):
-                raise ValueError(f"'spatial_weights' must be either a numpy array or a csr_matrix: {type(spatial_weights)!r}")
+                raise ValueError(
+                    f"'spatial_weights' must be either a numpy array or a csr_matrix: {type(spatial_weights)!r}"
+                )
             if spatial_weights.ndim != 2:
                 raise ValueError("'spatial_weights' must be 2-dimensional.")
             if x.shape[0] != spatial_weights.shape[0]:
                 raise ValueError("Mismatch in number of rows between x and spatial weights.")
-            
-            if input_type == "embedding":            
+
+            if input_type == "embedding":
                 if x.ndim != 2:
                     raise ValueError("For elementwise computation, x must be 2-dimensional.")
                 # Compute metric element-wise across columns. Slicing works for both numpy arrays and csr_matrix
@@ -225,7 +227,6 @@ class SpatialMetricsMixin:
         except Exception as e:
             self.logger.error(f"Failed to calculate {method_print_str!r} for {input_type!r}: {e}")
             self.result[metric] = np.nan
-
 
     def _calculate_morans_i(self, x: np.ndarray, spatial_weights: csr_matrix) -> float:
         """Calculates Moran's I for the given data and spatial weights.
@@ -289,7 +290,7 @@ class SpatialMetricsMixin:
         x_diff = x - x_mean
 
         numerator = x_diff @ (spatial_weights @ x_diff)
-        denominator = np.sum(x_diff ** 2)
+        denominator = np.sum(x_diff**2)
 
         morans_i = (n / w) * (numerator / denominator)
         return morans_i
@@ -351,12 +352,12 @@ class SpatialMetricsMixin:
 
         x_mean = np.mean(x)
         x_diff = x - x_mean
-        denominator = 2 * np.sum(x_diff ** 2)
+        denominator = 2 * np.sum(x_diff**2)
 
         # Compute (x_i - x_j)^2 for all i, j
         # Efficient computation using sparse matrix operations:
         # (x_i - x_j)^2 = x_i^2 + x_j^2 - 2 * x_i * x_j
-        x_diff_squared = x_diff ** 2
+        x_diff_squared = x_diff**2
 
         # Σi Σj w_ij x_i^2
         sum_wx_i_sq = spatial_weights.multiply(x_diff_squared[:, np.newaxis]).sum()
@@ -504,7 +505,7 @@ class SpatialMetricsMixin:
         sum_w2 = spatial_weights.power(2).sum(axis=1).A1
 
         # Denominator: S * sqrt((n Σj w_ij^2 - (Σj w_ij)^2) / (n - 1))
-        denominator = s * np.sqrt((n * sum_w2 - sum_w ** 2) / (n - 1))
+        denominator = s * np.sqrt((n * sum_w2 - sum_w**2) / (n - 1))
 
         # Handle division by zero by setting denominator to a small number
         denominator[denominator == 0] = 1e-10

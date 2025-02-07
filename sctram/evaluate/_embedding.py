@@ -6,10 +6,10 @@ from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 
-from sctram._constants import sctram_operate_key
 from sctram.evaluate._base import EvaluationBase
 from sctram.evaluate._metricsmixin._embeddingspairmetricsmixin import EmbeddingsPairMetricsMixin
 from sctram.evaluate._metricsmixin._embeddingtrajectorymetricsmixin import EmbeddingTrajectoryMetricsMixin
+from sctram.utils._constants import sctram_operate_key
 
 
 class EmbeddingsPairEvaluation(EmbeddingsPairMetricsMixin, EvaluationBase):

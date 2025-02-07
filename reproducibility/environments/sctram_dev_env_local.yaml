@@ -45,6 +45,7 @@ dependencies:
     - scikit-plot
     - scikit-image
     - scikit-bio
+    - gputil
     - statsmodels>=0.12
     - matplotlib>=3.7
     - cycler

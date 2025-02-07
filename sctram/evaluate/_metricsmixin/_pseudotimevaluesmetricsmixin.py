@@ -4,7 +4,15 @@ from typing import Any, Dict, List
 
 import numpy as np
 from scipy.interpolate import UnivariateSpline
-from scipy.stats import kendalltau, ks_2samp, pearsonr, spearmanr, wasserstein_distance, gaussian_kde, cramervonmises_2samp
+from scipy.stats import (
+    cramervonmises_2samp,
+    gaussian_kde,
+    kendalltau,
+    ks_2samp,
+    pearsonr,
+    spearmanr,
+    wasserstein_distance,
+)
 from sklearn.metrics import mean_absolute_error, mean_squared_error, normalized_mutual_info_score, r2_score
 
 from sctram.evaluate._metricsmixin._metricsmixinbase import MetricsMixinBase
@@ -222,31 +230,30 @@ class PseudotimeValuesMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
         sorted_indices = np.argsort(self.prepared_after_subset_inferred)
         x_sorted = self.prepared_after_subset_inferred[sorted_indices]
         y_sorted = self.prepared_after_subset_given[sorted_indices]
-        
+
         uspline = UnivariateSpline(x_sorted, y_sorted, k=k)  # Fit the spline to the sorted data
         y_pred = uspline(self.prepared_after_subset_inferred)  # Predict y values using the original (unsorted) x data
         non_linear_r2 = r2_score(self.prepared_after_subset_given, y_pred)  # Calculate R-squared
-        
+
         # Store the result
         self.result["r2_with_spline"] = non_linear_r2
         self.logger.debug(f"R-squared with Spline: {non_linear_r2}")
 
-
     def _calculate_concordance_index(self):
         """Calculates the Concordance Index between the inferred and reference pseudotime.
-        
+
         This method estimates the probability that, for a randomly chosen pair of samples,
         the sample with the higher observed pseudotime also has a higher inferred pseudotime.
         A higher Concordance Index indicates better agreement between the inferred and reference
         orderings of samples. The index ranges from 0 (no concordance) to 1 (perfect concordance).
-        
+
         Requires:
             - self.prepared_after_subset_given: array of reference pseudotimes.
             - self.prepared_after_subset_inferred: array of inferred pseudotimes.
-        
+
         Updates:
             - self.result["concordance_index"]: stores the calculated Concordance Index.
-        
+
         Raises:
             - ValueError: If the input arrays are not of the same length or are empty.
         """
@@ -256,7 +263,7 @@ class PseudotimeValuesMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
                 self.logger.warning("Not enough samples to compute Concordance Index.")
                 self.result["concordance_index"] = np.nan
                 return
-            
+
             if len(self.prepared_after_subset_given) != len(self.prepared_after_subset_inferred):
                 raise ValueError("Input arrays must be of the same length.")
 
@@ -297,7 +304,6 @@ class PseudotimeValuesMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
             self.logger.error(f"Error computing Concordance Index: {e}")
             self.result["concordance_index"] = np.nan
 
-
     def _calculate_dynamic_time_warping(self):
         """Calculates the Dynamic Time Warping (DTW) distance between the inferred and reference pseudotime.
 
@@ -330,19 +336,19 @@ class PseudotimeValuesMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
             self.logger.debug(f"'fastdtw' library is not found. Using fallback DTW implementation")
             x = np.array(self.prepared_after_subset_inferred)
             y = np.array(self.prepared_after_subset_given)
-            
+
             # Create cost matrix
             n, m = len(x), len(y)
-            dtw_matrix = np.full((n+1, m+1), np.inf)
+            dtw_matrix = np.full((n + 1, m + 1), np.inf)
             dtw_matrix[0, 0] = 0
-            
-            for i in range(1, n+1):
-                for j in range(1, m+1):
-                    cost = abs(x[i-1] - y[j-1])
+
+            for i in range(1, n + 1):
+                for j in range(1, m + 1):
+                    cost = abs(x[i - 1] - y[j - 1])
                     dtw_matrix[i, j] = cost + min(
-                        dtw_matrix[i-1, j],    # Insertion
-                        dtw_matrix[i, j-1],    # Deletion
-                        dtw_matrix[i-1, j-1]   # Match
+                        dtw_matrix[i - 1, j],  # Insertion
+                        dtw_matrix[i, j - 1],  # Deletion
+                        dtw_matrix[i - 1, j - 1],  # Match
                     )
 
             # Backtrack to find path length
@@ -354,13 +360,11 @@ class PseudotimeValuesMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
                 elif j == 0:
                     i -= 1
                 else:
-                    min_val = min(dtw_matrix[i-1, j], 
-                                dtw_matrix[i, j-1],
-                                dtw_matrix[i-1, j-1])
-                    if dtw_matrix[i-1, j-1] == min_val:
+                    min_val = min(dtw_matrix[i - 1, j], dtw_matrix[i, j - 1], dtw_matrix[i - 1, j - 1])
+                    if dtw_matrix[i - 1, j - 1] == min_val:
                         i -= 1
                         j -= 1
-                    elif dtw_matrix[i-1, j] == min_val:
+                    elif dtw_matrix[i - 1, j] == min_val:
                         i -= 1
                     else:
                         j -= 1
@@ -414,11 +418,12 @@ class PseudotimeValuesMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
             - The reduction in uncertainty about one variable given knowledge of the other.
             - Higher values indicate greater dependency.
         """
+
         def freedman_diaconis_bins(data):
             q75, q25 = np.percentile(data, [75, 25])
             iqr = q75 - q25
             n = len(data)
-            bin_width = 2 * iqr / (n ** (1/3))
+            bin_width = 2 * iqr / (n ** (1 / 3))
             bins = max(1, int((np.max(data) - np.min(data)) / bin_width))
             return bins
 
@@ -427,11 +432,12 @@ class PseudotimeValuesMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
         bins = max(bins_inferred, bins_given)
 
         inferred_discrete = np.digitize(
-            self.prepared_after_subset_inferred, 
-            bins=np.histogram_bin_edges(self.prepared_after_subset_inferred, bins=bins))
+            self.prepared_after_subset_inferred,
+            bins=np.histogram_bin_edges(self.prepared_after_subset_inferred, bins=bins),
+        )
         reference_discrete = np.digitize(
-            self.prepared_after_subset_given, 
-            bins=np.histogram_bin_edges(self.prepared_after_subset_given, bins=bins))
+            self.prepared_after_subset_given, bins=np.histogram_bin_edges(self.prepared_after_subset_given, bins=bins)
+        )
         nmi = normalized_mutual_info_score(inferred_discrete, reference_discrete)
         self.result["normalized_mutual_information"] = nmi
 
@@ -457,20 +463,20 @@ class PseudotimeValuesMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
     def _calculate_cumulative_density_difference(self):
         """Calculates the differences between the cumulative density functions (CDFs) using KS and CvM tests.
 
-        This method provides a non-parametric way to compare the distribution of two datasets, sensitive to 
+        This method provides a non-parametric way to compare the distribution of two datasets, sensitive to
         differences in both the location and shape of the distributions. The method utilizes the KS statistic to
-        capture the maximum difference at any point between the CDFs and the CvM statistic to measure the overall 
+        capture the maximum difference at any point between the CDFs and the CvM statistic to measure the overall
         squared differences across the entire range of data.
 
         Advantages:
             - Non-parametric: Does not assume a specific distribution of data.
-            - Sensitivity: Capable of detecting both global discrepancies across the entire distribution and 
+            - Sensitivity: Capable of detecting both global discrepancies across the entire distribution and
             local discrepancies at specific points within the distribution.
 
         What it Measures:
-            - KS Statistic: The maximum absolute difference between the CDFs of the two datasets, 
+            - KS Statistic: The maximum absolute difference between the CDFs of the two datasets,
             indicating the most significant single-point discrepancy.
-            - CvM Statistic: An integral of the squared differences between the CDFs, reflecting the 
+            - CvM Statistic: An integral of the squared differences between the CDFs, reflecting the
             overall distribution shape discrepancies.
 
         Outputs:
@@ -479,7 +485,7 @@ class PseudotimeValuesMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
         """
         ks_statistic, _ = ks_2samp(self.prepared_after_subset_inferred, self.prepared_after_subset_given)
         cvm_stat = cramervonmises_2samp(self.prepared_after_subset_inferred, self.prepared_after_subset_given).statistic
-        
+
         self.result["cumulative_density_difference"] = ks_statistic
         self.result["cramer_von_mises"] = cvm_stat
         self.logger.debug(f"Cumulative density difference (KS statistic): {ks_statistic}")

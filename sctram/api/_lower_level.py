@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
 
 import sys
-from loguru import logger
 from typing import Any, Dict, List, Optional
 
-import pandas as pd
 import anndata as ad
+import pandas as pd
+from loguru import logger
 
 from sctram.api._class_mapping import *
 from sctram.api._defaults_read import get_metrics_by_class as default_metrics
-from sctram._constants import labels_key
+from sctram.utils._constants import labels_key
 
 
 class TrajectoryEvaluationAPI:
-    """An API for evaluating a user-defined trajectory against inferred trajectories from single-cell data. 
-    
+    """An API for evaluating a user-defined trajectory against inferred trajectories from single-cell data.
+
     This API supports three different evaluation paths:
     - Pseudotime evaluation (e.g., using DPTInference)
     - Adjacency/graph evaluation (e.g., using PAGAInference)
     - Embedding evaluation (e.g., using PCA/UMAP/Diffmap/Obsm)
-    
+
     The API is designed to be flexible so that users can provide their own
     inference methods, choose from a set of default metrics, or supply custom
     metric lists.
@@ -50,7 +50,7 @@ class TrajectoryEvaluationAPI:
         self.input_trajectories = input_trajectories
         self.labels_obs = labels_obs
         self.root_label = root_label
-        
+
         self.results: Dict[str, Any] = {}
 
         logger.remove()  # Setup logger
@@ -71,7 +71,7 @@ class TrajectoryEvaluationAPI:
         EvaluateClass = EVALUATION_METHODS[evaluate_method]
         self.logger.info(f"Running pseudotime evaluation with method {evaluate_method!r}")
         return EvaluateClass
-    
+
     def _get_inference_method(self, inference_method, methods_constant):
         if inference_method not in methods_constant:
             raise ValueError(f"Pseudotime method '{inference_method}' not implemented.")
@@ -98,7 +98,7 @@ class TrajectoryEvaluationAPI:
         evaluate_params: Optional[Dict[str, Any]] = None,
         metrics: Optional[List[str]] = None,
     ):
-        
+
         self.logger.info("Starting pseudotime evaluation.")
         InferenceClass = self._get_inference_method(inference_method, PSEUDOTIME_INFER_METHODS)
         EvaluateClass = self._get_evaluate_method(evaluate_method)
@@ -108,39 +108,36 @@ class TrajectoryEvaluationAPI:
             raise ValueError("Root label is required for pseudotime based metrics.")
 
         inference_params = inference_params or dict(
-            random_state=42, 
+            random_state=42,
             neighbors_params={"n_neighbors": 90},
             iroot_params=dict(
-                label_key = labels_key,
-                label = self.root_label,
-                method = "min_diffmap",  
-                outlier_definition_z = 3 
-            )
+                label_key=labels_key, label=self.root_label, method="min_diffmap", outlier_definition_z=3
+            ),
         )
         inference = InferenceClass(adata=self.adata, labels=self.adata.obs[self.labels_obs], **inference_params)
         inference.calculate()
         inferred_trajectories = inference.get_result("vector")
-        
+
         evaluate_params = evaluate_params or dict(
             prepare_params=dict(
-                converter = dict(
-                    method = "diffusion_with_damping",
-                    handle_disconnected = "assign_max_plus_one",
-                    alternative_distance = None,
-                    root_label = self.root_label
+                converter=dict(
+                    method="diffusion_with_damping",
+                    handle_disconnected="assign_max_plus_one",
+                    alternative_distance=None,
+                    root_label=self.root_label,
                 )
             ),
-            subset_params = None
+            subset_params=None,
         )
-        evaluation = EvaluateClass(method_params = dict(metrics = metrics), **evaluate_params)
+        evaluation = EvaluateClass(method_params=dict(metrics=metrics), **evaluate_params)
         evaluation.evaluate(
             given_trajectory=self.input_trajectories,
             inferred_trajectory=inferred_trajectories,
-            labels=self.adata.obs[self.labels_obs].to_numpy()
+            labels=self.adata.obs[self.labels_obs].to_numpy(),
         )
-        
+
         self.results["pseudotime"] = evaluation.get_result()
-        
+
     def evaluate_adjacency(
         self,
         inference_method: str = "PAGAInference",
@@ -149,33 +146,31 @@ class TrajectoryEvaluationAPI:
         evaluate_params: Optional[Dict[str, Any]] = None,
         metrics: Optional[List[str]] = None,
     ):
-        
-        self.logger.info("Starting adjacency evaluation.") 
+
+        self.logger.info("Starting adjacency evaluation.")
         InferenceClass = self._get_inference_method(inference_method, ADJACENCY_INFER_METHODS)
         EvaluateClass = self._get_evaluate_method(evaluate_method)
         metrics = self._get_metrics(metrics, inference_method, evaluate_method)
-        
+
         inference_params = inference_params or dict(
-            random_state=42, 
+            random_state=42,
             neighbors_params={"n_neighbors": 90},
         )
         inference = InferenceClass(adata=self.adata, labels=self.adata.obs[self.labels_obs], **inference_params)
         inference.calculate()
         inferred_trajectories = inference.get_result("adjacency")
         inferred_trajectories_labels = inference.get_result("labels")
-        
-        evaluate_params = evaluate_params or dict(
-            subset_params = None
-        )
-        evaluation = EvaluateClass(method_params = dict(metrics = metrics), **evaluate_params)
+
+        evaluate_params = evaluate_params or dict(subset_params=None)
+        evaluation = EvaluateClass(method_params=dict(metrics=metrics), **evaluate_params)
         evaluation.evaluate(
             given_trajectory=self.input_trajectories,
             inferred_trajectory=inferred_trajectories,
-            labels=inferred_trajectories_labels
+            labels=inferred_trajectories_labels,
         )
-        
+
         self.results["adjacency"] = evaluation.get_result()
-    
+
     def evaluate_embedding(
         self,
         inference_method: str = "ObsmEmbedding",
@@ -184,26 +179,23 @@ class TrajectoryEvaluationAPI:
         evaluate_params: Optional[Dict[str, Any]] = None,
         metrics: Optional[List[str]] = None,
     ):
-        
-        self.logger.info("Starting embedding evaluation.") 
+
+        self.logger.info("Starting embedding evaluation.")
         InferenceClass = self._get_inference_method(inference_method, EMBEDDING_INFER_METHODS)
         EvaluateClass = self._get_evaluate_method(evaluate_method)
         metrics = self._get_metrics(metrics, inference_method, evaluate_method)
-        
-        inference_params = inference_params or dict(
-            random_state=42, 
-            obsm_key="X"
-        )
+
+        inference_params = inference_params or dict(random_state=42, obsm_key="X")
         inference = InferenceClass(adata=self.adata, labels=self.adata.obs[self.labels_obs], **inference_params)
         inference.calculate()  # for obsm it does not do anything.
         inferred_trajectories = inference.get_result("obsm")
-                
+
         evaluate_params = evaluate_params or dict()
-        evaluation = EvaluateClass(method_params = dict(metrics = metrics), **evaluate_params)
+        evaluation = EvaluateClass(method_params=dict(metrics=metrics), **evaluate_params)
         evaluation.evaluate(
             given_trajectory=self.input_trajectories,
             inferred_trajectory=inferred_trajectories,
-            labels=self.adata.obs[self.labels_obs].to_numpy()
+            labels=self.adata.obs[self.labels_obs].to_numpy(),
         )
-        
-        self.results["embedding"] = evaluation.get_result() 
+
+        self.results["embedding"] = evaluation.get_result()
