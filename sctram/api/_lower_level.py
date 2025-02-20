@@ -31,7 +31,7 @@ class TrajectoryEvaluationAPI:
         input_trajectories: Any,
         labels_obs: str,
         root_label: str = None,
-        logger_level: int = str,
+        logger_level: str = "INFO",
     ):
         """
         Parameters
@@ -104,7 +104,10 @@ class TrajectoryEvaluationAPI:
         EvaluateClass = self._get_evaluate_method(evaluate_method)
         metrics = self._get_metrics(metrics, inference_method, evaluate_method)
 
-        if self.root_label is None or self.root_label not in self.adata.obs[self.labels_obs].to_numpy():
+        # Subset anndata with only available nodes.
+        _adata = self.adata[self.adata.obs[self.labels_obs].isin(self.input_trajectories.nodes())]
+        
+        if self.root_label is None or self.root_label not in _adata.obs[self.labels_obs].to_numpy():
             raise ValueError("Root label is required for pseudotime based metrics.")
 
         inference_params = inference_params or dict(
@@ -114,7 +117,8 @@ class TrajectoryEvaluationAPI:
                 label_key=labels_key, label=self.root_label, method="min_diffmap", outlier_definition_z=3
             ),
         )
-        inference = InferenceClass(adata=self.adata, labels=self.adata.obs[self.labels_obs], **inference_params)
+        
+        inference = InferenceClass(adata=_adata, labels=_adata.obs[self.labels_obs], **inference_params)
         inference.calculate()
         inferred_trajectories = inference.get_result("vector")
 
@@ -133,7 +137,7 @@ class TrajectoryEvaluationAPI:
         evaluation.evaluate(
             given_trajectory=self.input_trajectories,
             inferred_trajectory=inferred_trajectories,
-            labels=self.adata.obs[self.labels_obs].to_numpy(),
+            labels=_adata.obs[self.labels_obs].to_numpy(),
         )
 
         self.results["pseudotime"] = evaluation.get_result()
@@ -156,7 +160,10 @@ class TrajectoryEvaluationAPI:
             random_state=42,
             neighbors_params={"n_neighbors": 90},
         )
-        inference = InferenceClass(adata=self.adata, labels=self.adata.obs[self.labels_obs], **inference_params)
+        # Subset anndata with only available nodes.
+        _adata = self.adata[self.adata.obs[self.labels_obs].isin(self.input_trajectories.nodes())]
+            
+        inference = InferenceClass(adata=_adata, labels=_adata.obs[self.labels_obs], **inference_params)
         inference.calculate()
         inferred_trajectories = inference.get_result("adjacency")
         inferred_trajectories_labels = inference.get_result("labels")

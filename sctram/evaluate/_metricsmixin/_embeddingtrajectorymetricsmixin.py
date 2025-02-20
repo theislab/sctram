@@ -584,6 +584,7 @@ class EmbeddingTrajectoryMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
             n_cells = self.prepared_after_subset_inferred.shape[0]
 
             # Find K+1 neighbors (excluding self)
+            self.logger.info(f"Nearest neighborhood are being calculated. This may take time.")
             nbrs = NearestNeighbors(n_neighbors=self._embedding_metrics_n_neighbors + 1, n_jobs=-1).fit(
                 self.prepared_after_subset_inferred
             )

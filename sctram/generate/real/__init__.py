@@ -3,3 +3,4 @@
 """Retrieve real datasets."""
 
 from sctram.generate.real._datasets import *  # noqa
+from sctram.generate.real._datasets import available_datasets  # noqa

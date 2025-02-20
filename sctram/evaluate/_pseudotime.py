@@ -75,8 +75,9 @@ class PseudotimeEvaluationBase(EvaluationBase):
             ValueError: there is inconsistency.
         """
         self.logger.debug("Checking the consistency between the given graph and labels.")
-        if len(self.inferred_trajectory) != len(self.labels):
-            raise ValueError("Datapoint amount in the inferred trajectory does not match the number of given labels.")
+        l1, l2 = len(self.inferred_trajectory), len(self.labels)
+        if l1 != l2:
+            raise ValueError(f"Datapoint amount in the inferred trajectory does not match the number of given labels: {l1!r} vs {l2!r}")
 
     def _prepare_before_subset(self) -> Tuple[np.ndarray, np.ndarray]:
         """Prepares the trajectories after subsetting. `_prepare_after_subset` is used instead.

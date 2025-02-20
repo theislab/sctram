@@ -52,6 +52,7 @@ dependencies:
     - python-dateutil #  Extensions to the standard Python datetime module
     - psutil>4 # System and process utilities # PhenoGraph dependency
     - rclone # File synchronization tool
+    - gdown # Google drive utility
     - jsonpickle # JSON serialization/deserialization
     - dill # Enhanced serialization for Python objects
     - pyyaml # YAML parsing and serialization

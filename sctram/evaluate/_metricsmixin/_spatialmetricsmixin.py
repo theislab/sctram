@@ -82,10 +82,14 @@ class SpatialMetricsMixin:
         # Build a mapping from label value to its index in adjacency_labels.
         label_to_index = {label: idx for idx, label in enumerate(adjacency_labels)}
 
-        try:  # Map each cell's label to its index in the PAGA matrix.
-            mapped_labels = np.array([label_to_index[label] for label in cell_labels])
-        except KeyError as e:
-            raise ValueError(f"Cell label {e} not found in adjacency_labels.") from None
+        # Map each cell's label to its index in the PAGA matrix.
+        mapped_labels = []
+        for _label in cell_labels:
+            try:
+                mapped_labels.append(label_to_index[_label])
+            except KeyError:
+                mapped_labels.append(np.nan)
+        mapped_labels = np.array(mapped_labels)
 
         n = cell_labels.size
         l = adjacency_labels.size
