@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+import sys
+working_directory = "/Users/kemalinecik/git_nosync/sctram"
+sys.path.append(working_directory)
+
 import math
 import itertools
 from typing import Optional
@@ -8,7 +12,7 @@ from sctram.evaluate._metrics.validators import validate_inclusive_between_0_1
 from sctram.utils._utils import Utils as U
 
 
-def ssim_repetitive_mean(given_matrix: np.ndarray, inferred_matrix: np.ndarray, validate_result: bool, repetition: int = 1, seed: Optional[int] = None) -> float:
+def ssim_mean(given_matrix: np.ndarray, inferred_matrix: np.ndarray, validate_result: bool, repetition: int = 10000, seed: int = 0) -> float:
     """Calculates the Structural Similarity Index (SSIM) between two images.
 
     SSIM is used to measure the similarity between two images. It is particularly useful in contexts where the visual similarity
@@ -63,7 +67,6 @@ def ssim_repetitive_mean(given_matrix: np.ndarray, inferred_matrix: np.ndarray, 
     total_perms = math.factorial(n)
     max_iterations = min(repetition, total_perms)
     values = []
-    seed = 0 if seed is None else seed
     local_rng = np.random.RandomState(seed)
     
     if repetition == 1:
@@ -75,7 +78,7 @@ def ssim_repetitive_mean(given_matrix: np.ndarray, inferred_matrix: np.ndarray, 
         strategy_threshold = math.factorial(9)
         if total_perms <= strategy_threshold:
             all_perms = list(itertools.permutations(range(n)))
-            local_rng.shuffle(all_perms)
+            local_rng.shuffle(all_perms)  # Use local RNG's shuffle
             selected_perms = all_perms[:max_iterations]
             selected_perms = [np.array(p) for p in selected_perms]
         
@@ -85,7 +88,7 @@ def ssim_repetitive_mean(given_matrix: np.ndarray, inferred_matrix: np.ndarray, 
             selected_perms = []
             used_perms = set()
             while len(selected_perms) < max_iterations:
-                local_rng.permutation(n)
+                perm = local_rng.permutation(n)  # Use local RNG's permutation
                 perm_tuple = tuple(perm)
                 if perm_tuple not in used_perms:
                     used_perms.add(perm_tuple)
@@ -95,10 +98,15 @@ def ssim_repetitive_mean(given_matrix: np.ndarray, inferred_matrix: np.ndarray, 
         for perm in selected_perms:
             permuted_given = given_matrix[perm][:, perm]
             permuted_inferred = inferred_matrix[perm][:, perm]
-            similarity, _ = ssim(permuted_given, permuted_inferred, full=True, data_range=data_range)
+            similarity, _ = ssim(
+                permuted_given, permuted_inferred,
+                full=True, data_range=data_range
+            )
             values.append(similarity)
         
         score = np.mean(values)
+        # print(values)
+        print(score)
     
     if validate_result:
         validate_inclusive_between_0_1(score=score)
