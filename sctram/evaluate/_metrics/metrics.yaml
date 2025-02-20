@@ -49,8 +49,8 @@ metrics:
     category: adjacency
     message: "F1 Score with binarization"
     validate_result: True
-  - base_function: ssim_mean   # Function name in the module.
-    module: _ssim_mean   # Python module where the metric is defined in sctram.evaluate._metrics. This is a python file.
+  - base_function: permutation_marginalized_ssim   # Function name in the module.
+    module: _permutation_marginalized_ssim   # Python module where the metric is defined in sctram.evaluate._metrics. This is a python file.
     category: adjacency
-    message: "Structural Similarity Index (SSIM)"
+    message: "Permutation-Marginalized Structural Similarity Index (SSIM)"
     validate_result: True
