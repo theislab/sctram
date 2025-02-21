@@ -120,6 +120,7 @@ class AdjacencyMatrixEvaluation(AdjacencyMetricsMixin, EvaluationBase):
             raise ValueError("Given and inferred adjacency matrices must have the same shape for comparison.")
 
         self.logger.debug("Assigned prepared adjacency matrices before subsetting.")
+        # TODO: Utils.adjacency test.
         return given_adj_matrix, self.inferred_trajectory.copy()
 
     def _subset(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:

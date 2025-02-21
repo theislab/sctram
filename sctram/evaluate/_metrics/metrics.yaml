@@ -4,53 +4,78 @@ metrics:
     category: adjacency
     message: "Frobenius norm of the difference"
     validate_result: True
-  - base_function: l1_norm   # Function name in the module.
-    module: _l1_norm   # Python module where the metric is defined in sctram.evaluate._metrics. This is a python file.
+  - base_function: l1_norm
+    module: _l1_norm
     category: adjacency
     message: "L1 norm (Manhattan distance)"
     validate_result: True
-  - base_function: accuracy   # Function name in the module.
-    module: _accuracy   # Python module where the metric is defined in sctram.evaluate._metrics. This is a python file.
+  - base_function: accuracy
+    module: _accuracy
     category: adjacency
     message: "Accuracy with binarization"
     validate_result: True
-  - base_function: graph_edit_distance   # Function name in the module.
-    module: _graph_edit_distance   # Python module where the metric is defined in sctram.evaluate._metrics. This is a python file.
+  - base_function: graph_edit_distance
+    module: _graph_edit_distance
     category: adjacency
     message: "Graph Edit Distance (GED) with binarization"
     validate_result: True
-  - base_function: spectral_distance   # Function name in the module.
-    module: _spectral_distance   # Python module where the metric is defined in sctram.evaluate._metrics. This is a python file.
+  - base_function: spectral_distance
+    module: _spectral_distance
     category: adjacency
     message: "Spectral Distance"
     validate_result: True
-  - base_function: jaccard_similarity   # Function name in the module.
-    module: _jaccard_similarity   # Python module where the metric is defined in sctram.evaluate._metrics. This is a python file.
+  - base_function: jaccard_similarity
+    module: _jaccard_similarity
     category: adjacency
     message: "Jaccard Similarity with binarization"
     validate_result: True
-  - base_function: hamming_distance   # Function name in the module.
-    module: _hamming_distance   # Python module where the metric is defined in sctram.evaluate._metrics. This is a python file.
+  - base_function: hamming_distance
+    module: _hamming_distance
     category: adjacency
     message: "Hamming Distance with binarization"
     validate_result: True
-  - base_function: recall   # Function name in the module.
-    module: _precision_recall_f1   # Python module where the metric is defined in sctram.evaluate._metrics. This is a python file.
+  - base_function: recall
+    module: _precision_recall_f1
     category: adjacency
     message: "Recall with binarization"
     validate_result: True
-  - base_function: precision   # Function name in the module.
-    module: _precision_recall_f1   # Python module where the metric is defined in sctram.evaluate._metrics. This is a python file.
+  - base_function: precision
+    module: _precision_recall_f1
     category: adjacency
     message: "Precision with binarization"
     validate_result: True
-  - base_function: f1_score   # Function name in the module.
-    module: _precision_recall_f1   # Python module where the metric is defined in sctram.evaluate._metrics. This is a python file.
+  - base_function: f1_score
+    module: _precision_recall_f1
     category: adjacency
     message: "F1 Score with binarization"
     validate_result: True
-  - base_function: permutation_marginalized_ssim   # Function name in the module.
-    module: _permutation_marginalized_ssim   # Python module where the metric is defined in sctram.evaluate._metrics. This is a python file.
+  - base_function: permutation_marginalized_ssim
+    module: _permutation_marginalized_ssim
     category: adjacency
     message: "Permutation-Marginalized Structural Similarity Index (SSIM)"
+    validate_result: True
+  - base_function: mantel_correlation
+    module: _mantel_correlation
+    category: adjacency
+    message: "Mantel correlation"
+    validate_result: True
+  - base_function: average_shortest_path_difference
+    module: _average_shortest_path_difference
+    category: adjacency
+    message: "Average shortest path difference"
+    validate_result: True
+  - base_function: laplacian_spectral_emd
+    module: _laplacian_spectral_emd
+    category: adjacency
+    message: "Laplacian eigenvalue spectra EMD"
+    validate_result: True
+  - base_function: clustering_coeff_diff
+    module: _clustering_coeff_diff
+    category: adjacency
+    message: "Laplacian eigenvalue spectra EMD"
+    validate_result: True
+  - base_function: gdv_similarity
+    module: _gdv_similarity
+    category: adjacency
+    message: "Graphlet Degree Vectors (GDVs) Similary with binarization"
     validate_result: True

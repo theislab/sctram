@@ -27,4 +27,7 @@ def validate_inclusive_between_0_1(score):
     if not (score >= 0 and score <= 1):
         raise MetricValidationError(f"Score must in the following range: [0, 1], got {score !r}.")
     
-    
+def validate_between_minus_plus_1(score):
+    validate_numeric(score=score)
+    if not (score >= -1 and score <= 1):
+        raise MetricValidationError(f"Score must in the following range: [-1, 1], got {score !r}.")

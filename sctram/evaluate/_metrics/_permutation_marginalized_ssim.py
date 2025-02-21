@@ -12,14 +12,14 @@ from sctram.evaluate._metrics.validators import validate_inclusive_between_0_1
 from sctram.utils._utils import Utils as U
 
 
-def permutation_marginalized_ssim(given_matrix: np.ndarray, inferred_matrix: np.ndarray, validate_result: bool, repetition: int = 10000, seed: int = 0) -> float:
+def permutation_marginalized_ssim(given_matrix: np.ndarray, inferred_matrix: np.ndarray, validate_result: bool, permutations: int = 10000, seed: int = 0) -> float:
     """Calculates the Permutation-Marginalized Structural Similarity Index (SSIM) between two images.
 
     SSIM is used to measure the similarity between two images. It is particularly useful in contexts where the visual similarity
     of the images is important. This function is adapted to compare two adjacency matrices representing graph structures, assuming
     they are used as intensity images. SSIM is a comprehensive measure that evaluates brightness, contrast, and structure similarity.
-    If `repetition` > 0, it averages the SSIM over `repetition` random permutations of the rows and columns (or 
-    all permutations if there are fewer than `repetition`). This is useful for graph adjacency matrices where node 
+    If `permutations` > 0, it averages the SSIM over `permutations` random permutations of the rows and columns (or 
+    all permutations if there are fewer than `permutations`). This is useful for graph adjacency matrices where node 
     labels might be permuted.
     
     Defense of the Approach:
@@ -44,7 +44,7 @@ def permutation_marginalized_ssim(given_matrix: np.ndarray, inferred_matrix: np.
     Parameters:
         given_matrix (np.ndarray): A numpy array representing the first image or graph adjacency matrix.
         inferred_matrix (np.ndarray): A numpy array representing the second image or graph adjacency matrix.
-        repetition (int): Number of permutations to average over. If `repetition=0`, computes SSIM without permutation.
+        permutations (int): Number of permutations to average over. If `permutations=0`, computes SSIM without permutation.
         validate_result (bool): A bool deciding whether or not to validate the score.
         seed (int, optional): Seed for deterministic permutations. If provided, ensures reproducibility.
 
@@ -73,10 +73,10 @@ def permutation_marginalized_ssim(given_matrix: np.ndarray, inferred_matrix: np.
     from skimage.metrics import structural_similarity as ssim
 
     # Validate inputs
-    if not isinstance(repetition, int) or repetition < 1:
-        raise ValueError("`repetition` must be an integer >= 1.")
-    if repetition > 1e4:  # this is to while loop ensure large_strategy below finishes quickly.
-        raise ValueError("`repetition` must be lower than '1e4'.")
+    if not isinstance(permutations, int) or permutations < 1:
+        raise ValueError("`permutations` must be an integer >= 1.")
+    if permutations > 1e4:  # this is to while loop ensure large_strategy below finishes quickly.
+        raise ValueError("`permutations` must be lower than '1e4'.")
     
     U.validate_adjacency_matrix(given_matrix)
     U.validate_adjacency_matrix(inferred_matrix)
@@ -86,11 +86,11 @@ def permutation_marginalized_ssim(given_matrix: np.ndarray, inferred_matrix: np.
     n = given_matrix.shape[0]
     data_range = given_matrix.max() - given_matrix.min()
     total_perms = math.factorial(n)
-    max_iterations = min(repetition, total_perms)
+    max_iterations = min(permutations, total_perms)
     values = []
     local_rng = np.random.RandomState(seed)
     
-    if repetition == 1:
+    if permutations == 1:
         score, _ = ssim(given_matrix, inferred_matrix, full=True, data_range=data_range)
     
     else:
