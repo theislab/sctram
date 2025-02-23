@@ -82,5 +82,10 @@ metrics:
   - base_function: weisfeiler_lehman_distance
     module: _weisfeiler_lehman_distance
     category: adjacency
-    message: "Weisfeiler-Lehman subtree kernel distance"
+    message: "Weisfeiler-Lehman subtree kernel distance with binarization"
+    validate_result: True
+  - base_function: gin_gnn_similarity
+    module: _gin_gnn_similarity
+    category: adjacency
+    message: "GNN-based similarity with GIN architecture with binarization"
     validate_result: True
