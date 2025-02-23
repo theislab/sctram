@@ -79,3 +79,8 @@ metrics:
     category: adjacency
     message: "Graphlet Degree Vectors (GDVs) Similary with binarization"
     validate_result: True
+  - base_function: weisfeiler_lehman_distance
+    module: _weisfeiler_lehman_distance
+    category: adjacency
+    message: "Weisfeiler-Lehman subtree kernel distance"
+    validate_result: True
