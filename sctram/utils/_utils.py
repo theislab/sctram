@@ -3,6 +3,7 @@
 from loguru._logger import Logger
 import numpy as np
 import networkx as nx
+import inspect
 
 
 class Utils:
@@ -112,3 +113,14 @@ class Utils:
         symetrical_graph = g.to_symetrical_multidigraph()  # to have symetrical adjacency matrices
         adj_matrix = nx.to_numpy_array(symetrical_graph, nodelist=nodelist_filter_and_order)
         return adj_matrix
+    
+    @staticmethod
+    def requires_argument(func, arg_name):
+        """Check if function `f` requires an argument `arg_name`."""
+        sig = inspect.signature(func)
+        param = sig.parameters.get(arg_name)
+
+        if param is None:
+            return False  # The function does not have an `x` argument
+
+        return param.default == inspect.Parameter.empty  # True if `x` has no default value (i.e., required)

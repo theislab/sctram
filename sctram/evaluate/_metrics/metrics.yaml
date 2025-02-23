@@ -87,5 +87,20 @@ metrics:
   - base_function: gin_gnn_similarity
     module: _gin_gnn_similarity
     category: adjacency
-    message: "GNN-based similarity with GIN architecture with binarization"
+    message: "GNN-based similarity with GIN architecture with semi-binarization"
+    validate_result: True
+  - base_function: maximum_common_subgraph_distance
+    module: _maximum_common_subgraph_distance
+    category: adjacency
+    message: "Maximum Common Subgraph (MCS) distance with binarization"
+    validate_result: True
+  - base_function: random_walk_kernel_distance
+    module: _random_walk_kernel_distance
+    category: adjacency
+    message: "Maximum Common Subgraph (MCS) distance with binarization"
+    validate_result: True
+  - base_function: persistence_diagram_distance
+    module: _persistence_diagram_distance
+    category: adjacency
+    message: "Persistence Diagram Distance"
     validate_result: True

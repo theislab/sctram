@@ -95,6 +95,7 @@ dependencies:
     - deprecated # Deprecation utilities # scib dependency
     - umap-learn>=0.5.0 # Dimensionality reduction technique # scib dependency
     - gudhi # Library for topological data analysis (TDA) and simplicial complexes
+    - eagerpy # Needed for gudhi wasserstein method.
     - openpyxl>=3.0.4 # celltypist dependency
 
     # Visualization

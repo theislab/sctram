@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 
-import sys
-working_directory = "/Users/kemalinecik/git_nosync/sctram"
-sys.path.append(working_directory)
-
 import math
 import itertools
 from typing import Optional
@@ -12,7 +8,7 @@ from sctram.evaluate._metrics.validators import validate_inclusive_between_0_1
 from sctram.utils._utils import Utils as U
 
 
-def permutation_marginalized_ssim(given_matrix: np.ndarray, inferred_matrix: np.ndarray, validate_result: bool, permutations: int = 10000, seed: int = 0) -> float:
+def permutation_marginalized_ssim(given_adjacency_matrix: np.ndarray, inferred_adjacency_matrix: np.ndarray, validate_result: bool, permutations: int = 10000, seed: int = 0) -> float:
     """Calculates the Permutation-Marginalized Structural Similarity Index (SSIM) between two images.
 
     SSIM is used to measure the similarity between two images. It is particularly useful in contexts where the visual similarity
@@ -78,20 +74,20 @@ def permutation_marginalized_ssim(given_matrix: np.ndarray, inferred_matrix: np.
     if permutations > 1e4:  # this is to while loop ensure large_strategy below finishes quickly.
         raise ValueError("`permutations` must be lower than '1e4'.")
     
-    U.validate_adjacency_matrix(given_matrix)
-    U.validate_adjacency_matrix(inferred_matrix)
-    if given_matrix.shape != inferred_matrix.shape:
+    U.validate_adjacency_matrix(given_adjacency_matrix)
+    U.validate_adjacency_matrix(inferred_adjacency_matrix)
+    if given_adjacency_matrix.shape != inferred_adjacency_matrix.shape:
         raise ValueError("Matrices must have the same shape.")
     
-    n = given_matrix.shape[0]
-    data_range = given_matrix.max() - given_matrix.min()
+    n = given_adjacency_matrix.shape[0]
+    data_range = given_adjacency_matrix.max() - given_adjacency_matrix.min()
     total_perms = math.factorial(n)
     max_iterations = min(permutations, total_perms)
     values = []
     local_rng = np.random.RandomState(seed)
     
     if permutations == 1:
-        score, _ = ssim(given_matrix, inferred_matrix, full=True, data_range=data_range)
+        score, _ = ssim(given_adjacency_matrix, inferred_adjacency_matrix, full=True, data_range=data_range)
     
     else:
         # Small n (Total permutations ≤ 362,880): Generate all permutations using itertools.permutations, 
@@ -117,8 +113,8 @@ def permutation_marginalized_ssim(given_matrix: np.ndarray, inferred_matrix: np.
         
         # Compute SSIM for each permutation
         for perm in selected_perms:
-            permuted_given = given_matrix[perm][:, perm]
-            permuted_inferred = inferred_matrix[perm][:, perm]
+            permuted_given = given_adjacency_matrix[perm][:, perm]
+            permuted_inferred = inferred_adjacency_matrix[perm][:, perm]
             similarity, _ = ssim(
                 permuted_given, permuted_inferred,
                 full=True, data_range=data_range

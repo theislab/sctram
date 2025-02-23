@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 
-# import sys
-# working_directory = "/Users/kemalinecik/git_nosync/sctram"
-# sys.path.append(working_directory)
-
 import numpy as np
 import networkx as nx
 from collections import Counter

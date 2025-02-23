@@ -90,7 +90,7 @@ def description_creator(message: str, category: str, score: float, time: float, 
     time_str = f"{time:.4f} sec"
     
     # Compose the description string
-    description = f"Metric Description: {message!r} ({category_pretty}), Score: {score_str!r}, Computation Time: {time_str!r}"
+    description = f"Metric: {message!r} ({category_pretty}), Score: {score_str!r}, Computation Time: {time_str!r}"
     if error_message:
         description += f", Error: {error_message!r}"
         

@@ -43,12 +43,12 @@ def graph_edit_distance(given_adjacency_matrix: np.ndarray,
         - The computed value represents the minimum number of edit operations needed for transformation.
     """
     # Convert the given adjacency matrix to a NetworkX graph. This is already binary
-    g1 = nx.from_numpy_array(given_adjacency_matrix, create_using=nx.Graph)
+    g1 = nx.from_numpy_array(given_adjacency_matrix)
     
     # Binarize the inferred adjacency matrix using the provided threshold.
     inferred_binary = (inferred_adjacency_matrix >= threshold).astype(int)
-    g2 = nx.from_numpy_array(inferred_binary, create_using=nx.Graph)
-    ged = nx.graph_edit_distance(g1, g2)
+    g2 = nx.from_numpy_array(inferred_binary)
+    ged = nx.graph_edit_distance(g1, g2, timeout=3600)
     
     if validate_result:
         validate_zero_or_positive(ged)
