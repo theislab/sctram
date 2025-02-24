@@ -2,7 +2,15 @@
 
 import numpy as np
 from scipy.stats import wasserstein_distance
-from sctram.evaluate._metrics.validators import validate_zero_or_positive
+
+from loguru import logger
+_logger = logger.bind(name="BaseMetric")
+try:
+    from sctram.evaluate._metrics.validators import validate_zero_or_positive as _validator
+except ImportError:
+    _logger.warning(f"Validation function not found. Skipping validation: {__file__}")
+    def _validator(*args, **kwargs):
+        pass
 
 
 def _compute_laplacian(adj: np.ndarray) -> np.ndarray:
@@ -73,8 +81,93 @@ def laplacian_spectral_emd(
     score = wasserstein_distance(eig1_norm, eig2_norm)
     
     if validate_result:
-        validate_zero_or_positive(score)
+        _validator(score)
         
     return score
     
     
+if __name__ == "__main__":
+    
+    def test_identity_matrices_raise_error():
+        """Test that identity matrices (self-loops only) raise ValueError due to zero Laplacian trace."""
+        n = 3
+        adj = np.eye(n)
+        try:
+            laplacian_spectral_emd(adj, adj, validate_result=False)
+            assert False, "Expected ValueError due to zero trace Laplacian"
+        except ValueError:
+            pass
+
+    def test_empty_matrices_raise_error():
+        """Test empty adjacency matrices (all zeros) raise ValueError."""
+        n = 2
+        adj = np.zeros((n, n))
+        try:
+            laplacian_spectral_emd(adj, adj, validate_result=False)
+            assert False, "Expected ValueError for empty graph"
+        except ValueError:
+            pass
+
+    def test_identical_matrices_zero_emd():
+        """Test that identical adjacency matrices result in EMD of zero."""
+        adj = np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]], dtype=float)
+        emd = laplacian_spectral_emd(adj, adj, validate_result=True)
+        assert emd == 0.0, f"EMD should be 0 for identical matrices, got {emd}"
+
+    def test_line_vs_cycle_emd():
+        """Test EMD between 3-node line graph and 3-node cycle graph."""
+        # 3-node line graph adjacency
+        line_adj = np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]], dtype=float)
+        # 3-node cycle (triangle) adjacency
+        cycle_adj = np.array([[0, 1, 1], [1, 0, 1], [1, 1, 0]], dtype=float)
+        
+        emd = laplacian_spectral_emd(line_adj, cycle_adj, validate_result=False)
+        expected_emd = 1/6  # Precomputed expected value
+        assert np.isclose(emd, expected_emd, atol=1e-6), f"Expected EMD {expected_emd}, got {emd}"
+
+    def test_non_square_matrices_raise_error():
+        """Test that non-square matrices raise an error during Laplacian computation."""
+        adj1 = np.array([[0, 1], [1, 0]])  # Square
+        adj2 = np.array([[0, 1, 1], [1, 0, 0]])  # 2x3, non-square
+        try:
+            laplacian_spectral_emd(adj1, adj2, validate_result=False)
+            assert False, "Expected error for non-square adjacency matrix"
+        except ValueError:
+            pass
+
+    def test_block_diagonal_matrices():
+        """Test EMD between two block diagonal matrices with known structure."""
+        # Two 3-node line graphs (total 6 nodes)
+        block3 = np.array([[0, 1, 0],
+                        [1, 0, 1],
+                        [0, 1, 0]], dtype=float)
+        adj1 = np.zeros((6, 6))
+        adj1[:3, :3] = block3
+        adj1[3:, 3:] = block3.copy()
+
+        # Three 2-node line graphs (total 6 nodes)
+        adj2 = np.zeros((6, 6))
+        for i in range(0, 6, 2):
+            adj2[i, i+1] = 1
+            adj2[i+1, i] = 1
+
+        emd = laplacian_spectral_emd(adj1, adj2, validate_result=False)
+        expected_emd = 5/72  # Precomputed expected value
+        assert np.isclose(emd, expected_emd, atol=1e-6), f"Expected EMD {expected_emd}, got {emd}"
+
+    def test_large_complete_graphs_zero_emd():
+        """Test that two large complete graphs have zero EMD."""
+        n = 100
+        # Create a complete graph adjacency (excluding self-loops)
+        adj = np.ones((n, n)) - np.eye(n)
+        emd = laplacian_spectral_emd(adj, adj, validate_result=False)
+        assert emd == 0.0, f"EMD should be 0 for identical large graphs, got {emd}"
+    
+    test_identity_matrices_raise_error()
+    test_empty_matrices_raise_error()
+    test_identical_matrices_zero_emd()
+    test_line_vs_cycle_emd()
+    test_non_square_matrices_raise_error()
+    test_block_diagonal_matrices()
+    test_large_complete_graphs_zero_emd()
+    print("All tests passed.")

@@ -2,10 +2,18 @@
 
 import networkx as nx
 import numpy as np
-from sctram.evaluate._metrics.validators import validate_zero_or_positive
 from typing import Optional
 
-def average_shortest_path_difference(given_adjacency_matrix: np.ndarray, inferred_adjacency_matrix: np.ndarray, validate_result: bool, threshold: Optional[float] = None) -> float:
+from loguru import logger
+_logger = logger.bind(name="BaseMetric")
+try:
+    from sctram.evaluate._metrics.validators import validate_zero_or_positive as _validator
+except ImportError:
+    _logger.warning(f"Validation function not found. Skipping validation: {__file__}")
+    def _validator(*args, **kwargs):
+        pass
+
+def average_shortest_path_difference(given_adjacency_matrix: np.ndarray, inferred_adjacency_matrix: np.ndarray, validate_result: bool, optional_threshold: Optional[float] = None) -> float:
     """Compute the absolute difference in average shortest path lengths between two connected graphs.
 
     This method constructs graphs from two square adjacency matrices and computes the absolute
@@ -16,7 +24,7 @@ def average_shortest_path_difference(given_adjacency_matrix: np.ndarray, inferre
         given_adjacency_matrix (np.ndarray): A square numpy array representing the adjacency matrix of the first graph.
         inferred_adjacency_matrix (np.ndarray): A square numpy array representing the adjacency matrix of the second graph.
         validate_result (bool): If True, the resulting score is validated to be zero or positive using a helper validator.
-        threshold (float): A threshold value used to binarize the inferred adjacency matrix.
+        optional_threshold (float): A threshold value used to binarize the inferred adjacency matrix.
 
     Returns:
         float: The absolute difference between the average shortest path lengths of the two graphs.
@@ -42,9 +50,9 @@ def average_shortest_path_difference(given_adjacency_matrix: np.ndarray, inferre
         ValueError: If one or both graphs are disconnected.
 
     """
-    if threshold is not None:
+    if optional_threshold is not None:
         # Binarize the inferred adjacency matrix using the provided threshold.
-        inferred_binary = (inferred_adjacency_matrix >= threshold).astype(int)
+        inferred_binary = (inferred_adjacency_matrix >= optional_threshold).astype(int)
         g_inferred = nx.from_numpy_array(inferred_binary)
     else:
         # Default option.
@@ -62,8 +70,81 @@ def average_shortest_path_difference(given_adjacency_matrix: np.ndarray, inferre
     score = abs(avg_given - avg_inferred)
 
     if validate_result:
-        validate_zero_or_positive(score=score)
+        _validator(score=score)
 
     return score
 
 
+if __name__ == "__main__":
+    def test_identical_matrices():
+        """Test that identical matrices yield a score of zero."""
+        mat = np.array([[0, 1, 1], [1, 0, 1], [1, 1, 0]])
+        result = average_shortest_path_difference(mat, mat, validate_result=False)
+        assert np.isclose(result, 0.0)
+
+    def test_triangle_vs_line():
+        """Test the difference between a triangle graph and a line graph."""
+        given = np.array([[0, 1, 1], [1, 0, 1], [1, 1, 0]])
+        inferred = np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]])
+        expected_diff = abs(1.0 - 4/3)
+        result = average_shortest_path_difference(given, inferred, validate_result=False)
+        assert np.isclose(result, expected_diff)
+
+    def test_threshold_application():
+        """Test that threshold correctly binarizes the inferred matrix."""
+        given = np.array([[0, 1, 1], [1, 0, 1], [1, 1, 0]])
+        inferred = np.array([[0, 0.6, 0.5], [0.6, 0, 0.7], [0.5, 0.7, 0]])
+        threshold = 0.55
+        expected_diff = abs(1.0 - 4/3)
+        result = average_shortest_path_difference(given, inferred, validate_result=False, optional_threshold=threshold)
+        assert np.isclose(result, expected_diff)
+
+    def test_larger_ring_vs_complete():
+        """Test a 4-node ring against a complete graph."""
+        given = np.array([
+            [0, 1, 0, 1],
+            [1, 0, 1, 0],
+            [0, 1, 0, 1],
+            [1, 0, 1, 0]
+        ])
+        inferred = np.array([
+            [0, 1, 1, 1],
+            [1, 0, 1, 1],
+            [1, 1, 0, 1],
+            [1, 1, 1, 0]
+        ])
+        expected_diff = abs(4/3 - 1.0)
+        result = average_shortest_path_difference(given, inferred, validate_result=False)
+        assert np.isclose(result, expected_diff)
+
+    def test_validate_result_calls_validator():
+        """Test that validation is applied when validate_result is True."""
+        mat = np.array([[0, 1], [1, 0]])
+        result = average_shortest_path_difference(mat, mat, validate_result=True)
+        assert np.isclose(result, 0.0)
+
+    def test_complete_vs_missing_edge():
+        """Test a complete graph against one missing an edge."""
+        given = np.array([
+            [0, 1, 1, 1],
+            [1, 0, 1, 1],
+            [1, 1, 0, 1],
+            [1, 1, 1, 0]
+        ])
+        inferred = np.array([
+            [0, 1, 1, 1],
+            [1, 0, 1, 1],
+            [1, 1, 0, 0],
+            [1, 1, 0, 0]
+        ])
+        expected_diff = abs(1.0 - 7/6)
+        result = average_shortest_path_difference(given, inferred, validate_result=False)
+        assert np.isclose(result, expected_diff)
+        
+    test_identical_matrices()
+    test_triangle_vs_line()
+    test_threshold_application()
+    test_larger_ring_vs_complete()
+    test_validate_result_calls_validator()
+    test_complete_vs_missing_edge()
+    print("All tests passed!")

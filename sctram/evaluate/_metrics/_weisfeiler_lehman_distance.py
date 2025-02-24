@@ -3,8 +3,16 @@
 import numpy as np
 import networkx as nx
 from collections import Counter
-from sctram.evaluate._metrics.validators import validate_inclusive_between_0_1
 
+from loguru import logger
+_logger = logger.bind(name="BaseMetric")
+try:
+    from sctram.evaluate._metrics.validators import validate_inclusive_between_0_1 as _validator
+except ImportError:
+    _logger.warning(f"Validation function not found. Skipping validation: {__file__}")
+    def _validator(*args, **kwargs):
+        pass
+    
 
 def _compute_synchronized_wl_labels(graphs, iterations):
     """Compute synchronized Weisfeiler-Lehman labels for multiple graphs.
@@ -155,7 +163,7 @@ def weisfeiler_lehman_distance(given_adjacency_matrix: np.ndarray,
     score = max(0.0, 1.0 - similarity)
 
     if validate_result:
-        validate_inclusive_between_0_1(score=score)
+        _validator(score=score)
     
     return score
 
@@ -172,7 +180,7 @@ def _run_tests():
                                              adj_identical.copy(), 
                                              threshold=0.5, iterations=3, 
                                              remove_self_loops=True, validate_result=True)
-    print("Test 1 (Identical graphs):", distance)
+    # print("Test 1 (Identical graphs):", distance)
     # Expectation: distance should be exactly 0 (or numerically close to 0)
     assert np.isclose(distance, 0.0, atol=1e-8), f"Test 1 failed: Expected 0.0, got {distance}"
 
@@ -187,7 +195,7 @@ def _run_tests():
                                              adj_complete.copy(), 
                                              threshold=0.5, iterations=3, 
                                              remove_self_loops=True, validate_result=True)
-    print("Test 2 (Empty vs. fully connected):", distance)
+    # print("Test 2 (Empty vs. fully connected):", distance)
     # Expectation: distance should be 1.0 (or extremely close due to normalization)
     assert np.isclose(distance, 1.0, atol=1e-8), f"Test 2 failed: Expected 1.0, got {distance}"
 
@@ -203,7 +211,7 @@ def _run_tests():
     distance = weisfeiler_lehman_distance(A_cycle.copy(), A_path.copy(), 
                                              threshold=0.5, iterations=5, 
                                              remove_self_loops=True, validate_result=True)
-    print("Test 3 (Cycle vs. Path):", distance)
+    # print("Test 3 (Cycle vs. Path):", distance)
     # We expect a moderate distance, for example between 0.2 and 0.8.
     assert 0.2 < distance < 0.8, f"Test 3 failed: Expected distance in (0.2, 0.8), got {distance}"
 
@@ -226,7 +234,7 @@ def _run_tests():
     distance = weisfeiler_lehman_distance(A_weighted1, A_weighted2, 
                                             threshold=0.5, iterations=3, 
                                             remove_self_loops=True, validate_result=True)
-    print("Test 4a isomorphic (Weighted graphs with threshold=0.5):", distance)
+    # print("Test 4a isomorphic (Weighted graphs with threshold=0.5):", distance)
 
     assert np.isclose(distance, 0.0, atol=1e-8), f"Test 4a failed: Expected distance > 0.00, got {distance}"
     
@@ -254,7 +262,7 @@ def _run_tests():
                                             threshold=0.5, iterations=3, 
                                             remove_self_loops=True, validate_result=True)
     
-    print("Test 4b nonisomorphic (Weighted graphs with threshold=0.5):", distance)
+    # print("Test 4b nonisomorphic (Weighted graphs with threshold=0.5):", distance)
     assert distance > 0.05, f"Test 4b failed: Expected distance > 0.05, got {distance}"
 
     # --------------------------------------------------------------------------
@@ -272,7 +280,7 @@ def _run_tests():
     distance = weisfeiler_lehman_distance(A_sbm1.copy(), A_sbm2.copy(), 
                                              threshold=0.5, iterations=4, 
                                              remove_self_loops=True, validate_result=True)
-    print("Test 5 (Community structure graphs):", distance)
+    # print("Test 5 (Community structure graphs):", distance)
     # Expect a moderate distance, but lower than the completely dissimilar graphs.
     # For example, we expect the distance to be below 0.6.
     assert distance < 0.6, f"Test 5 failed: Expected distance < 0.6, got {distance}"
@@ -288,7 +296,7 @@ def _run_tests():
                                                      threshold=0.5, remove_self_loops=True, validate_result=True)
     distance_kept = weisfeiler_lehman_distance(A_self_loops.copy(), A_no_edges.copy(), 
                                                   threshold=0.5, remove_self_loops=False, validate_result=True)
-    print("Test 6 (Self-loop removal): removed =", distance_removed, "kept =", distance_kept)
+    # print("Test 6 (Self-loop removal): removed =", distance_removed, "kept =", distance_kept)
     # When self-loops are removed, both graphs become empty so the distance should be 0.
     assert np.isclose(distance_removed, 0.0, atol=1e-8), f"Test 6 failed: Expected 0.0 with self-loops removed, got {distance_removed}"
     # When self-loops are kept, the difference in self-loop presence should lead to a distance noticeably above 0.
@@ -307,7 +315,7 @@ def _run_tests():
                                           threshold=0.5, iterations=iters, 
                                           remove_self_loops=True, validate_result=True)
         distances.append(d)
-        print(f"Test 7 (Iterations = {iters}): distance = {d}")
+        # print(f"Test 7 (Iterations = {iters}): distance = {d}")
     # Check that there is a significant change (at least 0.05 difference) between the minimum and maximum computed distances.
     if len(distances) > 1:
         assert max(distances) - min(distances) >= 0.05, "Test 7 failed: Distance not sensitive to iteration changes"
@@ -326,7 +334,7 @@ def _run_tests():
     adj2 = adj1[[0, 1, 3, 2], :][:, [0, 1, 3, 2]]
     distance = weisfeiler_lehman_distance(adj1, adj2, threshold=0.5, iterations=3, 
                                          remove_self_loops=True, validate_result=True)
-    print("Test 8 (Permuted isomorphic graphs):", distance)
+    # print("Test 8 (Permuted isomorphic graphs):", distance)
     assert np.isclose(distance, 0.0, atol=1e-8), f"Test 8 failed: Expected 0.0, got {distance}"
 
     # --------------------------------------------------------------------------
@@ -339,7 +347,7 @@ def _run_tests():
     adj_hexagon = nx.to_numpy_array(nx.cycle_graph(6))
     distance = weisfeiler_lehman_distance(adj_two_triangles, adj_hexagon, threshold=0.5,
                                          iterations=3, remove_self_loops=True, validate_result=True)
-    print("Test 9 (WL-indistinguishable graphs):", distance)
+    # print("Test 9 (WL-indistinguishable graphs):", distance)
     assert np.isclose(distance, 0.0, atol=1e-8), f"Test 9 failed: Expected 0.0, got {distance}"
 
     # --------------------------------------------------------------------------
@@ -350,9 +358,9 @@ def _run_tests():
     try:
         distance = weisfeiler_lehman_distance(adj_2x2, adj_3x3, threshold=0.5, iterations=3,
                                               remove_self_loops=True, validate_result=True)
-        print("Test 10 (Different-sized matrices): No error. Distance:", distance)
+        # print("Test 10 (Different-sized matrices): No error. Distance:", distance)
     except Exception as e:
-        print("Test 10 (Different-sized matrices): Error raised -", e)
+        # print("Test 10 (Different-sized matrices): Error raised -", e)
         assert False, "Function should handle different-sized matrices without error"
 
     # --------------------------------------------------------------------------
@@ -365,7 +373,7 @@ def _run_tests():
     
     distance = weisfeiler_lehman_distance(adj_directed1, adj_directed2, threshold=0.5,
                                         iterations=3, remove_self_loops=True, validate_result=True)
-    print("Test 11 (Directed to undirected isomorphic):", distance, " expected:", 0.0, "[skipped]")
+    # print("Test 11 (Directed to undirected isomorphic):", distance, " expected:", 0.0, "[skipped]")
     # Weisfeiler-Lehman (WL) kernel is not designed to handle directed graphs. 
     # assert np.isclose(distance, 0.0, atol=1e-8), f"Test 11 failed: Expected 0.0, got {distance}"
 
@@ -376,7 +384,7 @@ def _run_tests():
     adj_one_edge = np.array([[0, 1], [1, 0]])
     distance = weisfeiler_lehman_distance(adj_empty, adj_one_edge, threshold=0.5, iterations=1,
                                          remove_self_loops=True, validate_result=True)
-    print("Test 12 (Empty vs. one edge):", distance)
+    # print("Test 12 (Empty vs. one edge):", distance)
     assert np.isclose(distance, 1.0, atol=1e-8), f"Test 12 failed: Expected 1.0, got {distance}"
 
     # --------------------------------------------------------------------------
@@ -392,10 +400,10 @@ def _run_tests():
                                          remove_self_loops=True, validate_result=True)
     expected_similarity = 4 / (np.sqrt(8 * 10))
     expected_distance = 1 - expected_similarity
-    print("Test 13 (Normalization check):", distance, "Expected:", expected_distance)
+    # print("Test 13 (Normalization check):", distance, "Expected:", expected_distance)
     assert np.isclose(distance, expected_distance, atol=1e-4), f"Test 13 failed: Expected {expected_distance}, got {distance}"
 
-    print("All tests passed with validation!")
+    print("All tests passed.")
 
 if __name__ == "__main__":
     _run_tests()

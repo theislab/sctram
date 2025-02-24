@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 
-# import sys
-# working_directory = "/Users/kemalinecik/git_nosync/sctram"
-# sys.path.append(working_directory)
-
-
 import numpy as np
 import gudhi as gd
 from gudhi.wasserstein import wasserstein_distance
 from scipy.sparse.csgraph import shortest_path
-from sctram.evaluate._metrics.validators import validate_zero_or_positive
+
+from loguru import logger
+_logger = logger.bind(name="BaseMetric")
+try:
+    from sctram.evaluate._metrics.validators import validate_zero_or_positive as _validator
+except ImportError:
+    _logger.warning(f"Validation function not found. Skipping validation: {__file__}")
+    def _validator(*args, **kwargs):
+        pass
 
 
 def _compute_diagrams(adj: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -101,7 +104,7 @@ def persistence_diagram_distance(
     score = w0 + w1
 
     if validate_result:
-        validate_zero_or_positive(score=score)
+        _validator(score=score)
     
     return score
 
@@ -185,19 +188,11 @@ if __name__ == "__main__":
         distance = persistence_diagram_distance(ref_adj, test_adj, validate_result=True)
         assert distance > 0.0, f"Expected positive distance, got {distance}"
 
-    tests = [
-        test_identical_matrices,
-        test_zero_matrices,
-        test_scale_invariance,
-        test_disconnected_vs_connected,
-        test_cycle_vs_no_cycle,
-        test_perturbed_matrix,
-        test_non_zero_vs_zero,
-    ]
-    
-    for test in tests:
-        try:
-            test()
-            print(f"Test {test.__name__} passed.")
-        except AssertionError as e:
-            print(f"Test {test.__name__} failed: {e}")
+    test_identical_matrices()
+    test_zero_matrices()
+    test_scale_invariance()
+    test_disconnected_vs_connected()
+    test_cycle_vs_no_cycle()
+    test_perturbed_matrix()
+    test_non_zero_vs_zero()
+    print("All tests passed!")

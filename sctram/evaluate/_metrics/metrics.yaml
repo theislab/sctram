@@ -72,7 +72,7 @@ metrics:
   - base_function: clustering_coeff_diff
     module: _clustering_coeff_diff
     category: adjacency
-    message: "Laplacian eigenvalue spectra EMD"
+    message: "Absolute difference in average clustering coefficients"
     validate_result: True
   - base_function: gdv_similarity
     module: _gdv_similarity

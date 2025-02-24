@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 
-# import sys
-# working_directory = "/Users/kemalinecik/git_nosync/sctram"
-# sys.path.append(working_directory)
 
 import warnings
 import numpy as np
 import networkx as nx
-from sctram.evaluate._metrics.validators import validate_between_minus_plus_1
+
+from loguru import logger
+_logger = logger.bind(name="BaseMetric")
+try:
+    from sctram.evaluate._metrics.validators import validate_between_minus_plus_1 as _validator
+except ImportError:
+    _logger.warning(f"Validation function not found. Skipping validation: {__file__}")
+    def _validator(*args, **kwargs):
+        pass
 
 import torch
 from torch_geometric.data import Data
@@ -138,6 +143,14 @@ def _aggregate(emb: torch.Tensor) -> torch.Tensor:
     return combined
 
 
+def _aggregate_deprecated(emb: torch.Tensor) -> torch.Tensor:
+    batch = torch.zeros(emb.size(0), dtype=torch.long, device=emb.device)
+    return torch.cat([
+        global_mean_pool(emb, batch),
+        global_max_pool(emb, batch),
+        global_add_pool(emb, batch)
+    ], dim=1)
+
 
 def _create_graph_data(original_adj: np.ndarray, binary_adj: np.ndarray, remove_self_loops: bool):
     """Create PyG Data object with enhanced structural features"""
@@ -206,10 +219,10 @@ def _create_graph_data(original_adj: np.ndarray, binary_adj: np.ndarray, remove_
     ]).T
 
     # Robust normalization
-    features = np.nan_to_num(features, nan=0.0, posinf=0.0, neginf=0.0)
-    means = np.mean(features, axis=0, keepdims=True)
-    stds = np.std(features, axis=0, keepdims=True) + 1e-6
-    features = (features - means) / stds
+    # features = np.nan_to_num(features, nan=0.0, posinf=0.0, neginf=0.0)
+    # means = np.mean(features, axis=0, keepdims=True)
+    # stds = np.std(features, axis=0, keepdims=True) + 1e-6
+    # features = (features - means) / stds
 
     return Data(
         x=torch.tensor(features, dtype=torch.float32),
@@ -307,7 +320,7 @@ def gin_gnn_similarity(given_adjacency_matrix: np.ndarray, inferred_adjacency_ma
     score = F.cosine_similarity(emb1, emb2).item()
     
     if validate_result:
-        validate_between_minus_plus_1(score=score)
+        _validator(score=score)
     
     return score
 

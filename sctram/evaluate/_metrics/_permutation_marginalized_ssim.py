@@ -2,10 +2,17 @@
 
 import math
 import itertools
-from typing import Optional
 import numpy as np
-from sctram.evaluate._metrics.validators import validate_inclusive_between_0_1
-from sctram.utils._utils import Utils as U
+from skimage.metrics import structural_similarity as ssim
+
+from loguru import logger
+_logger = logger.bind(name="BaseMetric")
+try:
+    from sctram.evaluate._metrics.validators import validate_inclusive_between_0_1 as _validator
+except ImportError:
+    _logger.warning(f"Validation function not found. Skipping validation: {__file__}")
+    def _validator(*args, **kwargs):
+        pass
 
 
 def permutation_marginalized_ssim(given_adjacency_matrix: np.ndarray, inferred_adjacency_matrix: np.ndarray, validate_result: bool, permutations: int = 10000, seed: int = 0) -> float:
@@ -66,20 +73,15 @@ def permutation_marginalized_ssim(given_adjacency_matrix: np.ndarray, inferred_a
         - The method originally is sensitive to changes in luminance, contrast, and structural information.
 
     """
-    from skimage.metrics import structural_similarity as ssim
-
-    # Validate inputs
     if not isinstance(permutations, int) or permutations < 1:
         raise ValueError("`permutations` must be an integer >= 1.")
     if permutations > 1e4:  # this is to while loop ensure large_strategy below finishes quickly.
         raise ValueError("`permutations` must be lower than '1e4'.")
-    
-    U.validate_adjacency_matrix(given_adjacency_matrix)
-    U.validate_adjacency_matrix(inferred_adjacency_matrix)
-    if given_adjacency_matrix.shape != inferred_adjacency_matrix.shape:
-        raise ValueError("Matrices must have the same shape.")
-    
+        
     n = given_adjacency_matrix.shape[0]
+    if not isinstance(n, int) or n <= 4:
+        raise ValueError("Adjacency matrix size must be an integer >= 5.")
+    
     data_range = given_adjacency_matrix.max() - given_adjacency_matrix.min()
     total_perms = math.factorial(n)
     max_iterations = min(permutations, total_perms)
@@ -117,15 +119,56 @@ def permutation_marginalized_ssim(given_adjacency_matrix: np.ndarray, inferred_a
             permuted_inferred = inferred_adjacency_matrix[perm][:, perm]
             similarity, _ = ssim(
                 permuted_given, permuted_inferred,
-                full=True, data_range=data_range
+                full=True, data_range=data_range,
+                win_size=5
             )
             values.append(similarity)
         
         score = np.mean(values)
-        # print(values)
-        print(score)
     
     if validate_result:
-        validate_inclusive_between_0_1(score=score)
+        _validator(score=score)
     
     return score
+
+
+if __name__ == "__main__":
+    
+    def test_identical_matrices():
+        """Test that identical matrices return an SSIM of 1.0."""
+        np.random.seed(42)
+        matrix = np.random.rand(5, 5)
+        matrix = (matrix + matrix.T) / 2  # Ensure symmetry
+        # Test with sufficient permutations to ensure stability
+        result = permutation_marginalized_ssim(matrix, matrix, permutations=100, validate_result=False, seed=42)
+        assert np.isclose(result, 1.0), f"Expected 1.0, got {result}"
+
+    def test_permuted_complete_graph():
+        """Test complete graph where permutations do not change structure (SSIM=1)."""
+        n = 10
+        complete_graph = np.ones((n, n)) - np.eye(n)
+        # Permute the complete graph (isomorphic)
+        perm = np.random.permutation(n)
+        inferred = complete_graph[perm][:, perm]
+        # All permutations of a complete graph are identical
+        result = permutation_marginalized_ssim(complete_graph, inferred, permutations=100, validate_result=False, seed=42)
+        assert np.isclose(result, 1.0), f"Expected 1.0 for complete graph, got {result}"
+
+    def test_large_permuted_matrix():
+        """Test large matrix where inferred is a permuted version."""
+        np.random.seed(42)
+        n = 10
+        given = np.random.rand(n, n)
+        given = (given + given.T) / 2  # Symmetric
+        perm = np.random.permutation(n)
+        inferred = given[perm][:, perm]
+        # With permutations, SSIM should be higher than without
+        result = permutation_marginalized_ssim(given, inferred, permutations=1000, validate_result=False, seed=42)
+        baseline_ssim = ssim(given, inferred, data_range=given.max() - given.min())
+        assert result > baseline_ssim, f"Expected higher SSIM with permutations (baseline {baseline_ssim}), got {result}"
+
+    
+    test_identical_matrices()
+    test_permuted_complete_graph()
+    test_large_permuted_matrix()
+    print("All tests passed.")

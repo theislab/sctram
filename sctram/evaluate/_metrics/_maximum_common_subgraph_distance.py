@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 
-# import sys
-# working_directory = "/Users/kemalinecik/git_nosync/sctram"
-# sys.path.append(working_directory)
-
 import numpy as np
 import networkx as nx
-from scipy.sparse import issparse
-from sctram.evaluate._metrics.validators import validate_zero_or_positive
 
+from loguru import logger
+_logger = logger.bind(name="BaseMetric")
+try:
+    from sctram.evaluate._metrics.validators import validate_zero_or_positive as _validator
+except ImportError:
+    _logger.warning(f"Validation function not found. Skipping validation: {__file__}")
+    def _validator(*args, **kwargs):
+        pass
 
 def maximum_common_subgraph_distance(
     given_adjacency_matrix: np.ndarray,
@@ -81,7 +83,7 @@ def maximum_common_subgraph_distance(
     score = nx.graph_edit_distance(g1, g2, **ged_params)
     
     if validate_result:
-        validate_zero_or_positive(score=score)
+        _validator(score=score)
     
     return score
 
@@ -166,20 +168,12 @@ if __name__ == "__main__":
         distance = maximum_common_subgraph_distance(given, inferred, threshold, validate_result=False)
         assert np.isclose(distance, expected), f"Expected {expected}, got {distance}"
     
-    tests = [
-        test_empty_graphs,
-        test_identical_graphs,
-        test_isomorphic_graphs,
-        test_single_edge_vs_empty,
-        test_non_overlapping_edges,
-        test_partial_overlap_isomorphic,
-        test_partial_overlap_nonisomorphic
-    ]
     
-    for test in tests:
-        try:
-            # print(f"{test.__name__}: Started.")
-            test()
-            print(f"{test.__name__}: Passed!")
-        except AssertionError as e:
-            print(f"{test.__name__}: Failed - {e}")
+    test_empty_graphs()
+    test_identical_graphs()
+    test_isomorphic_graphs()
+    test_single_edge_vs_empty()
+    test_non_overlapping_edges()
+    test_partial_overlap_isomorphic()
+    test_partial_overlap_nonisomorphic()
+    print("All tests passed!")

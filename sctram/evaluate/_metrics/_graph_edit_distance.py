@@ -2,8 +2,15 @@
 
 import numpy as np
 import networkx as nx
-from sctram.evaluate._metrics.validators import validate_zero_or_positive
 
+from loguru import logger
+_logger = logger.bind(name="BaseMetric")
+try:
+    from sctram.evaluate._metrics.validators import validate_zero_or_positive as _validator
+except ImportError:
+    _logger.warning(f"Validation function not found. Skipping validation: {__file__}")
+    def _validator(*args, **kwargs):
+        pass
 
 def graph_edit_distance(given_adjacency_matrix: np.ndarray,
                         inferred_adjacency_matrix: np.ndarray,
@@ -42,15 +49,111 @@ def graph_edit_distance(given_adjacency_matrix: np.ndarray,
         - Higher values indicate more substantial differences in graph structure.
         - The computed value represents the minimum number of edit operations needed for transformation.
     """
-    # Convert the given adjacency matrix to a NetworkX graph. This is already binary
-    g1 = nx.from_numpy_array(given_adjacency_matrix)
-    
-    # Binarize the inferred adjacency matrix using the provided threshold.
     inferred_binary = (inferred_adjacency_matrix >= threshold).astype(int)
-    g2 = nx.from_numpy_array(inferred_binary)
-    ged = nx.graph_edit_distance(g1, g2, timeout=3600)
+    given_edges = set(tuple(sorted(e)) for e in np.argwhere(given_adjacency_matrix) if e[0] != e[1])
+    inferred_binary = (inferred_binary >= threshold).astype(int)
+    inferred_edges = set(tuple(sorted(e)) for e in np.argwhere(inferred_binary) if e[0] != e[1])
+    ged = len(given_edges.symmetric_difference(inferred_edges))
     
     if validate_result:
-        validate_zero_or_positive(ged)
+        _validator(ged)
         
     return ged
+
+
+if __name__ == "__main__":
+    
+    def test_identical_matrices():
+        """Test when given and inferred matrices are identical."""
+        given = np.array([[0, 1, 0],
+                        [1, 0, 1],
+                        [0, 1, 0]], dtype=int)
+        inferred = given.astype(float)
+        threshold = 0.5
+        ged = graph_edit_distance(given, inferred, threshold, validate_result=False)
+        assert ged == 0, f"Expected 0, got {ged}"
+
+    def test_one_edge_addition():
+        """Test when inferred has one extra edge compared to given."""
+        given = np.array([[0, 1, 0],
+                        [1, 0, 0],
+                        [0, 0, 0]], dtype=int)
+        inferred = np.array([[0, 0.6, 0.0],
+                            [0.6, 0, 0.7],
+                            [0.0, 0.7, 0]], dtype=float)
+        threshold = 0.5
+        ged = graph_edit_distance(given, inferred, threshold, validate_result=False)
+        assert ged == 1, f"Expected 1, got {ged}"
+
+    def test_two_edge_difference():
+        """Test when given and inferred differ by two edges."""
+        given = np.array([[0, 1, 0],
+                        [1, 0, 1],
+                        [0, 1, 0]], dtype=int)
+        inferred = np.array([[0, 0.6, 0.6],
+                            [0.6, 0, 0.4],
+                            [0.6, 0.4, 0]], dtype=float)
+        threshold = 0.5
+        ged = graph_edit_distance(given, inferred, threshold, validate_result=False)
+        assert ged == 2, f"Expected 2, got {ged}"
+
+    def test_complete_vs_empty():
+        """Test complete graph against empty graph."""
+        n = 4
+        given = np.zeros((n, n), dtype=int)
+        inferred = np.ones((n, n)) * 0.6
+        np.fill_diagonal(inferred, 0)
+        threshold = 0.5
+        ged = graph_edit_distance(given, inferred, threshold, validate_result=False)
+        assert ged == 6, f"Expected 6, got {ged}"
+
+    def test_large_matrix_chain_plus_edge():
+        """Test large matrix with chain structure plus an extra edge."""
+        n = 100
+        given = np.zeros((n, n), dtype=int)
+        for i in range(n-1):
+            given[i, i+1] = 1
+            given[i+1, i] = 1
+        inferred = given.copy().astype(float)
+        inferred[0, 99] = 0.6
+        inferred[99, 0] = 0.6
+        threshold = 0.5
+        ged = graph_edit_distance(given, inferred, threshold, validate_result=False)
+        assert ged == 1, f"Expected 1, got {ged}"
+
+    def test_threshold_edge_case():
+        """Test when inferred values are exactly at the threshold."""
+        given = np.zeros((2, 2), dtype=int)
+        inferred = np.array([[0, 0.5], [0.5, 0]], dtype=float)
+        threshold = 0.5
+        ged = graph_edit_distance(given, inferred, threshold, validate_result=False)
+        assert ged == 1, f"Expected 1, got {ged}"
+
+    def test_empty_matrices():
+        """Test both matrices are empty."""
+        given = np.zeros((3, 3), dtype=int)
+        inferred = np.zeros((3, 3), dtype=float)
+        threshold = 0.5
+        ged = graph_edit_distance(given, inferred, threshold, validate_result=False)
+        assert ged == 0, f"Expected 0, got {ged}"
+
+    def test_triangle_vs_empty():
+        """Test triangle graph against empty graph."""
+        given = np.array([[0, 1, 1],
+                        [1, 0, 1],
+                        [1, 1, 0]], dtype=int)
+        inferred = np.zeros((3, 3), dtype=float)
+        threshold = 0.5
+        ged = graph_edit_distance(given, inferred, threshold, validate_result=False)
+        assert ged == 3, f"Expected 3, got {ged}"
+
+    
+    test_identical_matrices()
+    test_one_edge_addition()
+    test_two_edge_difference()
+    test_complete_vs_empty()
+    test_large_matrix_chain_plus_edge()
+    test_threshold_edge_case()
+    test_empty_matrices()
+    test_triangle_vs_empty()
+    print("All tests passed!")

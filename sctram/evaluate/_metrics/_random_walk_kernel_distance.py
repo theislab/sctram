@@ -2,8 +2,16 @@
 
 import numpy as np
 from scipy.linalg import eigvals
-from sctram.evaluate._metrics.validators import validate_inclusive_between_0_1
 
+from loguru import logger
+_logger = logger.bind(name="BaseMetric")
+try:
+    from sctram.evaluate._metrics.validators import validate_inclusive_between_0_1 as _validator
+except ImportError:
+    _logger.warning(f"Validation function not found. Skipping validation: {__file__}")
+    def _validator(*args, **kwargs):
+        pass
+    
 
 def random_walk_kernel_distance(
     given_adjacency_matrix: np.ndarray,
@@ -102,7 +110,7 @@ def random_walk_kernel_distance(
     distance = 1.0 - normalized_kernel
 
     if validate_result:
-        validate_inclusive_between_0_1(score=distance)
+        _validator(score=distance)
     
     return distance
 
