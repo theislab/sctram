@@ -31,3 +31,8 @@ def validate_between_minus_plus_1(score):
     validate_numeric(score=score)
     if not (score >= -1 and score <= 1):
         raise MetricValidationError(f"Score must in the following range: [-1, 1], got {score !r}.")
+    
+def validate_maximum_1(score):
+    validate_numeric(score=score)
+    if score > 1:
+        raise MetricValidationError(f"Score must be lower than 1, got {score !r}.")

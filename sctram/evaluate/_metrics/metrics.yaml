@@ -97,10 +97,56 @@ metrics:
   - base_function: random_walk_kernel_distance
     module: _random_walk_kernel_distance
     category: adjacency
-    message: "Maximum Common Subgraph (MCS) distance with binarization"
+    message: "Random Walk Kernel Distance"
     validate_result: True
   - base_function: persistence_diagram_distance
     module: _persistence_diagram_distance
     category: adjacency
     message: "Persistence Diagram Distance"
+    validate_result: True
+
+  - base_function: pearson_correlation
+    module: _pearson_spearman_kendall
+    category: pseudotime
+    message: "Pearson correlation coefficient"
+    validate_result: True
+  - base_function: spearman_correlation
+    module: _pearson_spearman_kendall
+    category: pseudotime
+    message: "Spearman correlation coefficient"
+    validate_result: True
+  - base_function: kendall_correlation
+    module: _pearson_spearman_kendall
+    category: pseudotime
+    message: "Kendall's tau correlation coefficient"
+    validate_result: True
+  - base_function: mse
+    module: _mae_mse
+    category: pseudotime
+    message: "Mean Squared Error (MSE)"
+    validate_result: True
+  - base_function: mae
+    module: _mae_mse
+    category: pseudotime
+    message: "Mean Absolute Error (MAE)"
+    validate_result: True
+  - base_function: r_squared_with_spline
+    module: _r_squared_with_spline
+    category: pseudotime
+    message: "R-squared using a Univariate Spline fit"
+    validate_result: True
+  - base_function: r_squared
+    module: _r_squared_with_spline
+    category: pseudotime
+    message: "R-squared"
+    validate_result: True
+  - base_function: concordance_index
+    module: _concordance_index
+    category: pseudotime
+    message: "Concordance Index (CI)"
+    validate_result: True
+  - base_function: dtw_distance
+    module: _dtw_distance
+    category: pseudotime
+    message: "Dynamic Time Warping (DTW) distance"
     validate_result: True

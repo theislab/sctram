@@ -23,6 +23,7 @@ dependencies:
     - pyg::pyg # gnn metric
     - gudhi
     - eagerpy
+    - fastdtw
     - pot
     - gdown
     - pyyaml>=5.2
