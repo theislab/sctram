@@ -150,3 +150,29 @@ metrics:
     category: pseudotime
     message: "Dynamic Time Warping (DTW) distance"
     validate_result: True
+  - base_function: wasserstein_distance
+    module: _wasserstein_distance
+    category: pseudotime
+    message: "Wasserstein distance"
+    validate_result: True
+  - base_function: normalized_mutual_information
+    module: _normalized_mutual_information
+    category: pseudotime
+    message: "Normalized Mutual Information (NMI)"
+    validate_result: True
+  - base_function: mutual_information_kde
+    module: _mutual_information_kde
+    category: pseudotime
+    message: "KDE-based Mutual Information"
+    validate_result: True
+  - base_function: cdf_kolmogorov_smirnov
+    module: _cdf_statistics
+    category: pseudotime
+    message: "Kolmogorov-Smirnov (KS) statistic on CDFs "
+    validate_result: True
+  - base_function: cdf_cramer_von_mises
+    module: _cdf_statistics
+    category: pseudotime
+    message: "Cramér-von Mises (CvM) statistic on CDFs "
+    validate_result: True
+
