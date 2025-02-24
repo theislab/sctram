@@ -14,8 +14,8 @@ except ImportError:
 
 
 def concordance_index(
-    given_pseudotime: np.ndarray,
-    inferred_pseudotime: np.ndarray,
+    given_pseudotime_array: np.ndarray,
+    inferred_pseudotime_array: np.ndarray,
     validate_result: bool = True
 ) -> float:
     """Compute the Concordance Index (CI) between two pseudotime arrays.
@@ -55,13 +55,13 @@ def concordance_index(
         - A value of 0.5 suggests random concordance (no better than chance).
         - A value closer to 0 indicates poor agreement.
     """
-    n = len(given_pseudotime)
+    n = len(given_pseudotime_array)
     if n < 2:
         raise ValueError("At least two samples are required.")
 
     # Calculate pairwise differences using vectorized operations
-    delta_t = given_pseudotime[:, None] - given_pseudotime[None, :]
-    delta_p = inferred_pseudotime[:, None] - inferred_pseudotime[None, :]
+    delta_t = given_pseudotime_array[:, None] - given_pseudotime_array[None, :]
+    delta_p = inferred_pseudotime_array[:, None] - inferred_pseudotime_array[None, :]
 
     # Extract upper triangle indices (i < j)
     rows, cols = np.triu_indices(n, k=1)
