@@ -2,18 +2,8 @@
 
 import numpy as np
 from scipy.stats import cramervonmises_2samp, ks_2samp
-
-from loguru import logger
-_logger = logger.bind(name="BaseMetric")
-try:
-    from sctram.evaluate._metrics.validators import validate_inclusive_between_0_1 as _validator1
-    from sctram.evaluate._metrics.validators import validate_zero_or_positive as _validator2
-except ImportError:
-    _logger.warning(f"Validation function not found. Skipping validation: {__file__}")
-    def _validator1(*args, **kwargs):
-        pass
-    def _validator2(*args, **kwargs):
-        pass
+from sctram.evaluate._metrics.validators import validate_inclusive_between_0_1 as _validator1
+from sctram.evaluate._metrics.validators import validate_zero_or_positive as _validator2
 
 
 def cdf_cramer_von_mises(given_pseudotime_array: np.ndarray,

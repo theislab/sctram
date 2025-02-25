@@ -5,14 +5,10 @@ from scipy.stats import gaussian_kde
 from scipy.linalg import cholesky, LinAlgError
 from typing import Optional
 
-from loguru import logger
-_logger = logger.bind(name="BaseMetric")
 try:
     from sctram.evaluate._metrics.validators import validate_zero_or_positive as _validator
 except ImportError:
-    _logger.warning(f"Validation function not found. Skipping validation: {__file__}")
-    def _validator(*args, **kwargs):
-        pass
+    from validators import validate_zero_or_positive as _validator
 
 
 def mutual_information_kde(

@@ -2,16 +2,7 @@
 
 import numpy as np
 from scipy.stats import pearsonr, spearmanr, kendalltau
-
-
-from loguru import logger
-_logger = logger.bind(name="BaseMetric")
-try:
-    from sctram.evaluate._metrics.validators import validate_between_minus_plus_1 as _validator
-except ImportError:
-    _logger.warning(f"Validation function not found. Skipping validation: {__file__}")
-    def _validator(*args, **kwargs):
-        pass
+from sctram.evaluate._metrics.validators import validate_between_minus_plus_1 as _validator
 
 
 def pearson_correlation(given_pseudotime_array: np.ndarray,

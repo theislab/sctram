@@ -5,14 +5,11 @@ import warnings
 import numpy as np
 import networkx as nx
 
-from loguru import logger
-_logger = logger.bind(name="BaseMetric")
 try:
     from sctram.evaluate._metrics.validators import validate_between_minus_plus_1 as _validator
 except ImportError:
-    _logger.warning(f"Validation function not found. Skipping validation: {__file__}")
-    def _validator(*args, **kwargs):
-        pass
+    from validators import validate_between_minus_plus_1 as _validator
+    
 
 import torch
 from torch_geometric.data import Data

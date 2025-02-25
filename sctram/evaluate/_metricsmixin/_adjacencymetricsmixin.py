@@ -48,7 +48,6 @@ class AdjacencyMetricsMixin(MetricsMixinBase):
                 kwargs = dict(
                     given_adjacency_matrix = self.prepared_after_subset_given,
                     inferred_adjacency_matrix = self.prepared_after_subset_inferred,
-                    validate_result = True
                 )
                 
                 if U.requires_argument(mmm[metric]["base_before_val"], arg_name="threshold"):

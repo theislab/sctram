@@ -5,14 +5,10 @@ import itertools
 import numpy as np
 from skimage.metrics import structural_similarity as ssim
 
-from loguru import logger
-_logger = logger.bind(name="BaseMetric")
 try:
     from sctram.evaluate._metrics.validators import validate_inclusive_between_0_1 as _validator
 except ImportError:
-    _logger.warning(f"Validation function not found. Skipping validation: {__file__}")
-    def _validator(*args, **kwargs):
-        pass
+    from validators import validate_inclusive_between_0_1 as _validator
 
 
 def permutation_marginalized_ssim(given_adjacency_matrix: np.ndarray, inferred_adjacency_matrix: np.ndarray, validate_result: bool, permutations: int = 10000, seed: int = 0) -> float:

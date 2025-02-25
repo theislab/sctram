@@ -513,6 +513,7 @@ class InferenceAndEmbeddingBase(ABC):
         if neighbors_key not in self.adata_prepared.uns:
             self.logger.info("Computing neighbors.")
             with redirect_scanpy_logs_to_loguru(custom_caller="scanpy.pp.neighbors"):
+                # ToDo: connectivities_key, distances_key, neighbors_key should be in-sync with scanpy
                 sc.pp.neighbors(self.adata_prepared, **neighbors_params)
         else:
             self.logger.info("Using precomputed neighbors from AnnData.")

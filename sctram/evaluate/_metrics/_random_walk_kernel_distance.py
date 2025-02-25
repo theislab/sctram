@@ -3,14 +3,10 @@
 import numpy as np
 from scipy.linalg import eigvals
 
-from loguru import logger
-_logger = logger.bind(name="BaseMetric")
 try:
     from sctram.evaluate._metrics.validators import validate_inclusive_between_0_1 as _validator
 except ImportError:
-    _logger.warning(f"Validation function not found. Skipping validation: {__file__}")
-    def _validator(*args, **kwargs):
-        pass
+    from validators import validate_inclusive_between_0_1 as _validator
     
 
 def random_walk_kernel_distance(

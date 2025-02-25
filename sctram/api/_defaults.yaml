@@ -5,66 +5,59 @@ combinations:
       infer: DPTInference
       description: "Default metrics for pseudotime evaluation." # edit
       metrics:
-          - pearson
-          - spearman
-          - kendall
-          - mse
-          - mae
-          - r2
-          - r2_with_spline
-          - concordance_index
-          - dynamic_time_warping
-          - wasserstein_distance
-          - mutual_information
-          - mutual_information_kde
-          - cumulative_density_difference
-          - morans_i
-          - gearys_c
-          - lisa
-          - getis_ord_gi_star
+        - pearson_correlation
+        - spearman_correlation
+        - kendall_correlation
+        - mse
+        - mae
+        - r_squared_with_spline
+        - r_squared
+        - concordance_index
+        - dtw_distance
+        - wasserstein_distance
+        - normalized_mutual_information
+        - mutual_information_kde
+        - cdf_kolmogorov_smirnov
+        - cdf_cramer_von_mises
+        # spatial metrics yet to come
 
     - evaluate: AdjacencyMatrixEvaluation
       infer: PAGAInference
       description: "Default metrics for adjacency evaluation." # edit
       metrics:
-          - frobenius
-          - L1
-          - accuracy
-          - graph_edit_distance
-          - spectral_distance
-          - jaccard
-          - hamming
-          - precision
-          - recall
-          - f1_score
-          - mantel_correlation
-          - ssim
-          - avg_shortest_path_diff
-          - degree_emd
-          - clustering_coeff_diff
-          - graphlet_degree_vector
-          - weisfeiler_lehman_distance
-          - gnn_embedding_distance
-          - persistence_diagram_distance
-          - maximum_common_subgraph_distance
-          - random_walk_kernel_distance
+        - frobenius
+        - l1_norm
+        - accuracy
+        - graph_edit_distance
+        - spectral_distance
+        - jaccard_similarity
+        - hamming_distance
+        - precision
+        - recall
+        - f1_score
+        - permutation_marginalized_ssim
+        - mantel_correlation
+        - average_shortest_path_difference
+        - laplacian_spectral_emd
+        - clustering_coeff_diff
+        - gdv_similarity
+        - weisfeiler_lehman_distance
+        - gin_gnn_similarity
+        - maximum_common_subgraph_distance
+        - random_walk_kernel_distance
+        - persistence_diagram_distance
 
     - evaluate: EmbeddingTrajectoryEvaluation
       infer: ObsmEmbedding
       description: "Default metrics for embedding evaluation using provided obsm." # edit
       metrics:
-          - normalized_mean_curvature
-          - distance_correlation
-          - stress
-          - neighborhood_preservation_score
-          - branch_silhouette_score
-          - transition_smoothness
-          - trustworthiness
-          - leaf_node_separation
-          - morans_i
-          - gearys_c
-          - lisa
-          - getis_ord_gi_star
+        - branch_silhouette_score
+        - sammons_stress
+        - embedding_distance_correlation
+        - normalized_mean_curvature
+        - graph_based_trustworthiness
+        - neighborhood_preservation_score
+        # spatial metrics yet to come
 
     - evaluate: EmbeddingTrajectoryEvaluation
       infer: PCAEmbedding

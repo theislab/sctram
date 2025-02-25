@@ -176,3 +176,42 @@ metrics:
     message: "Cramér-von Mises (CvM) statistic on CDFs "
     validate_result: True
 
+  - base_function: branch_silhouette_score
+    module: _branch_silhouette_score
+    category: embedding
+    message: "Silhouette score for branch separation"
+    validate_result: True
+  - base_function: sammons_stress
+    module: _sammons_stress
+    category: embedding
+    message: "Scaled Sammon's stress"
+    validate_result: True
+  - base_function: embedding_distance_correlation
+    module: _embedding_distance_correlation
+    category: embedding
+    message: "Embedding Distance Correlation"
+    validate_result: True
+  - base_function: normalized_mean_curvature
+    module: _normalized_mean_curvature
+    category: embedding
+    message: "Normalized Mean Curvature"
+    validate_result: True
+  - base_function: graph_based_trustworthiness
+    module: _graph_based_trustworthiness
+    category: embedding
+    message: "Trustworthiness using graph-based reachability"
+    validate_result: True
+  - base_function: neighborhood_preservation_score
+    module: _neighborhood_preservation_score
+    category: embedding
+    message: "Neighborhood Preservation Score"
+    validate_result: True
+
+
+
+
+
+  # New ones:
+    # directionality
+    # some sort of uncertainity
+    # some sort of mean entropy between clusters

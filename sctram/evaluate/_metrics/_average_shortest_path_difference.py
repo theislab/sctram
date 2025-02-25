@@ -4,14 +4,11 @@ import networkx as nx
 import numpy as np
 from typing import Optional
 
-from loguru import logger
-_logger = logger.bind(name="BaseMetric")
 try:
     from sctram.evaluate._metrics.validators import validate_zero_or_positive as _validator
 except ImportError:
-    _logger.warning(f"Validation function not found. Skipping validation: {__file__}")
-    def _validator(*args, **kwargs):
-        pass
+    from validators import validate_zero_or_positive as _validator
+
 
 def average_shortest_path_difference(given_adjacency_matrix: np.ndarray, inferred_adjacency_matrix: np.ndarray, validate_result: bool, optional_threshold: Optional[float] = None) -> float:
     """Compute the absolute difference in average shortest path lengths between two connected graphs.

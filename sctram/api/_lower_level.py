@@ -112,7 +112,7 @@ class TrajectoryEvaluationAPI:
 
         inference_params = inference_params or dict(
             random_state=42,
-            neighbors_params={"n_neighbors": 90},
+            neighbors_params={"n_neighbors": 50},
             iroot_params=dict(
                 label_key=labels_key, label=self.root_label, method="min_diffmap", outlier_definition_z=3
             ),
@@ -158,7 +158,7 @@ class TrajectoryEvaluationAPI:
 
         inference_params = inference_params or dict(
             random_state=42,
-            neighbors_params={"n_neighbors": 90},
+            neighbors_params={"n_neighbors": 50},
         )
         # Subset anndata with only available nodes.
         _adata = self.adata[self.adata.obs[self.labels_obs].isin(self.input_trajectories.nodes())]
@@ -195,13 +195,14 @@ class TrajectoryEvaluationAPI:
         inference_params = inference_params or dict(random_state=42, obsm_key="X")
         inference = InferenceClass(adata=self.adata, labels=self.adata.obs[self.labels_obs], **inference_params)
         inference.calculate()  # for obsm it does not do anything.
-        inferred_trajectories = inference.get_result("obsm")
+        inferred_trajectories_anndata = inference.get_result("anndata")
+        inference._needs_neighbors(neighbors_params={"n_neighbors": 50})
 
         evaluate_params = evaluate_params or dict()
         evaluation = EvaluateClass(method_params=dict(metrics=metrics), **evaluate_params)
         evaluation.evaluate(
             given_trajectory=self.input_trajectories,
-            inferred_trajectory=inferred_trajectories,
+            inferred_trajectory=inferred_trajectories_anndata,
             labels=self.adata.obs[self.labels_obs].to_numpy(),
         )
 

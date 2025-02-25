@@ -1,16 +1,11 @@
 #!/usr/bin/env python3
 
 import numpy as np
-
-
-from loguru import logger
-_logger = logger.bind(name="BaseMetric")
+    
 try:
     from sctram.evaluate._metrics.validators import validate_zero_or_positive as _validator
 except ImportError:
-    _logger.warning(f"Validation function not found. Skipping validation: {__file__}")
-    def _validator(*args, **kwargs):
-        pass
+    from validators import validate_zero_or_positive as _validator
 
 
 def spectral_distance(given_adjacency_matrix: np.ndarray, inferred_adjacency_matrix: np.ndarray, validate_result: bool) -> float:

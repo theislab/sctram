@@ -5,11 +5,12 @@
 from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
+import anndata as ad
 
 from sctram.evaluate._base import EvaluationBase
 from sctram.evaluate._metricsmixin._embeddingspairmetricsmixin import EmbeddingsPairMetricsMixin
 from sctram.evaluate._metricsmixin._embeddingtrajectorymetricsmixin import EmbeddingTrajectoryMetricsMixin
-from sctram.utils._constants import sctram_operate_key
+from sctram.utils._constants import neighbors_key, connectivities_key, distances_key
 
 
 class EmbeddingsPairEvaluation(EmbeddingsPairMetricsMixin, EvaluationBase):
@@ -53,18 +54,17 @@ class EmbeddingTrajectoryEvaluation(EmbeddingTrajectoryMetricsMixin, EvaluationB
             raise ValueError("No result available. Have you run the evaluation?")
         return self.result
 
-    def _verify_inferred_trajectory(self, inferred_embedding: np.ndarray) -> np.ndarray:
+    def _verify_inferred_trajectory(self, inferred_embedding: ad.AnnData) -> ad.AnnData:
         """Verifies the embedding."""
-        if not isinstance(inferred_embedding, np.ndarray):
-            raise ValueError("Embedding must be a numpy array.")
-        if inferred_embedding.ndim != 2:
-            raise ValueError("Embedding must be a 2D array.")
-        if inferred_embedding.shape[0] <= 1 or inferred_embedding.shape[1] <= 1:
+        if not isinstance(inferred_embedding, ad.AnnData):
+            raise ValueError("Embedding must be a anndata object.")
+        if inferred_embedding.X.shape[0] <= 1 or inferred_embedding.X.shape[1] <= 1:
             raise ValueError("Embedding must have more than one row and one column.")
-        if not np.all(np.isfinite(inferred_embedding)):
+        if not np.all(np.isfinite(inferred_embedding.X)):
             raise ValueError("Embedding contains NaN or infinite values.")
-        if inferred_embedding.size == 0:
-            raise ValueError("Embedding cannot be empty.")
+        if any([k not in inferred_embedding.obsp.keys() for k in [connectivities_key, distances_key]]) or (neighbors_key not in inferred_embedding.uns.keys()):
+            raise ValueError(f"Neigbors should have been calculated.")
+
         return inferred_embedding
 
     def _verify_labels_data_specific(self):

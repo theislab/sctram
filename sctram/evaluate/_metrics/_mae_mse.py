@@ -2,15 +2,7 @@
 
 import numpy as np
 from sklearn.metrics import mean_squared_error, mean_absolute_error
-
-from loguru import logger
-_logger = logger.bind(name="BaseMetric")
-try:
-    from sctram.evaluate._metrics.validators import validate_zero_or_positive as _validator
-except ImportError:
-    _logger.warning(f"Validation function not found. Skipping validation: {__file__}")
-    def _validator(*args, **kwargs):
-        pass
+from sctram.evaluate._metrics.validators import validate_zero_or_positive as _validator
 
 
 def mse(given_pseudotime_array: np.ndarray,

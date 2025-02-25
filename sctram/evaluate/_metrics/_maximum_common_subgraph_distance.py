@@ -3,14 +3,11 @@
 import numpy as np
 import networkx as nx
 
-from loguru import logger
-_logger = logger.bind(name="BaseMetric")
 try:
     from sctram.evaluate._metrics.validators import validate_zero_or_positive as _validator
 except ImportError:
-    _logger.warning(f"Validation function not found. Skipping validation: {__file__}")
-    def _validator(*args, **kwargs):
-        pass
+    from validators import validate_zero_or_positive as _validator
+
 
 def maximum_common_subgraph_distance(
     given_adjacency_matrix: np.ndarray,

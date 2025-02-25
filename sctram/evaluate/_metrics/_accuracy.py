@@ -2,14 +2,11 @@
 
 import numpy as np
 
-from loguru import logger
-_logger = logger.bind(name="BaseMetric")
 try:
     from sctram.evaluate._metrics.validators import validate_inclusive_between_0_1 as _validator
 except ImportError:
-    _logger.warning(f"Validation function not found. Skipping validation: {__file__}")
-    def _validator(*args, **kwargs):
-        pass
+    from validators import validate_inclusive_between_0_1 as _validator
+
 
 def accuracy(given_adjacency_matrix: np.ndarray, inferred_adjacency_matrix: np.ndarray, threshold: float, validate_result: bool) -> float:
     """Calculates the accuracy of the inferred adjacency matrix.

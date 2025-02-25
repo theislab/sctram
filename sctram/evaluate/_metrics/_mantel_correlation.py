@@ -4,14 +4,10 @@ import networkx as nx
 import numpy as np
 from skbio.stats.distance import DistanceMatrix, mantel
 
-from loguru import logger
-_logger = logger.bind(name="BaseMetric")
 try:
     from sctram.evaluate._metrics.validators import validate_between_minus_plus_1 as _validator
 except ImportError:
-    _logger.warning(f"Validation function not found. Skipping validation: {__file__}")
-    def _validator(*args, **kwargs):
-        pass
+    from validators import validate_between_minus_plus_1 as _validator
 
 
 def mantel_correlation(given_adjacency_matrix: np.ndarray, inferred_adjacency_matrix: np.ndarray, validate_result: bool, permutations: int = 10000, seed: int = 0):

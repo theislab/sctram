@@ -40,7 +40,6 @@ class PseudotimeValuesMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
                 kwargs = dict(
                     given_pseudotime_array = self.prepared_after_subset_given,
                     inferred_pseudotime_array = self.prepared_after_subset_inferred,
-                    validate_result = True
                 )
 
                 score, logger_message = mmm[metric]["with_desc"](**kwargs)
