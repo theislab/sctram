@@ -14,7 +14,7 @@ combinations:
         - r_squared
         - concordance_index
         - dtw_distance
-        - wasserstein_distance
+        - wasserstein_distance_pseudotime
         - normalized_mutual_information
         - mutual_information_kde
         - cdf_kolmogorov_smirnov
@@ -57,6 +57,9 @@ combinations:
         - normalized_mean_curvature
         - graph_based_trustworthiness
         - neighborhood_preservation_score
+        - directionality_preservation
+        - wasserstein_distance_embedding
+        - trajectory_cardinality_validation
         # spatial metrics yet to come
 
     - evaluate: EmbeddingTrajectoryEvaluation

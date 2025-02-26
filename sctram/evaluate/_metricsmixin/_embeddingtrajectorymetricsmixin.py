@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import numpy as np
+
 from sctram.evaluate._metrics import metrics as mmm
 from sctram.evaluate._metrics.utils import Centroids
 from sctram.evaluate._metricsmixin._metricsmixinbase import MetricsMixinBase
@@ -26,6 +28,9 @@ class EmbeddingTrajectoryMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
         "normalized_mean_curvature",
         "graph_based_trustworthiness",
         "neighborhood_preservation_score",
+        "directionality_preservation",
+        "wasserstein_distance_embedding",
+        "trajectory_cardinality_validation",
         # spatial metrics missing
     ]
 
@@ -97,9 +102,66 @@ class EmbeddingTrajectoryMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
                     precomputed_embedded_connectivities = connectivities,
                     threshold = 0.25
                 )
+                
+            elif metric == "directionality_preservation":
+                score, logger_message = mmm[metric]["with_desc"](
+                    given_graph = self.prepared_after_subset_given,
+                    inferred_embedding = self.prepared_after_subset_inferred.X,
+                    centroids = centroids,
+                    n_neighbors = n_neighbors,
+                    precomputed_embedded_connectivities = connectivities,
+                    pca_components = 1
+                )
+            
+            elif metric == "wasserstein_distance_embedding":
+                score, logger_message = mmm[metric]["with_desc"](
+                    given_graph = self.prepared_after_subset_given,
+                    labels_array = self.labels,
+                    n_neighbors = n_neighbors,
+                    precomputed_embedded_connectivities = connectivities,
+                )
+            
+            elif metric == "trajectory_cardinality_validation":
+                score, logger_message = np.nan, "Not Implemented"
+                # score, logger_message = mmm[metric]["with_desc"](
+                #     given_graph = self.prepared_after_subset_given,
+                #     labels_array = self.labels,
+                #     precomputed_embedded_connectivities = connectivities,
+                #     n_neighbors = n_neighbors,
+                #     skip_chain_nodes = True
+                # )
         
             else:
                 raise ValueError(f"Metric {metric!r} not included.")
 
             self.result[metric] = score
             self.logger.info(logger_message)
+
+    # TODO: _calculate_metric_stability
+    # def _calculate_metric_stability(self, n_iter=10, subsample_ratio=0.8):
+    #     """Compute coefficient of variation for metrics across subsamples"""
+    #     # Quantify metric robustness to subsampling/noise.
+    #     original_embedding = self.prepared_after_subset_inferred.copy()
+    #     original_labels = self.labels.copy()
+        
+    #     for metric in self.metrics:
+    #         values = []
+    #         for _ in range(n_iter):
+    #             # Subsample data
+    #             idx = np.random.choice(len(original_embedding), 
+    #                                  int(len(original_embedding)*subsample_ratio),
+    #                                  replace=False)
+    #             self.prepared_after_subset_inferred = original_embedding[idx]
+    #             self.labels = original_labels[idx]
+                
+    #             self._calculate_single_metric(metric)
+    #             values.append(self.result[metric])
+            
+    #         # Compute stability score
+    #         mean_val = np.nanmean(values)
+    #         std_val = np.nanstd(values)
+    #         self.stability_results[metric] = std_val / (mean_val + 1e-12)
+            
+    #     # Restore original data
+    #     self.prepared_after_subset_inferred = original_embedding
+    #     self.labels = original_labels

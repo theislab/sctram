@@ -116,6 +116,7 @@ def load_and_validate_metrics_config(config_path):
 
     directory = os.path.dirname(config_path)  # get the directory of the YAML file
     referenced_pairs = set()
+    referenced_base = set()
 
     for idx, metric_def in enumerate(config["metrics"], start=1):
         required_keys = {
@@ -141,6 +142,11 @@ def load_and_validate_metrics_config(config_path):
             raise MetricConfigError(f"Function {metric_def['base_function']!r} in Module {module_path!r} configured more than one times.")
         else:
             referenced_pairs.add(pair)
+            
+        if metric_def["base_function"] in referenced_base:
+            raise MetricConfigError(f"Function {metric_def['base_function']!r} configured more than one times.")
+        else:
+            referenced_base.add(metric_def["base_function"])
         
     all_python_modules = set(
         os.path.splitext(os.path.basename(f))[0] 

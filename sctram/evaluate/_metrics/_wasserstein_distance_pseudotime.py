@@ -4,7 +4,7 @@ import numpy as np
 from scipy.stats import wasserstein_distance as scipy_wd
 from sctram.evaluate._metrics.validators import validate_zero_or_positive as _validator
 
-def wasserstein_distance(given_pseudotime_array: np.ndarray,
+def wasserstein_distance_pseudotime(given_pseudotime_array: np.ndarray,
                                 inferred_pseudotime_array: np.ndarray,
                                 validate_result: bool) -> float:
     """Compute the Wasserstein distance between two 1D arrays.

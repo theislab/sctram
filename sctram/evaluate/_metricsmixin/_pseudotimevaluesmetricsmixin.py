@@ -19,7 +19,7 @@ class PseudotimeValuesMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
         "r_squared",
         "concordance_index",
         "dtw_distance",
-        "wasserstein_distance",
+        "wasserstein_distance_pseudotime",
         "normalized_mutual_information",
         "mutual_information_kde",
         "cdf_kolmogorov_smirnov",

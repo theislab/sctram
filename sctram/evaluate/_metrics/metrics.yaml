@@ -150,10 +150,10 @@ metrics:
     category: pseudotime
     message: "Dynamic Time Warping (DTW) distance"
     validate_result: True
-  - base_function: wasserstein_distance
-    module: _wasserstein_distance
+  - base_function: wasserstein_distance_pseudotime
+    module: _wasserstein_distance_pseudotime
     category: pseudotime
-    message: "Wasserstein distance"
+    message: "Wasserstein Distance (WD)"
     validate_result: True
   - base_function: normalized_mutual_information
     module: _normalized_mutual_information
@@ -207,11 +207,19 @@ metrics:
     message: "Neighborhood Preservation Score"
     validate_result: True
 
-
-
-
-
-  # New ones:
-    # directionality
-    # some sort of uncertainity
-    # some sort of mean entropy between clusters
+  - base_function: directionality_preservation
+    module: _directionality_preservation
+    category: embedding
+    message: "Directionality preservation"
+    validate_result: True
+  - base_function: wasserstein_distance_embedding
+    module: _wasserstein_distance_embedding
+    category: embedding
+    message: "Wasserstein Distance (WD)"
+    validate_result: True
+  - base_function: trajectory_cardinality_validation
+    module: _trajectory_cardinality_validation
+    category: embedding
+    message: "Trajectory Cardinality Validation F1-score"
+    validate_result: True
+  
