@@ -6,6 +6,9 @@ from sctram.evaluate._metrics import metrics as mmm
 from sctram.evaluate._metrics.utils import Centroids
 from sctram.evaluate._metricsmixin._metricsmixinbase import MetricsMixinBase
 from sctram.utils._constants import neighbors_key, connectivities_key
+from loguru import logger
+
+_logger = logger.bind(name = "MetricsMixin")
 
 
 class EmbeddingTrajectoryMetricsMixin(MetricsMixinBase):
@@ -124,6 +127,7 @@ class EmbeddingTrajectoryMetricsMixin(MetricsMixinBase):
                 )
             
             elif metric == "trajectory_cardinality_validation":
+                _logger.warning("Trajectory cardinality validation is not tested extensively!")
                 score, logger_message = mmm[metric]["with_desc"](
                     given_graph = self.prepared_after_subset_given,
                     labels_array = self.labels,
@@ -132,6 +136,7 @@ class EmbeddingTrajectoryMetricsMixin(MetricsMixinBase):
                 )
                 
             elif metric in ["morans_i_embedding", "gearys_c_embedding"]:
+                _logger.warning(f"Spatial autocorrelation implementation of {metric!r} could be problematic.")
                 score, logger_message = mmm[metric]["with_desc"](
                     given_graph = self.prepared_after_subset_given,
                     labels_array = self.labels,

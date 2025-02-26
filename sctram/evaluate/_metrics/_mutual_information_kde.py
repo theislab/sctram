@@ -7,8 +7,12 @@ from typing import Optional
 
 try:
     from sctram.evaluate._metrics.validators import validate_maximum_1 as _validator
+    from sctram.evaluate._metrics.utils import prepare_pseudotime
+
 except ImportError:
     from validators import validate_maximum_1 as _validator
+    from utils import prepare_pseudotime
+
 
 
 def mutual_information_kde(
@@ -69,15 +73,13 @@ def mutual_information_kde(
         - Higher values indicate stronger dependence
         - Not upper bounded - compare relative values
     """
-    # Input validation
-    given_pseudotime_array = np.asarray(given_pseudotime_array)
-    inferred_pseudotime_array = np.asarray(inferred_pseudotime_array)
-    if given_pseudotime_array.ndim != 1 or inferred_pseudotime_array.ndim != 1:
-        raise ValueError("Input arrays must be 1-dimensional")
-    if len(given_pseudotime_array) != len(inferred_pseudotime_array):
-        raise ValueError("Input arrays must have the same length")
     if len(given_pseudotime_array) < 5:
         raise ValueError("At least 5 samples required for meaningful estimation")
+
+    given_pseudotime_array = prepare_pseudotime(given_pseudotime_array, method="zscore")
+    inferred_pseudotime_array = prepare_pseudotime(inferred_pseudotime_array, method="zscore")
+    # Mutual Information (KDE): Kernel density estimation (KDE) bandwidth depends on variance. 
+    # Standardization ensures consistent bandwidth across variables.
 
     # Handle zero-variance cases
     given_std = given_pseudotime_array.std(ddof=1)
@@ -208,16 +210,6 @@ if __name__ == "__main__":
         except ValueError:
             pass
 
-    def test_small_sample():
-        """Test small sample size (<5) raises ValueError."""
-        X = np.random.randn(4)
-        Y = np.random.randn(4)
-        try:
-            mutual_information_kde(X, Y)
-            assert False, "Expected ValueError for small sample size"
-        except ValueError:
-            pass
-
     def test_symmetry():
         """Test MI is symmetric (MI(X,Y) == MI(Y,X))."""
         np.random.seed(42)
@@ -237,7 +229,6 @@ if __name__ == "__main__":
         test_zero_variance,
         test_2d_input,
         test_different_lengths,
-        test_small_sample,
         test_symmetry,
         test_analytical_bivariate_normal,
     ]

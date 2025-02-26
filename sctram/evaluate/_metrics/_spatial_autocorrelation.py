@@ -4,9 +4,10 @@ import numpy as np
 import networkx as nx
 from scipy.sparse import csr_matrix
 from scipy.sparse import coo_matrix, csr_matrix, isspmatrix_csr
-from typing import Any, Callable, Union, Optional
+from typing import Any, Callable, Union
 
 from sctram.evaluate._metrics.validators import validate_between_minus_plus_1 as _validator
+from sctram.evaluate._metrics.utils import prepare_pseudotime
 from sctram.utils._utils import Utils
 from loguru import logger
 
@@ -21,6 +22,10 @@ def morans_i_pseudotime(
         normalize_weights: bool,
         force_to_implementation: str
     ) -> float:
+    inferred_pseudotime_array = prepare_pseudotime(inferred_pseudotime_array, method="zscore")
+    # Spatial autocorrelation metrics assume mean-centered data. Standardization 
+    # removes scale dependency, isolating spatial patterns.
+    
     score = _spatial_autocorrelation(
         given=given_adjacency_matrix,
         inferred=inferred_pseudotime_array,
@@ -45,6 +50,10 @@ def gearys_c_pseudotime(
         normalize_weights: bool,
         force_to_implementation: str
     ) -> float:
+    inferred_pseudotime_array = prepare_pseudotime(inferred_pseudotime_array, method="zscore")
+    # Spatial autocorrelation metrics assume mean-centered data. Standardization 
+    # removes scale dependency, isolating spatial patterns.
+    
     score = _spatial_autocorrelation(
         given=given_adjacency_matrix,
         inferred=inferred_pseudotime_array,

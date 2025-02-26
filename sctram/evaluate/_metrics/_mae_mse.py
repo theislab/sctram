@@ -3,6 +3,7 @@
 import numpy as np
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from sctram.evaluate._metrics.validators import validate_zero_or_positive as _validator
+from sctram.evaluate._metrics.utils import prepare_pseudotime
 
 
 def mse(given_pseudotime_array: np.ndarray,
@@ -29,7 +30,9 @@ def mse(given_pseudotime_array: np.ndarray,
     Interpretation:
         - Lower MSE values indicate better agreement between the given and inferred matrices.
     """
-    # Flatten the matrices to compare corresponding entries
+    given_pseudotime_array = prepare_pseudotime(given_pseudotime_array, method="minmax")
+    inferred_pseudotime_array = prepare_pseudotime(inferred_pseudotime_array, method="minmax")
+    
     mse_value = mean_squared_error(given_pseudotime_array, inferred_pseudotime_array)
     
     if validate_result:
@@ -62,7 +65,9 @@ def mae(given_pseudotime_array: np.ndarray,
     Interpretation:
         - Lower MAE values indicate better agreement between the given and inferred matrices.
     """
-    # Flatten the matrices to compare corresponding entries
+    given_pseudotime_array = prepare_pseudotime(given_pseudotime_array, method="minmax")
+    inferred_pseudotime_array = prepare_pseudotime(inferred_pseudotime_array, method="minmax")
+    
     mae_value = mean_absolute_error(given_pseudotime_array, inferred_pseudotime_array)
     
     if validate_result:

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
 from sctram.evaluate._metrics import metrics as mmm
-
 from sctram.evaluate._metricsmixin._metricsmixinbase import MetricsMixinBase
+from loguru import logger
+
+_logger = logger.bind(name = "MetricsMixin")
 
 
 class PseudotimeValuesMetricsMixin(MetricsMixinBase):
@@ -37,6 +39,7 @@ class PseudotimeValuesMetricsMixin(MetricsMixinBase):
             self.logger.debug(f"Calculating metric: {metric!r}")
             
             if metric in ["morans_i_pseudotime", "gearys_c_pseudotime"]:
+                _logger.warning(f"Spatial autocorrelation implementation of {metric!r} could be problematic.")
                 score, logger_message = mmm[metric]["with_desc"](
                     given_adjacency_matrix = self.subset_given,
                     inferred_pseudotime_array = self.prepared_after_subset_inferred,

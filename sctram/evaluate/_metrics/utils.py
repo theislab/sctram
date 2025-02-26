@@ -9,6 +9,7 @@ from scipy import sparse
 
 _logger = logger.bind(name="MetricsUtils")
 
+
 def convert_scanpy_neighbors_to_indices(
     scanpy_neighbors_matrix: sparse.csr_matrix, 
     k: int,
@@ -46,6 +47,7 @@ def convert_scanpy_neighbors_to_indices(
         np.concatenate([np.arange(r.shape[0], dtype=r.dtype).reshape(r.shape[0], 1), r], axis=1)
     
     return r
+
 
 class Centroids:
     
@@ -261,3 +263,146 @@ def get_longest_path(graph, beam_width=100, biological_scoring_func=None):
 
     _logger.info(f"Heuristic found path with score {best_score} (length {len(best_path)})")
     return best_path
+
+
+def min_max_scale(arr: np.ndarray, epsilon: float = 1e-8, 
+                  lower_clip: Optional[float] = None, upper_clip: Optional[float] = None) -> np.ndarray:
+    """
+    Robust min-max scaling with outlier clipping and numerical stability controls.
+    
+    Features:
+    - Clips data to specified percentiles before scaling
+    - Handles constant arrays (zero ptp)
+    - Prevents division by zero
+    - Clips final values to [0,1]
+    - Preserves array shape and dtype
+    
+    Parameters:
+    arr : np.ndarray
+        1D array of pseudotime values
+    epsilon : float
+        Small value to prevent division by zero
+    lower_clip : float, optional
+        Lower quantile (0-1) for clipping. None disables lower clipping.
+    upper_clip : float, optional
+        Upper quantile (0-1) for clipping. None disables upper clipping.
+    
+    Returns:
+    np.ndarray
+        Scaled array in [0, 1]
+    """
+    arr = np.asarray(arr)
+    if arr.size == 0:
+        return arr.copy()
+    
+    # Validate clipping parameters
+    if lower_clip is not None and not 0 <= lower_clip <= 1:
+        raise ValueError("lower_clip must be between 0 and 1")
+    if upper_clip is not None and not 0 <= upper_clip <= 1:
+        raise ValueError("upper_clip must be between 0 and 1")
+    if lower_clip is not None and upper_clip is not None and lower_clip > upper_clip:
+        raise ValueError("lower_clip must be <= upper_clip")
+    
+    # Apply percentile-based clipping
+    if lower_clip is not None or upper_clip is not None:
+        clip_bounds = []
+        if lower_clip is not None:
+            clip_bounds.append(np.percentile(arr, lower_clip * 100))
+        if upper_clip is not None:
+            clip_bounds.append(np.percentile(arr, upper_clip * 100))
+        
+        arr = np.clip(arr, *clip_bounds) if clip_bounds else arr
+    
+    min_val = arr.min()
+    ptp = arr.ptp()
+    
+    if ptp < epsilon:
+        return np.zeros_like(arr)
+    
+    scaled = (arr - min_val) / (ptp + epsilon)
+    return np.clip(scaled, 0.0, 1.0)
+
+
+def z_score_scale(arr: np.ndarray, epsilon: float = 1e-8,
+                  lower_clip: Optional[float] = None, upper_clip: Optional[float] = None) -> np.ndarray:
+    """
+    Robust z-score standardization with outlier clipping and numerical stability controls.
+    
+    Features:
+    - Clips data to specified percentiles before scaling
+    - Handles constant arrays (zero std)
+    - Prevents division by zero
+    - Preserves array shape and dtype
+    
+    Parameters:
+    arr : np.ndarray
+        1D array of pseudotime values
+    epsilon : float
+        Small value to prevent division by zero
+    lower_clip : float, optional
+        Lower quantile (0-1) for clipping. None disables lower clipping.
+    upper_clip : float, optional
+        Upper quantile (0-1) for clipping. None disables upper clipping.
+    
+    Returns:
+    np.ndarray
+        Standardized array (μ=0, σ=1 for non-constant inputs)
+    """
+    arr = np.asarray(arr)
+    if arr.size == 0:
+        return arr.copy()
+    
+    # Validate clipping parameters
+    if lower_clip is not None and not 0 <= lower_clip <= 1:
+        raise ValueError("lower_clip must be between 0 and 1")
+    if upper_clip is not None and not 0 <= upper_clip <= 1:
+        raise ValueError("upper_clip must be between 0 and 1")
+    if lower_clip is not None and upper_clip is not None and lower_clip > upper_clip:
+        raise ValueError("lower_clip must be <= upper_clip")
+    
+    # Apply percentile-based clipping
+    if lower_clip is not None or upper_clip is not None:
+        clip_bounds = []
+        if lower_clip is not None:
+            clip_bounds.append(np.percentile(arr, lower_clip * 100))
+        if upper_clip is not None:
+            clip_bounds.append(np.percentile(arr, upper_clip * 100))
+        
+        arr = np.clip(arr, *clip_bounds) if clip_bounds else arr
+    
+    mean = arr.mean()
+    std = arr.std(ddof=0)
+    
+    if std < epsilon:
+        return np.zeros_like(arr)
+    
+    return (arr - mean) / (std + epsilon)
+
+
+def prepare_pseudotime(arr, method: str, 
+                       lower_clip: Optional[float] = 0.01, upper_clip: Optional[float] = 0.99) -> np.ndarray:
+    """
+    Prepare pseudotime values with optional outlier clipping.
+    
+    Parameters:
+    arr : np.ndarray
+        Input array of pseudotime values
+    method : str
+        Scaling method ('zscore' or 'minmax')
+    lower_clip : float, optional
+        Lower quantile (0-1) for clipping. None disables lower clipping.
+    upper_clip : float, optional
+        Upper quantile (0-1) for clipping. None disables upper clipping.
+    
+    Returns:
+    np.ndarray
+        Scaled pseudotime values
+    """
+    if method == 'zscore':
+        prepared = z_score_scale(arr, lower_clip=lower_clip, upper_clip=upper_clip)
+    elif method == 'minmax':
+        prepared = min_max_scale(arr, lower_clip=lower_clip, upper_clip=upper_clip)
+    else:
+        raise ValueError(f"Unknown scaling method: {method}")
+    
+    return prepared

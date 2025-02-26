@@ -3,10 +3,8 @@
 from abc import abstractmethod
 from typing import Any, Dict, Optional, Tuple
 
-import networkx as nx
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import MinMaxScaler
 
 from sctram.evaluate._base import EvaluationBase
 from sctram.evaluate._converters._adjacency2pseudotime import LabelAdjacencyPseudotimeConverter
@@ -264,14 +262,7 @@ class PseudotimeValuesEvaluation(PseudotimeValuesMetricsMixin, PseudotimeEvaluat
         if self.subset_inferred.size != cell_pseudotime.size:
             raise ValueError("Inferred pseudotime size does not match the number of cells in the subset.")
 
-        # Normalize the reference and inferred pseudotime to [0, 1]
-        self.logger.debug("Normalizing reference and inferred pseudotime to [0, 1].")
-        scaler = MinMaxScaler()
-        reference_normalized = scaler.fit_transform(cell_pseudotime.reshape(-1, 1)).flatten()
-        inferred_normalized = scaler.fit_transform(self.subset_inferred.reshape(-1, 1)).flatten()
-        self.logger.debug("Normalized pseudotime arrays successfully.")
-
-        return reference_normalized, inferred_normalized
+        return cell_pseudotime.reshape(-1, 1).flatten(), self.subset_inferred.reshape(-1, 1).flatten()
 
 
 # Note: as an alternative, one may try creating another class accepting the inputs like the one above,

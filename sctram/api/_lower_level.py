@@ -9,7 +9,7 @@ from loguru import logger
 
 from sctram.api._class_mapping import *
 from sctram.api._defaults_read import get_metrics_by_class as default_metrics
-from sctram.utils._constants import labels_key
+from sctram.utils._constants import labels_key, neighbors_key
 
 
 class TrajectoryEvaluationAPI:
@@ -86,8 +86,8 @@ class TrajectoryEvaluationAPI:
         return metrics
 
     def evaluate_with_defaults(self):
-        self.evaluate_adjacency()
-        self.evaluate_pseudotime()
+        adata = self.evaluate_adjacency(_return_inference_anndata=True)
+        self.evaluate_pseudotime(_given_adata=adata)
         self.evaluate_embedding()
 
     def evaluate_pseudotime(
@@ -97,6 +97,8 @@ class TrajectoryEvaluationAPI:
         inference_params: Optional[Dict[str, Any]] = None,
         evaluate_params: Optional[Dict[str, Any]] = None,
         metrics: Optional[List[str]] = None,
+        _given_adata: Optional[ad.AnnData] = None,
+        _return_inference_anndata = False
     ):
 
         self.logger.info("Starting pseudotime evaluation.")
@@ -105,7 +107,10 @@ class TrajectoryEvaluationAPI:
         metrics = self._get_metrics(metrics, inference_method, evaluate_method)
 
         # Subset anndata with only available nodes.
-        _adata = self.adata[self.adata.obs[self.labels_obs].isin(self.input_trajectories.nodes())]
+        if _given_adata is None:
+            _adata = self.adata[self.adata.obs[self.labels_obs].isin(self.input_trajectories.nodes())]
+        else:
+            _adata = _given_adata
         
         if self.root_label is None or self.root_label not in _adata.obs[self.labels_obs].to_numpy():
             raise ValueError("Root label is required for pseudotime based metrics.")
@@ -114,11 +119,15 @@ class TrajectoryEvaluationAPI:
             random_state=42,
             neighbors_params={"n_neighbors": 50},
             iroot_params=dict(
-                label_key=labels_key, label=self.root_label, method="min_diffmap", outlier_definition_z=3
+                label_key=labels_key, label=self.root_label, method="centroid", outlier_definition_z=3
             ),
         )
         
-        inference = InferenceClass(adata=_adata, labels=_adata.obs[self.labels_obs], **inference_params)
+        if _given_adata is None:
+            inference = InferenceClass(adata=_adata, labels=_adata.obs[self.labels_obs], **inference_params)
+        else:
+            inference = InferenceClass(adata=_adata, labels=_adata.obs[self.labels_obs], neighbour_key=neighbors_key, **inference_params)
+        
         inference.calculate()
         inferred_trajectories = inference.get_result("vector")
 
@@ -141,6 +150,9 @@ class TrajectoryEvaluationAPI:
         )
 
         self.results["pseudotime"] = evaluation.get_result()
+        
+        if _return_inference_anndata:
+            return inference.get_result("anndata")
 
     def evaluate_adjacency(
         self,
@@ -149,6 +161,8 @@ class TrajectoryEvaluationAPI:
         inference_params: Optional[Dict[str, Any]] = None,
         evaluate_params: Optional[Dict[str, Any]] = None,
         metrics: Optional[List[str]] = None,
+        _given_adata: Optional[ad.AnnData] = None,
+        _return_inference_anndata = False
     ):
 
         self.logger.info("Starting adjacency evaluation.")
@@ -161,9 +175,16 @@ class TrajectoryEvaluationAPI:
             neighbors_params={"n_neighbors": 50},
         )
         # Subset anndata with only available nodes.
-        _adata = self.adata[self.adata.obs[self.labels_obs].isin(self.input_trajectories.nodes())]
+        if _given_adata is None:
+            _adata = self.adata[self.adata.obs[self.labels_obs].isin(self.input_trajectories.nodes())]
+        else:
+            _adata = _given_adata
+
+        if _given_adata is None:
+            inference = InferenceClass(adata=_adata, labels=_adata.obs[self.labels_obs], **inference_params)
+        else:
+            inference = InferenceClass(adata=_adata, labels=_adata.obs[self.labels_obs], neighbour_key=neighbors_key, **inference_params)
             
-        inference = InferenceClass(adata=_adata, labels=_adata.obs[self.labels_obs], **inference_params)
         inference.calculate()
         inferred_trajectories = inference.get_result("adjacency")
         inferred_trajectories_labels = inference.get_result("labels")
@@ -177,6 +198,9 @@ class TrajectoryEvaluationAPI:
         )
 
         self.results["adjacency"] = evaluation.get_result()
+        
+        if _return_inference_anndata:
+            return inference.get_result("anndata")
 
     def evaluate_embedding(
         self,

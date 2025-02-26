@@ -4,6 +4,7 @@ import numpy as np
 from scipy.stats import cramervonmises_2samp, ks_2samp
 from sctram.evaluate._metrics.validators import validate_inclusive_between_0_1 as _validator1
 from sctram.evaluate._metrics.validators import validate_zero_or_positive as _validator2
+from sctram.evaluate._metrics.utils import prepare_pseudotime
 
 
 def cdf_cramer_von_mises(given_pseudotime_array: np.ndarray,
@@ -33,6 +34,10 @@ def cdf_cramer_von_mises(given_pseudotime_array: np.ndarray,
     Interpretation:
         - A higher CvM statistic indicates a greater overall difference between the cumulative distributions.
     """
+    # Compare CDF shapes. Normalization removes scale bias in distribution alignment.
+    given_pseudotime_array = prepare_pseudotime(given_pseudotime_array, method="minmax")
+    inferred_pseudotime_array = prepare_pseudotime(inferred_pseudotime_array, method="minmax")
+    
     cvm_stat = cramervonmises_2samp(inferred_pseudotime_array, given_pseudotime_array).statistic
     
     if validate_result:
@@ -68,6 +73,10 @@ def cdf_kolmogorov_smirnov(given_pseudotime_array: np.ndarray,
     Interpretation:
         - A higher KS statistic implies a more significant difference between the two distributions.
     """
+    # Compare CDF shapes. Normalization removes scale bias in distribution alignment.
+    given_pseudotime_array = prepare_pseudotime(given_pseudotime_array, method="minmax")
+    inferred_pseudotime_array = prepare_pseudotime(inferred_pseudotime_array, method="minmax")
+    
     ks_statistic, _ = ks_2samp(inferred_pseudotime_array, given_pseudotime_array)
     
     if validate_result:

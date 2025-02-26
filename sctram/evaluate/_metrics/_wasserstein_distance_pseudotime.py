@@ -3,6 +3,8 @@
 import numpy as np
 from scipy.stats import wasserstein_distance as scipy_wd
 from sctram.evaluate._metrics.validators import validate_zero_or_positive as _validator
+from sctram.evaluate._metrics.utils import prepare_pseudotime
+
 
 def wasserstein_distance_pseudotime(given_pseudotime_array: np.ndarray,
                                 inferred_pseudotime_array: np.ndarray,
@@ -33,6 +35,10 @@ def wasserstein_distance_pseudotime(given_pseudotime_array: np.ndarray,
         - A value of 0 indicates that the two distributions are identical.
         - Higher values indicate greater dissimilarity between the distributions.
     """
+    # Measure absolute distances. Normalization focuses on shape rather than magnitude.
+    norm_given = prepare_pseudotime(given_pseudotime_array, method="minmax")
+    norm_inferred = prepare_pseudotime(inferred_pseudotime_array, method="minmax")
+    
     wd = scipy_wd(given_pseudotime_array, inferred_pseudotime_array)
     
     if validate_result:
