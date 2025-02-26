@@ -2,23 +2,48 @@
 
 from typing import Any, Dict, Optional, Tuple
 
-import networkx as nx
+
 import numpy as np
 import pandas as pd
 
 from sctram.evaluate._base import EvaluationBase
-from sctram.evaluate._metricsmixin._adjacencymetricsmixin import AdjacencyMetricsMixin
 from sctram.utils._constants import sctram_operate_key
 from sctram.utils._utils import Utils
+from sctram.evaluate._metrics import metrics as mmm
 
 
-class AdjacencyMatrixEvaluation(AdjacencyMetricsMixin, EvaluationBase):
+class AdjacencyMatrixEvaluation(EvaluationBase):
     """Evaluation method to compare given and inferred adjacency matrices using advanced metrics.
 
     This class compares the adjacency matrix of the given trajectory (converted from a NetworkX graph)
     with the inferred adjacency matrix using a variety of metrics that assess structural and functional
     similarities/differences from multiple perspectives.
     """
+
+    available_metrics = [
+        "frobenius",
+        "l1_norm",
+        "accuracy",
+        "graph_edit_distance",
+        "spectral_distance",
+        "jaccard_similarity",
+        "hamming_distance",
+        "precision",
+        "recall",
+        "f1_score",
+        "permutation_marginalized_ssim",
+        "mantel_correlation",
+        "average_shortest_path_difference",
+        "laplacian_spectral_emd",
+        "clustering_coeff_diff",
+        "gdv_similarity",
+        "weisfeiler_lehman_distance",
+        "gin_gnn_similarity",
+        "maximum_common_subgraph_distance",
+        "random_walk_kernel_distance",
+        "persistence_diagram_distance",
+    ]
+    paga_threshold = 0.3
 
     def __init__(
         self,
@@ -36,7 +61,33 @@ class AdjacencyMatrixEvaluation(AdjacencyMetricsMixin, EvaluationBase):
         # Prepare the input/inferred regardless of the prepare params, as there is no real parameter
         self.prepare_params_before_subset[sctram_operate_key] = True
         self.logger.debug(f"Initialized AdjacencyMatrixEvaluation with metrics: {self.metrics}")
+        
+    def _calculate(self):
+        """Performs the evaluation by comparing the adjacency matrices using the specified metrics.
 
+        Iterates over each specified metric and invokes the corresponding calculation method.
+        Stores the results in the `self.result` dictionary.
+        """
+        for metric in self.metrics:
+            self.logger.debug(f"Calculating metric: {metric!r}")
+            
+            if metric in self.available_metrics:
+
+                kwargs = dict(
+                    given_adjacency_matrix = self.prepared_after_subset_given,
+                    inferred_adjacency_matrix = self.prepared_after_subset_inferred,
+                )
+                
+                if Utils.requires_argument(mmm[metric]["base_before_val"], arg_name="threshold"):
+                    score, logger_message = mmm[metric]["with_desc"](threshold=self.paga_threshold, **kwargs)
+                else:
+                    score, logger_message = mmm[metric]["with_desc"](**kwargs)
+                    
+                self.result[metric] = score
+                self.logger.info(logger_message)
+            else:
+                raise ValueError(f"Unknown metric {metric!r} specified.")
+                                
     def get_result(self) -> Any:
         """Retrieves the result of the trajectory evaluation.
 
@@ -78,6 +129,10 @@ class AdjacencyMatrixEvaluation(AdjacencyMetricsMixin, EvaluationBase):
             raise ValueError("All diagonal elements must be zero.")
         if not np.all((inferred_adjacency >= 0) & (inferred_adjacency <= 1)):
             raise ValueError("All values must be within the range [0, 1].")
+        if inferred_adjacency.max() != 1.0 or inferred_adjacency.min() != 0.0:
+            raise ValueError(f"Min and max values should be 0 and 1 respectively.")
+        if not np.all(np.isfinite(inferred_adjacency)) or np.any(np.isnan(inferred_adjacency)):
+            raise ValueError(f"There is nan or inf in the adjacency matrix..")
 
         return inferred_adjacency
 

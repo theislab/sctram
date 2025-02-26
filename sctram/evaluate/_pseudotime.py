@@ -8,10 +8,9 @@ import pandas as pd
 
 from sctram.evaluate._base import EvaluationBase
 from sctram.evaluate._converters._adjacency2pseudotime import LabelAdjacencyPseudotimeConverter
-from sctram.evaluate._metricsmixin._pseudotimecategoricalmetricsmixin import PseudotimeCategoricalMetricsMixin
-from sctram.evaluate._metricsmixin._pseudotimevaluesmetricsmixin import PseudotimeValuesMetricsMixin
 from sctram.utils._constants import sctram_operate_key
 from sctram.utils._utils import Utils
+from sctram.evaluate._metrics import metrics as mmm
 
 
 class PseudotimeEvaluationBase(EvaluationBase):
@@ -150,7 +149,7 @@ class PseudotimeEvaluationBase(EvaluationBase):
         )
 
 
-class PseudotimeCategoricalEvaluation(PseudotimeCategoricalMetricsMixin, PseudotimeEvaluationBase):
+class PseudotimeCategoricalEvaluation(PseudotimeEvaluationBase):
     """Evaluation method to compare inferred pseudotime with a given trajectory graph.
 
     The data prep includes conversion of user defined adjacency matrix into an array of strings composed of labels
@@ -166,7 +165,7 @@ class PseudotimeCategoricalEvaluation(PseudotimeCategoricalMetricsMixin, Pseudot
         # TODO: implement categorical pseudotime evaluation.
 
 
-class PseudotimeValuesEvaluation(PseudotimeValuesMetricsMixin, PseudotimeEvaluationBase):
+class PseudotimeValuesEvaluation(PseudotimeEvaluationBase):
     """Evaluation method to compare inferred pseudotime with a given trajectory graph.
 
     The data prep includes conversion of user defined adjacency matrix into pseudotime
@@ -188,6 +187,57 @@ class PseudotimeValuesEvaluation(PseudotimeValuesMetricsMixin, PseudotimeEvaluat
     capturing aspects such as linear correlation, rank correlation, error magnitude, ordering consistency,
     distribution similarity, and more.
     """
+
+    available_metrics = [
+        "pearson_correlation",
+        "spearman_correlation",
+        "kendall_correlation",
+        "mse",
+        "mae",
+        "r_squared_with_spline",
+        "r_squared",
+        "concordance_index",
+        "dtw_distance",
+        "wasserstein_distance_pseudotime",
+        "normalized_mutual_information",
+        "mutual_information_kde",
+        "cdf_kolmogorov_smirnov",
+        "cdf_cramer_von_mises",
+        "morans_i_pseudotime",
+        "gearys_c_pseudotime"
+    ]
+
+    def _calculate(self):
+        """Performs the evaluation by comparing the pseudotime arrays using the specified metrics.
+
+        Iterates over each specified metric and invokes the corresponding calculation method.
+        Stores the results in the `self.result` dictionary.
+        """
+        for metric in self.metrics:
+            self.logger.debug(f"Calculating metric: {metric!r}")
+            
+            if metric in ["morans_i_pseudotime", "gearys_c_pseudotime"]:
+                self.logger.warning(f"Implementation of the spatial metric {metric!r} could be problematic.")
+                score, logger_message = mmm[metric]["with_desc"](
+                    given_adjacency_matrix = self.subset_given,
+                    inferred_pseudotime_array = self.prepared_after_subset_inferred,
+                    labels_array = self.subset_labels,
+                    normalize_weights = True,
+                    force_to_implementation = "package"
+                )
+                
+            elif metric in self.available_metrics:
+
+                score, logger_message = mmm[metric]["with_desc"](
+                    given_pseudotime_array = self.prepared_after_subset_given,
+                    inferred_pseudotime_array = self.prepared_after_subset_inferred,
+                )
+                
+            else:
+                raise ValueError(f"Unknown metric {metric!r} specified.")
+            
+            self.result[metric] = score
+            self.logger.info(logger_message)
 
     def _prepare_after_subset(self) -> Tuple[np.ndarray, np.ndarray]:
         """Prepares the data after subsetting.
@@ -251,6 +301,8 @@ class PseudotimeValuesEvaluation(PseudotimeValuesMetricsMixin, PseudotimeEvaluat
             raise ValueError("Label pseudotime must be a one-dimensional array.")
         if label_pseudotime.size != len(unique_labels):
             raise ValueError("Label pseudotime size does not match the number of unique subset labels.")
+        if not np.all(np.isfinite(label_pseudotime)) or np.any(np.isnan(label_pseudotime)):
+            raise ValueError(f"There is nan or inf in the converted label pseudotime.")
         self.logger.debug("Computed label pseudotime successfully.")
 
         self.logger.debug("Assigning pseudotime to cells based on label pseudotime.")
