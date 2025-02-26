@@ -24,6 +24,7 @@ dependencies:
     - gudhi
     - eagerpy
     - fastdtw
+    - esda
     - pot
     - gdown
     - pyyaml>=5.2

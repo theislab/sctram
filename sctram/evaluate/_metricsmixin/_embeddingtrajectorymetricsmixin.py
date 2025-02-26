@@ -5,11 +5,10 @@ import numpy as np
 from sctram.evaluate._metrics import metrics as mmm
 from sctram.evaluate._metrics.utils import Centroids
 from sctram.evaluate._metricsmixin._metricsmixinbase import MetricsMixinBase
-from sctram.evaluate._metricsmixin._spatialmetricsmixin import SpatialMetricsMixin
 from sctram.utils._constants import neighbors_key, connectivities_key
 
 
-class EmbeddingTrajectoryMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
+class EmbeddingTrajectoryMetricsMixin(MetricsMixinBase):
     """A mixin class to compute various metrics comparing an embedding to a trajectory graph. The aim is to find out
     whether the trajectory is actually involved in the embedding using a battery of metrics.
 
@@ -31,7 +30,8 @@ class EmbeddingTrajectoryMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
         "directionality_preservation",
         "wasserstein_distance_embedding",
         "trajectory_cardinality_validation",
-        # spatial metrics missing
+        "morans_i_embedding",
+        "gearys_c_embedding"
     ]
 
     def _calculate(self):
@@ -107,10 +107,12 @@ class EmbeddingTrajectoryMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
                 score, logger_message = mmm[metric]["with_desc"](
                     given_graph = self.prepared_after_subset_given,
                     inferred_embedding = self.prepared_after_subset_inferred.X,
+                    labels_array = self.labels,
                     centroids = centroids,
                     n_neighbors = n_neighbors,
                     precomputed_embedded_connectivities = connectivities,
-                    pca_components = 1
+                    pca_components = 1,
+                    k_cells = n_neighbors
                 )
             
             elif metric == "wasserstein_distance_embedding":
@@ -122,14 +124,21 @@ class EmbeddingTrajectoryMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
                 )
             
             elif metric == "trajectory_cardinality_validation":
-                score, logger_message = np.nan, "Not Implemented"
-                # score, logger_message = mmm[metric]["with_desc"](
-                #     given_graph = self.prepared_after_subset_given,
-                #     labels_array = self.labels,
-                #     precomputed_embedded_connectivities = connectivities,
-                #     n_neighbors = n_neighbors,
-                #     skip_chain_nodes = True
-                # )
+                score, logger_message = mmm[metric]["with_desc"](
+                    given_graph = self.prepared_after_subset_given,
+                    labels_array = self.labels,
+                    precomputed_embedded_connectivities = connectivities,
+                    skip_single_branches = True
+                )
+                
+            elif metric in ["morans_i_embedding", "gearys_c_embedding"]:
+                score, logger_message = mmm[metric]["with_desc"](
+                    given_graph = self.prepared_after_subset_given,
+                    labels_array = self.labels,
+                    inferred_embedding = self.prepared_after_subset_inferred.X,
+                    normalize_weights = True,
+                    force_to_implementation = "package"
+                )
         
             else:
                 raise ValueError(f"Metric {metric!r} not included.")
@@ -138,6 +147,9 @@ class EmbeddingTrajectoryMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
             self.logger.info(logger_message)
 
     # TODO: _calculate_metric_stability
+    
+    # Not only here but also for other ones. sth like:
+    
     # def _calculate_metric_stability(self, n_iter=10, subsample_ratio=0.8):
     #     """Compute coefficient of variation for metrics across subsamples"""
     #     # Quantify metric robustness to subsampling/noise.

@@ -206,7 +206,6 @@ metrics:
     category: embedding
     message: "Neighborhood Preservation Score"
     validate_result: True
-
   - base_function: directionality_preservation
     module: _directionality_preservation
     category: embedding
@@ -223,3 +222,23 @@ metrics:
     message: "Trajectory Cardinality Validation F1-score"
     validate_result: True
   
+  - base_function: morans_i_embedding
+    module: _spatial_autocorrelation
+    category: embedding
+    message: "Moran's I"
+    validate_result: True
+  - base_function: gearys_c_embedding
+    module: _spatial_autocorrelation
+    category: embedding
+    message: "Geary's C"
+    validate_result: True
+  - base_function: morans_i_pseudotime
+    module: _spatial_autocorrelation
+    category: pseudotime
+    message: "Moran's I"
+    validate_result: True
+  - base_function: gearys_c_pseudotime
+    module: _spatial_autocorrelation
+    category: pseudotime
+    message: "Geary's C"
+    validate_result: True

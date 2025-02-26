@@ -5,10 +5,9 @@
 # It was kept as reference.
 
 from sctram.evaluate._metricsmixin._metricsmixinbase import MetricsMixinBase
-from sctram.evaluate._metricsmixin._spatialmetricsmixin import SpatialMetricsMixin
 
 
-class EmbeddingsPairMetricsMixin(MetricsMixinBase, SpatialMetricsMixin):
+class EmbeddingsPairMetricsMixin(MetricsMixinBase):
     """Aims to compare two embeddings.
 
     In the context of single-cell data integration, this embeddings come from anndata before integration and anndata

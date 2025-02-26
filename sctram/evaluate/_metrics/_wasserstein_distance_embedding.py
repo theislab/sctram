@@ -224,9 +224,129 @@ if __name__ == '__main__':
         expected = (0.5 + 2.0 + 2.0) / 3  # Manually computed expected average WD
         assert np.isclose(result, expected, rtol=1e-3), f"Manual calculation failed. Expected {expected}, got {result}"
 
+    def create_knn_connectivity(n_cells, n_neighbors):
+        """
+        Create a dummy sparse connectivity matrix (including self-neighbor).
+        Here, we simulate a simple KNN graph where each cell's neighbors are chosen randomly.
+        """
+        rows = []
+        cols = []
+        data = []
+        for i in range(n_cells):
+            # self-neighbor is always the first entry
+            neighbors = np.random.choice(np.delete(np.arange(n_cells), i), n_neighbors - 1, replace=False)
+            indices = np.concatenate(([i], neighbors))
+            rows.extend([i] * n_neighbors)
+            cols.extend(indices)
+            data.extend([1] * n_neighbors)
+        connectivity = sparse.csr_matrix((data, (rows, cols)), shape=(n_cells, n_cells))
+        return connectivity
+
+    def test_balanced_cell_types():
+        """
+        Scenario 1: Fully connected graph with balanced cell types.
+        Every cell type has outgoing transitions to every other type, and the embedding
+        neighbor distributions roughly match the graph.
+        """
+        # Create a graph with 3 cell types and full connectivity
+        cell_types = ['A', 'B', 'C']
+        G = nx.DiGraph()
+        G.add_nodes_from(cell_types)
+        for u in cell_types:
+            for v in cell_types:
+                if u != v:
+                    G.add_edge(u, v, weight=1.0)
+        
+        # Create a labels array: 90 cells evenly distributed among 3 types
+        n_cells = 90
+        labels_array = np.array(['A'] * 30 + ['B'] * 30 + ['C'] * 30)
+        
+        # Create a KNN connectivity matrix (neighbors include self, so n_neighbors=6 for instance)
+        n_neighbors = 6
+        connectivity = create_knn_connectivity(n_cells, n_neighbors)
+        
+        # Compute the score
+        score = wasserstein_distance_embedding(G, labels_array, connectivity, n_neighbors)
+        
+        assert score >= 0
+
+    def test_imbalanced_cell_types():
+        """
+        Scenario 2: Imbalanced cell types.
+        One cell type ('A') is rare compared to others, testing if the method handles imbalances.
+        """
+        cell_types = ['A', 'B', 'C']
+        G = nx.DiGraph()
+        G.add_nodes_from(cell_types)
+        # Define transitions: more transitions from B and C, and 'A' has few connections
+        G.add_edge('B', 'A', weight=0.5)
+        G.add_edge('B', 'C', weight=0.5)
+        G.add_edge('C', 'B', weight=1.0)
+        G.add_edge('A', 'A', weight=1.0)  # 'A' only transitions to itself
+
+        # Create a labels array with imbalance: 'A' is rare
+        labels_array = np.array(['A'] * 10 + ['B'] * 45 + ['C'] * 45)
+        n_cells = labels_array.shape[0]
+        n_neighbors = 6
+        connectivity = create_knn_connectivity(n_cells, n_neighbors)
+        
+        score = wasserstein_distance_embedding(G, labels_array, connectivity, n_neighbors)
+        
+        assert score >= 0
+
+    def test_graph_with_orphan_nodes():
+        """
+        Scenario 3: Graph with orphan nodes (nodes with no outgoing edges).
+        Tests if the self-transition fallback works correctly.
+        """
+        cell_types = ['A', 'B', 'C']
+        G = nx.DiGraph()
+        G.add_nodes_from(cell_types)
+        # Only 'B' and 'C' have transitions; 'A' is an orphan.
+        G.add_edge('B', 'C', weight=1.0)
+        G.add_edge('C', 'B', weight=1.0)
+        
+        labels_array = np.array(['A'] * 30 + ['B'] * 30 + ['C'] * 30)
+        n_cells = labels_array.shape[0]
+        n_neighbors = 6
+        connectivity = create_knn_connectivity(n_cells, n_neighbors)
+        
+        score = wasserstein_distance_embedding(G, labels_array, connectivity, n_neighbors)
+        
+        assert score >= 0
+
+    def test_weighted_transitions():
+        """
+        Scenario 4: Weighted transitions.
+        The graph has weighted edges, and we simulate that the embedding reflects these weight differences.
+        """
+        cell_types = ['A', 'B', 'C', 'D']
+        G = nx.DiGraph()
+        G.add_nodes_from(cell_types)
+        # Define a more complex weighted graph
+        G.add_edge('A', 'B', weight=2.0)
+        G.add_edge('A', 'C', weight=1.0)
+        G.add_edge('B', 'C', weight=3.0)
+        G.add_edge('C', 'D', weight=4.0)
+        G.add_edge('D', 'A', weight=1.0)
+        
+        # Create a labels array with 120 cells in a non-uniform distribution
+        labels_array = np.array(['A'] * 20 + ['B'] * 30 + ['C'] * 50 + ['D'] * 20)
+        n_cells = labels_array.shape[0]
+        n_neighbors = 7  # e.g., 7 neighbors including self
+        connectivity = create_knn_connectivity(n_cells, n_neighbors)
+        
+        score = wasserstein_distance_embedding(G, labels_array, connectivity, n_neighbors)
+        
+        assert score >= 0
+
     # Execute all tests
     test_perfect_match()
     test_orphan_node_zero_wd()
     test_no_overlap_high_wd()
     test_large_manual_calculation()
+    test_balanced_cell_types()
+    test_imbalanced_cell_types()
+    test_graph_with_orphan_nodes()
+    test_weighted_transitions()
     print("All tests passed!")

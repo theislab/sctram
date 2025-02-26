@@ -98,6 +98,7 @@ dependencies:
     - eagerpy # Needed for gudhi wasserstein method.
     - openpyxl>=3.0.4 # celltypist dependency
     - fastdtw # Dynamic Time Warping (DTW) algorithm
+    - esda # Spatial Data Analysis
 
     # Visualization
     - matplotlib>=3.7 # Plotting library

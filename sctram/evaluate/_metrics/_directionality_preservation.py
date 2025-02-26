@@ -2,6 +2,7 @@
 
 import numpy as np
 import networkx as nx
+from typing import Optional
 from scipy import sparse
 from sklearn.decomposition import PCA
 
@@ -13,21 +14,103 @@ except ImportError:
     from utils import Centroids, convert_scanpy_neighbors_to_indices
 
 
+def _find_edge_cells(u, v, inferred_embedding, centroids, k, labels_array, orthogonal_distance_coefficient = np.inf):
+    """
+    Find k cells from inferred_embedding that are labeled as belonging to node u and lie between 
+    the centroids of node u and node v. Cells are selected based on their projection along the edge
+    direction, and only those within the segment defined by the centroids are considered.
+
+    Parameters:
+        u (str): Source node label.
+        v (str): Destination node label.
+        inferred_embedding (np.ndarray): Cell embeddings (n_cells x n_features).
+        centroids (Centroids): Object that provides centroids for graph nodes.
+        labels_array (np.array): Array of cell type labels, with length n.
+        orthogonal_distance_coefficient (float): If infinite, it is effectively disabled.
+            Cells are not only aligned with the edge direction but are also spatially close to the edge are chosen.
+            This filters out cells that might lie along the projection line but are too far from the actual biological
+            path (as represented by the edge between the centroids). The coefficient is chosen to determine  
+            distance relative to the edge lenght.
+        k (int): Number of cells to return.
+
+    Returns:
+        np.array: Indices of selected cells.
+    """
+    centroid_u = centroids.get_single(u)
+    centroid_v = centroids.get_single(v)
+    edge_vector = centroid_v - centroid_u
+    norm_edge = np.linalg.norm(edge_vector)
+    if norm_edge == 0:
+        raise ValueError(f"Edge {u}->{v} has zero length.")
+    edge_direction = edge_vector / norm_edge
+
+    # Calculate projection of each cell onto the edge direction.
+    projection_scalars = np.dot(inferred_embedding - centroid_u, edge_direction)
+    projection_vectors = np.outer(projection_scalars, edge_direction)
+    difference_vectors = inferred_embedding - centroid_u
+    orthogonal_vectors = difference_vectors - projection_vectors
+    orthogonal_distances = np.linalg.norm(orthogonal_vectors, axis=1)
+
+    # Filter cells by belonging to node u using labels_array.
+    node_u_mask = (labels_array == u)
+    # Cells' projection values are within 0 and norm_edge, and orthogonal distances less than d/2.
+    orthogonal_mask = (orthogonal_distances < norm_edge * orthogonal_distance_coefficient)
+    
+    valid_mask = (projection_scalars > 0) & (projection_scalars < norm_edge) & orthogonal_mask & node_u_mask
+    valid_indices = np.where(valid_mask)[0]
+    if len(valid_indices) == 0:
+        raise ValueError(
+            f"No valid cells found between centroids for edge {u}->{v} belonging "
+            "to {u} within acceptable orthogonal distance."
+        )
+
+    # Choose the k cells closest to the midpoint of the edge.
+    midpoint = centroid_u + edge_vector / 2
+    distances = np.linalg.norm(inferred_embedding[valid_indices] - midpoint, axis=1)
+    sorted_indices = valid_indices[np.argsort(distances)]
+    selected = sorted_indices[:k] if len(sorted_indices) >= k else sorted_indices
+    return selected
+
+
+def _get_edge_local_cells(u, v, inferred_embedding, centroids, embedded_neighbors, k, labels_array):
+    """
+    First, find k cells that lie along the edge from centroid_u to centroid_v.
+    Then, using the precomputed neighbor indices, take the union of the neighbors 
+    of these k cells to form the local cell set for PCA.
+    """
+    edge_cells = _find_edge_cells(u, v, inferred_embedding, centroids, k, labels_array)
+    # print("len(edge_cells)", len(edge_cells))
+    neighbor_indices = set()
+    for cell_idx in edge_cells:
+        # embedded_neighbors is expected to be an array-like where each element contains 
+        # the indices of neighbor cells for that particular cell.
+        neighbor_indices.update(embedded_neighbors[cell_idx])
+    neighbor_indices = np.array(list(neighbor_indices))
+    local_cells = inferred_embedding[neighbor_indices]
+    return local_cells
+
+
 def directionality_preservation(
     given_graph: nx.DiGraph,
     inferred_embedding: np.ndarray,
+    labels_array: np.ndarray,
     centroids: Centroids,
     precomputed_embedded_connectivities: sparse.csr_matrix,
     validate_result: bool,
     n_neighbors: int,
+    k_cells: Optional[int] = None,
     pca_components: int = 1,
 ) -> float:
     """Directionality preservation via local PCA and graph edge alignment.
 
-    Computes the average cosine similarity between graph edge directions and local embedding
-    principal directions. For each edge (u -> v), the direction from u's centroid to v's centroid
-    is compared with the first PCA component of cells near u's centroid. Higher values indicate
-    better preservation of graph-derived directions in the embedding.
+    For each edge (u -> v), this function:
+      1. Retrieves centroids for nodes u and v.
+      2. Computes the graph direction vector (from u to v).
+      3. Identifies k cells along the line connecting centroid_u and centroid_v.
+      4. Expands these cells by unioning their precomputed neighbors.
+      5. Runs PCA on these local cells and compares the primary PCA component with the
+         normalized graph direction (using cosine similarity).
+      6. Averages the alignments over all edges.
 
     Mathematical Formulation:
         For edge (u, v):
@@ -39,10 +122,12 @@ def directionality_preservation(
     Parameters:
         given_graph (nx.DiGraph): Directed graph with edges representing biological transitions.
         inferred_embedding (np.ndarray): Cell embeddings (n_cells x n_features).
+        labels_array (np.array): Array of cell type labels, with length n.
         centroids (Centroids): Provides centroids for graph nodes via `get_centroids(nodes)`.
         precomputed_embedded_connectivities (sparse.csr_matrix): Precomputed k-nearest neighbor connectivities.
         validate_result (bool): Whether to validate the score is within [0,1].
         n_neighbors (int): Number of neighbors for local PCA (default: 50).
+        k_cells (Optional[int]): Number of cells to choose along centroids. If None, n_neighbors will be used.
         pca_components (int): Number of PCA components to use (default: 1).
 
     Returns:
@@ -66,40 +151,41 @@ def directionality_preservation(
     """
     total_alignment = 0.0
     valid_pairs = 0
-    
+    k_cells = n_neighbors if k_cells is None else k_cells
+
+    # Precompute neighbor indices for all cells.
     embedded_neighbors = convert_scanpy_neighbors_to_indices(
-        scanpy_neighbors_matrix = precomputed_embedded_connectivities,
-        k = n_neighbors - 1,  # excluding itself
-        include_itself = False
-    )  # this should create neighbor indices except itself.
+        scanpy_neighbors_matrix=precomputed_embedded_connectivities,
+        k=n_neighbors - 1,  # excluding the cell itself
+        include_itself=False
+    )
 
     for u, v in given_graph.edges():
-        # Retrieve centroids for nodes
+        # Retrieve centroids for nodes u and v.
         centroid_u = centroids.get_single(u)
         centroid_v = centroids.get_single(v)
 
-        # Compute graph direction vector
+        # Compute graph direction vector and normalize it.
         graph_direction = centroid_v - centroid_u
         norm = np.linalg.norm(graph_direction)
         if norm == 0:
             raise ValueError("Edges with zero direction")
+        graph_direction_norm = graph_direction / norm
 
-        # Find local cells around centroid_u
-        local_cells = inferred_embedding[embedded_neighbors[0]]
-
+        # Instead of taking neighbors around centroid_u, find k cells along the edge from u to v,
+        # then get the union of their neighbors.
+        local_cells = _get_edge_local_cells(u, v, inferred_embedding, centroids, embedded_neighbors, k_cells, labels_array)
+        # print("len(local_cells)", len(local_cells))
         if len(local_cells) < 2:
-            raise ValueError("insufficient cells for PCA")
+            raise ValueError("Insufficient cells for PCA")
 
-        # Compute PCA direction
+        # Compute PCA on the local cells.
         pca = PCA(n_components=pca_components).fit(local_cells)
         if pca.components_.size == 0:
             raise ValueError("PCA issue")
         embedding_direction = pca.components_[0]
 
-        # Normalize graph direction
-        graph_direction_norm = graph_direction / norm
-
-        # Calculate alignment (cosine similarity)
+        # Calculate alignment (cosine similarity).
         alignment = np.dot(embedding_direction, graph_direction_norm)
         total_alignment += alignment
         valid_pairs += 1
@@ -114,235 +200,3 @@ def directionality_preservation(
 
     return score
 
-
-if __name__ == "__main__":
-    
-    class MockCentroids:
-        def __init__(self, centroids_dict):
-            self.centroids = {i: np.array(j) for i, j in centroids_dict.items()}
-            
-        def get_single(self, node):
-            return self.centroids[node]
-
-    def create_valid_scanpy_neighbors(n_cells: int, k: int, seed_row: int = 0) -> sparse.csr_matrix:
-        """Create a valid scanpy neighbor matrix where:
-        - seed_row has neighbors [1, 2, ..., k]
-        - All other rows have cyclic neighbors to satisfy k requirements
-        """
-        indices = []
-        indptr = [0]
-        
-        # Create neighbors for seed_row
-        seed_neighbors = np.arange(1, k+1)
-        indices.extend(seed_neighbors)
-        indptr.append(len(indices))
-        
-        # Create neighbors for other rows (cyclically repeat valid indices)
-        for i in range(1, n_cells):
-            row_neighbors = np.arange(k)  # Valid cyclic indices
-            indices.extend(row_neighbors)
-            indptr.append(len(indices))
-        
-        data = np.ones(len(indices), dtype=np.float32)
-        return sparse.csr_matrix((data, indices, indptr), shape=(n_cells, n_cells))
-
-    def test_perfect_alignment():
-        """Test perfect alignment (score=1.0)"""
-        G = nx.DiGraph()
-        G.add_edge('u', 'v')
-        
-        n_cells = 50
-        inferred_embedding = np.zeros((n_cells, 2))
-        inferred_embedding[0] = [0.0, 0.0]  # Centroid_u cell
-        for i in range(1, n_cells):
-            inferred_embedding[i] = [i*0.02, 0.0]  # Perfect x-axis alignment
-        
-        # Create valid neighbors matrix with correct format
-        precomputed_embedded_connectivities = create_valid_scanpy_neighbors(
-            n_cells=n_cells, k=49, seed_row=0
-        )
-        
-        centroids = MockCentroids({'u': inferred_embedding[0], 'v': [1.0, 0.0]})
-        
-        score = directionality_preservation(
-            given_graph=G,
-            inferred_embedding=inferred_embedding,
-            centroids=centroids,
-            precomputed_embedded_connectivities=precomputed_embedded_connectivities,
-            validate_result=True,
-            n_neighbors=50
-        )
-        assert np.isclose(score, 1.0), f"Expected 1.0, got {score}"
-
-    def test_orthogonal_directions():
-        """Test orthogonal directions (score≈0)"""
-        G = nx.DiGraph()
-        G.add_edge('u', 'v')
-        
-        n_cells = 50
-        inferred_embedding = np.zeros((n_cells, 2))
-        inferred_embedding[0] = [0.0, 0.0]
-        for i in range(1, n_cells):
-            inferred_embedding[i] = [0.0, i*0.02]  # Y-axis direction
-        
-        precomputed_embedded_connectivities = create_valid_scanpy_neighbors(
-            n_cells=n_cells, k=49, seed_row=0
-        )
-        
-        centroids = MockCentroids({'u': [0.0, 0.0], 'v': [1.0, 0.0]})
-        
-        score = directionality_preservation(
-            G, inferred_embedding, centroids, precomputed_embedded_connectivities, 
-            validate_result=True, n_neighbors=50
-        )
-        assert abs(score) < 0.01, f"Expected ~0, got {score}"
-
-    def test_large_realistic_dataset():
-        """Large structured dataset (score≈1.0)"""
-        G = nx.DiGraph()
-        nodes = ['u'] + [f'v{i}' for i in range(4)]
-        for node in nodes[1:]:
-            G.add_edge(nodes[0], node)
-        
-        n_cells = 1000
-        inferred_embedding = np.zeros((n_cells, 2))
-        inferred_embedding[:, 0] = np.linspace(0, 10, n_cells)  # Linear x-axis
-        
-        # Create neighbors matrix with first 50 cells as neighbors for centroid_u
-        precomputed_embedded_connectivities = create_valid_scanpy_neighbors(
-            n_cells=n_cells, k=49, seed_row=0
-        )
-        
-        centroids_dict = {'u': [0.0, 0.0]}
-        for i, node in enumerate(nodes[1:], 1):
-            centroids_dict[node] = [i*2.5, 0.0]
-        centroids = MockCentroids(centroids_dict)
-        
-        score = directionality_preservation(
-            G, inferred_embedding, centroids, precomputed_embedded_connectivities,
-            validate_result=True, n_neighbors=50
-        )
-        assert np.isclose(score, 1.0, atol=0.01), f"Expected ~1.0, got {score}"
-
-    def test_anti_correlated_directions():
-        """Test anti-correlated directions yield score=-1.0"""
-        G = nx.DiGraph()
-        G.add_edge('v', 'u')  # Reverse edge direction
-        
-        n_cells = 50
-        inferred_embedding = np.zeros((n_cells, 2))
-        inferred_embedding[0] = [1.0, 0.0]  # Centroid_v
-        for i in range(1, n_cells):
-            inferred_embedding[i] = [1.0 - i*0.02, 0.0]  # Points left of centroid_v
-        
-        precomputed_embedded_connectivities = create_valid_scanpy_neighbors(
-            n_cells=n_cells, k=49, seed_row=0
-        )
-        
-        centroids = MockCentroids({'v': [1.0, 0.0], 'u': [0.0, 0.0]})
-        
-        score = directionality_preservation(
-            G, inferred_embedding, centroids, precomputed_embedded_connectivities,
-            validate_result=True, n_neighbors=50
-        )
-        assert np.isclose(score, -1.0, atol=0.01), f"Expected -1.0, got {score}"
-
-    def test_random_directions_average_near_zero():
-        """Test random embeddings yield average alignment ≈0"""
-        np.random.seed(42)
-        G = nx.DiGraph()
-        G.add_edges_from([('u', 'v'), ('u', 'w'), ('u', 'x')])
-        
-        n_cells = 500
-        inferred_embedding = np.random.randn(n_cells, 50)  # High-dim random
-        
-        precomputed_embedded_connectivities = create_valid_scanpy_neighbors(
-            n_cells=n_cells, k=49, seed_row=0
-        )
-        
-        centroids_dict = {'u': np.zeros(50)}
-        for node in ['v', 'w', 'x']:
-            centroids_dict[node] = np.random.randn(50)
-        centroids = MockCentroids(centroids_dict)
-        
-        score = directionality_preservation(
-            G, inferred_embedding, centroids, precomputed_embedded_connectivities,
-            validate_result=True, n_neighbors=50
-        )
-        assert abs(score) < 0.1, f"Expected |score| < 0.1, got {score}"
-
-    def test_multiple_edges_varying_alignment():
-        """Test mixture of alignment directions"""
-        G = nx.DiGraph()
-        G.add_edges_from([('u', 'v1'), ('u', 'v2'), ('u', 'v3')])
-        
-        n_cells = 50
-        inferred_embedding = np.zeros((n_cells, 2))
-        inferred_embedding[:, 0] = np.linspace(0, 1, n_cells)  # All x-aligned
-        
-        precomputed_embedded_connectivities = create_valid_scanpy_neighbors(
-            n_cells=n_cells, k=49, seed_row=0
-        )
-        
-        centroids = MockCentroids({
-            'u': [0.0, 0.0],
-            'v1': [1.0, 0.0],  # Aligned
-            'v2': [0.0, 1.0],  # Orthogonal
-            'v3': [-1.0, 0.0]  # Anti-aligned
-        })
-        
-        score = directionality_preservation(
-            G, inferred_embedding, centroids, precomputed_embedded_connectivities,
-            validate_result=True, n_neighbors=50
-        )
-        expected = (1.0 + 0.0 + (-1.0)) / 3
-        assert np.isclose(score, expected, atol=0.01), f"Expected {expected}, got {score}"
-
-    def test_minimal_valid_case():
-        """Test minimal valid configuration with exact neighbors"""
-        G = nx.DiGraph()
-        G.add_edges_from([('A', 'B'), ('A', 'C')])
-        
-        # 5 cells: 1 centroid + 2 neighbors for A, 1 centroid each for B and C
-        inferred_embedding = np.array([
-            [0.0, 0.0],  # A's centroid (row 0)
-            [0.1, 0.0],  # A's neighbor 1 (row 1)
-            [0.2, 0.0],  # A's neighbor 2 (row 2)
-            [1.0, 0.0],  # B's centroid (row 3)
-            [0.0, 1.0],  # C's centroid (row 4)
-        ])
-        
-        # Create valid neighbor matrix with k=2 neighbors per row (n_neighbors=3)
-        precomputed_embedded_connectivities = create_valid_scanpy_neighbors(
-            n_cells=5, k=2, seed_row=0
-        )
-        
-        centroids = MockCentroids({
-            'A': [0.0, 0.0],
-            'B': [1.0, 0.0],
-            'C': [0.0, 1.0]
-        })
-        
-        score = directionality_preservation(
-            G, inferred_embedding, centroids, precomputed_embedded_connectivities,
-            validate_result=True, n_neighbors=3, pca_components=1
-        )
-        
-        # Expected alignments:
-        # A->B: PCA of A's neighbors (rows 1-2) is x-axis → alignment = 1.0
-        # A->C: PCA direction (x-axis) vs graph direction (y-axis) → alignment = 0.0
-        expected = (1.0 + 0.0) / 2
-        assert np.isclose(score, expected, atol=0.01), f"Expected {expected}, got {score}"
-
-    
-    test_perfect_alignment()
-    test_orthogonal_directions()
-    test_large_realistic_dataset()
-    test_anti_correlated_directions()
-    test_random_directions_average_near_zero()
-    test_multiple_edges_varying_alignment()
-    test_minimal_valid_case()
-    print("All tests passed!")
-    
-    
-    

@@ -19,7 +19,8 @@ combinations:
         - mutual_information_kde
         - cdf_kolmogorov_smirnov
         - cdf_cramer_von_mises
-        # spatial metrics yet to come
+        - morans_i_pseudotime
+        - gearys_c_pseudotime
 
     - evaluate: AdjacencyMatrixEvaluation
       infer: PAGAInference
@@ -60,7 +61,8 @@ combinations:
         - directionality_preservation
         - wasserstein_distance_embedding
         - trajectory_cardinality_validation
-        # spatial metrics yet to come
+        - morans_i_embedding
+        - gearys_c_embedding
 
     - evaluate: EmbeddingTrajectoryEvaluation
       infer: PCAEmbedding

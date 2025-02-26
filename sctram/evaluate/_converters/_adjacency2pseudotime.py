@@ -11,6 +11,10 @@ from scipy.sparse.linalg import eigsh
 from sklearn.preprocessing import MinMaxScaler
 
 from sctram.utils._utils import Utils
+from loguru import logger
+
+
+_logger = logger.bind(name="Converters")
 
 
 class AdjacencyPseudotimeConverter:
@@ -328,11 +332,11 @@ class AdjacencyPseudotimeConverter:
             # Check for convergence
             if np.linalg.norm(f_new - f, ord=1) < tol:
                 f = f_new
-                print(f"Diffusion pseudotime converged in {step + 1} steps.")
+                _logger.info(f"Diffusion pseudotime converged in {step + 1} steps.")
                 break
             f = f_new
         else:
-            print(f"Diffusion pseudotime did not converge within {n_steps} steps.")
+            logger.info(f"Diffusion pseudotime did not converge within {n_steps} steps.")
 
         return 1 - f
 

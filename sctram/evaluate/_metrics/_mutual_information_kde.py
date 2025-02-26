@@ -6,9 +6,9 @@ from scipy.linalg import cholesky, LinAlgError
 from typing import Optional
 
 try:
-    from sctram.evaluate._metrics.validators import validate_zero_or_positive as _validator
+    from sctram.evaluate._metrics.validators import validate_maximum_1 as _validator
 except ImportError:
-    from validators import validate_zero_or_positive as _validator
+    from validators import validate_maximum_1 as _validator
 
 
 def mutual_information_kde(

@@ -32,7 +32,7 @@ class AdjacencyMetricsMixin(MetricsMixinBase):
         "persistence_diagram_distance",
     ]
     
-    _paga_threshold = 0.4
+    _paga_threshold = 0.3
 
     def _calculate(self):
         """Performs the evaluation by comparing the adjacency matrices using the specified metrics.
