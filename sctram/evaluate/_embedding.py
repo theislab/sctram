@@ -151,16 +151,18 @@ class EmbeddingTrajectoryEvaluation(EvaluationBase):
                 )
             
             elif metric == "trajectory_cardinality_validation":
-                self.logger.warning("Trajectory cardinality validation is not tested extensively!")
                 score, logger_message = mmm[metric]["with_desc"](
                     given_graph = self.prepared_after_subset_given,
                     labels_array = self.labels,
                     precomputed_embedded_connectivities = connectivities,
-                    skip_single_branches = True
+                    skip_single_branches = True,
+                    spectral_n_init = 50,
+                    min_cells_per_branch = 50,
+                    random_state = 0
                 )
                 
             elif metric in ["morans_i_embedding", "gearys_c_embedding"]:
-                self.logger.warning(f"Implementation of the spatial metric {metric!r} could be problematic.")
+                self.logger.warning(f"Implementation of the spatial metric {metric!r} may be problematic.")
                 score, logger_message = mmm[metric]["with_desc"](
                     given_graph = self.prepared_after_subset_given,
                     labels_array = self.labels,

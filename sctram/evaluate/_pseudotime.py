@@ -217,7 +217,7 @@ class PseudotimeValuesEvaluation(PseudotimeEvaluationBase):
             self.logger.debug(f"Calculating metric: {metric!r}")
             
             if metric in ["morans_i_pseudotime", "gearys_c_pseudotime"]:
-                self.logger.warning(f"Implementation of the spatial metric {metric!r} could be problematic.")
+                self.logger.warning(f"Implementation of the spatial metric {metric!r} may be problematic.")
                 score, logger_message = mmm[metric]["with_desc"](
                     given_adjacency_matrix = self.subset_given,
                     inferred_pseudotime_array = self.prepared_after_subset_inferred,
