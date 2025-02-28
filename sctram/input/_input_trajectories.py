@@ -77,6 +77,28 @@ class InputTrajectories(nx.MultiDiGraph):
                     trajectory_subgraph.add_node(n, **filtered_node_attrs)
 
         return trajectory_subgraph
+    
+    def get_complete(self, include_additional_nodes):
+        trajectory_subgraph = InputTrajectory()
+        trajectory_subgraph.graph.update(self.graph)
+        trajectory_subgraph.graph[key_trajectories] = "complete"
+
+        for u, v, _, edge_attrs in self.edges(keys=True, data=True):            
+            if not trajectory_subgraph.has_edge(u, v):
+                filtered_edge_attrs = {k: v for k, v in edge_attrs.items() if k != key_trajectories}
+                trajectory_subgraph.add_edge(u, v, **filtered_edge_attrs)
+            
+        for n, node_attrs in self.nodes(data=True):
+            is_additional = node_attrs[key_trajectories] is None
+            if not is_additional or include_additional_nodes:
+                filtered_node_attrs = {k: v for k, v in node_attrs.items() if k != key_trajectories}
+                if n in trajectory_subgraph:
+                    trajectory_subgraph.nodes[n].update(filtered_node_attrs)
+                else:
+                    trajectory_subgraph.add_node(n, **filtered_node_attrs)
+
+        return trajectory_subgraph
+        
 
     def _check_individual_trajectories(self):
         """Validates the structural integrity of each individual trajectory within the graph.
