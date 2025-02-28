@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import networkx as nx
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, Optional, Union
@@ -7,7 +8,6 @@ from typing import Any, Optional, Union
 import yaml
 from loguru import logger
 
-from sctram.input._input_trajectories import InputTrajectories
 from sctram.utils._constants import (
     InputGraphDictWithEdge,
     InputGraphPossibleTypes,
@@ -239,10 +239,10 @@ def read_dict(
     ground_truth_trajectories: InputGraphPossibleTypes,
     additional_nodes: Optional[Iterable[str]] = None,
     node_attributes: Optional[dict[str, dict[str, Any]]] = None,
-) -> InputTrajectories:
-    """Constructs an InputTrajectories graph from provided dictionary data.
+) -> nx.MultiDiGraph:
+    """Constructs an nx.MultiDiGraph graph from provided dictionary data.
 
-    This function builds an InputTrajectories graph by processing the ground truth
+    This function builds an nx.MultiDiGraph graph by processing the ground truth
     trajectory data, additional nodes, and node attributes. The process involves several
     key steps:
 
@@ -253,7 +253,7 @@ def read_dict(
           with three elements, appending an empty dictionary for edge attributes if necessary.
 
     2. Graph Construction:
-        - Initializes an empty InputTrajectories graph.
+        - Initializes an empty nx.MultiDiGraph graph.
         - Iterates over each trajectory and its corresponding edges, adding them to the graph
           while validating edge attributes and ensuring no duplication.
 
@@ -283,7 +283,7 @@ def read_dict(
             additional attributes for nodes, allowing for enriched node representations.
 
     Returns:
-        InputTrajectories: A fully constructed and validated InputTrajectories graph containing
+        nx.MultiDiGraph: A fully constructed and validated nx.MultiDiGraph graph containing
             all specified trajectories, additional nodes, and node attributes.
 
     Raises:
@@ -295,7 +295,7 @@ def read_dict(
     ground_truth_trajectories = convert_to_dict_tuples(obj=ground_truth_trajectories)
 
     # Initialize the graph
-    gtt = InputTrajectories()
+    gtt = nx.MultiDiGraph()
 
     # Add edges and nodes to the graph, ensuring each tuple has exactly three elements
     all_key_trajectories = set()
@@ -361,15 +361,14 @@ def read_dict(
                 for key in missing_keys:
                     gtt.nodes[node][key] = None
 
-    gtt.verify()
     return gtt
 
 
-def read_yaml(yaml_path: Union[Path, str]) -> InputTrajectories:
-    """Reads and constructs an InputTrajectories graph from a YAML configuration file.
+def read_yaml(yaml_path: Union[Path, str]) -> nx.MultiDiGraph:
+    """Reads and constructs an nx.MultiDiGraph graph from a YAML configuration file.
 
     This function parses a YAML file containing graph trajectory data, validates the structure
-    and attributes, and constructs an `InputTrajectories` graph object. The YAML file should
+    and attributes, and constructs an `nx.MultiDiGraph` graph object. The YAML file should
     define trajectories, additional nodes, and node-specific attributes in a clear and intuitive
     format.
 
@@ -541,8 +540,8 @@ def read_yaml(yaml_path: Union[Path, str]) -> InputTrajectories:
                print(f"Failed to read YAML: {e}")
 
     Returns:
-        InputTrajectories:
-            A fully constructed and validated `InputTrajectories` graph containing all specified
+        nx.MultiDiGraph:
+            A fully constructed and validated `nx.MultiDiGraph` graph containing all specified
             trajectories, additional nodes, and node attributes.
 
     Args:
