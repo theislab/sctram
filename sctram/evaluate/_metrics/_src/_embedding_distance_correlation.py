@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 
-import numpy as np
-import networkx as nx
-from scipy.stats import spearmanr
-from loguru import logger
 import warnings
 
+import networkx as nx
+import numpy as np
+from loguru import logger
+from scipy.stats import spearmanr
+
 try:
-    from sctram.evaluate._metrics._src.validators import validate_between_minus_plus_1 as _validator
     from sctram.evaluate._metrics._src.utils import Centroids
+    from sctram.evaluate._metrics._src.validators import validate_between_minus_plus_1 as _validator
 except ImportError:
-    from validators import validate_between_minus_plus_1 as _validator
     from utils import Centroids
+    from validators import validate_between_minus_plus_1 as _validator
 
 _logger = logger.bind(module="MetricBase")
 
@@ -71,7 +72,7 @@ def embedding_distance_correlation(
     # Input validation
     unique_labels = np.unique(labels_array)
     graph_nodes = set(given_graph.nodes())
-    
+
     if not graph_nodes.issubset(unique_labels):
         missing = graph_nodes - set(unique_labels)
         raise ValueError(f"Graph nodes {missing} missing from labels array")
@@ -80,7 +81,7 @@ def embedding_distance_correlation(
     undir_graph = given_graph.to_undirected() if given_graph.is_directed() else given_graph.copy()
     nodes = list(undir_graph.nodes())
     n_nodes = len(nodes)
-    
+
     if n_nodes < 2:
         raise ValueError("At least two graph nodes required")
 
@@ -90,12 +91,12 @@ def embedding_distance_correlation(
     # Collect pairwise distances
     graph_dists, embed_dists = [], []
     centroid_matrix = np.array([centroids.get_single(label) for label in nodes])
-    
+
     for i in range(n_nodes):
-        for j in range(i+1, n_nodes):
+        for j in range(i + 1, n_nodes):
             label_i, label_j = nodes[i], nodes[j]
             path_len = shortest_paths.get(label_i, {}).get(label_j, None)
-            
+
             if path_len is not None:
                 graph_dists.append(path_len)
                 embed_dist = np.linalg.norm(centroid_matrix[j] - centroid_matrix[i])
@@ -104,7 +105,7 @@ def embedding_distance_correlation(
     # Check sufficient pairs
     if len(graph_dists) < 2:
         raise ValueError("Insufficient valid pairs for correlation")
-    
+
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         corr, _ = spearmanr(graph_dists, embed_dists)
@@ -119,18 +120,19 @@ if __name__ == "__main__":
 
     class MockCentroids:
         """Mock Centroids class for testing."""
+
         def __init__(self, data):
             self.data = data
-        
+
         def get_single(self, label):
             return self.data[label]
 
     def test_perfect_correlation():
         """Test perfect Spearman correlation (ρ=1)."""
         G = nx.Graph()
-        G.add_edges_from([('A', 'B'), ('B', 'C')])
-        labels = np.array(['A', 'B', 'C'])
-        centroids = MockCentroids({'A': np.array([0.0]), 'B': np.array([1.0]), 'C': np.array([2.0])})
+        G.add_edges_from([("A", "B"), ("B", "C")])
+        labels = np.array(["A", "B", "C"])
+        centroids = MockCentroids({"A": np.array([0.0]), "B": np.array([1.0]), "C": np.array([2.0])})
         result = embedding_distance_correlation(G, labels, True, centroids)
         assert np.isclose(result, 1.0), f"Expected 1.0, got {result}"
 
@@ -139,16 +141,16 @@ if __name__ == "__main__":
         from scipy.stats._warnings_errors import ConstantInputWarning
 
         G = nx.Graph()
-        G.add_edges_from([('A', 'B'), ('C', 'D')])
-        labels = np.array(['A', 'B', 'C', 'D'])
-        centroids = MockCentroids({'A': np.array([0.0]), 'B': np.array([1.0]), 
-                            'C': np.array([2.0]), 'D': np.array([3.0])})
+        G.add_edges_from([("A", "B"), ("C", "D")])
+        labels = np.array(["A", "B", "C", "D"])
+        centroids = MockCentroids(
+            {"A": np.array([0.0]), "B": np.array([1.0]), "C": np.array([2.0]), "D": np.array([3.0])}
+        )
         try:
             _ = embedding_distance_correlation(G, labels, True, centroids)
             assert False, "Error should have been raised."
         except ConstantInputWarning:
-            pass    
-        
+            pass
 
     def test_large_linear_graph():
         """Test large linear graph for perfect correlation."""
@@ -162,32 +164,29 @@ if __name__ == "__main__":
     def test_known_correlation():
         """Test with manually verifiable correlation."""
         G = nx.Graph()
-        G.add_edges_from([('A', 'B'), ('B', 'C'), ('C', 'D')])
-        labels = np.array(['A', 'B', 'C', 'D'])
-        centroids = MockCentroids({
-            'A': np.array([0]), 'B': np.array([1]), 
-            'C': np.array([3]), 'D': np.array([4])
-        })
-        
+        G.add_edges_from([("A", "B"), ("B", "C"), ("C", "D")])
+        labels = np.array(["A", "B", "C", "D"])
+        centroids = MockCentroids({"A": np.array([0]), "B": np.array([1]), "C": np.array([3]), "D": np.array([4])})
+
         # Manually compute expected correlation
         nodes = list(G.nodes())
         centroid_matrix = np.array([centroids.get_single(n) for n in nodes])
         graph_dists, embed_dists = [], []
         for i in range(len(nodes)):
-            for j in range(i+1, len(nodes)):
+            for j in range(i + 1, len(nodes)):
                 graph_dists.append(nx.shortest_path_length(G, nodes[i], nodes[j]))
                 embed_dists.append(np.linalg.norm(centroid_matrix[j] - centroid_matrix[i]))
         expected_rho, _ = spearmanr(graph_dists, embed_dists)
-        
+
         result = embedding_distance_correlation(G, labels, True, centroids)
         assert np.isclose(result, expected_rho), f"Expected {expected_rho}, got {result}"
 
     def test_minimal_graph_error():
         """Test insufficient pairs raise ValueError."""
         G = nx.Graph()
-        G.add_edge('A', 'B')
-        labels = np.array(['A', 'B'])
-        centroids = MockCentroids({'A': np.array([0]), 'B': np.array([1])})
+        G.add_edge("A", "B")
+        labels = np.array(["A", "B"])
+        centroids = MockCentroids({"A": np.array([0]), "B": np.array([1])})
         try:
             value = embedding_distance_correlation(G, labels, True, centroids)
             assert "Insufficient valid pairs", value
@@ -197,17 +196,17 @@ if __name__ == "__main__":
     def test_zero_variance():
         """Test zero variance leading to NaN."""
         from scipy.stats._warnings_errors import ConstantInputWarning
-        
+
         G = nx.complete_graph(3)
         labels = np.array([0, 1, 2])
         centroids = MockCentroids({0: np.array([0]), 1: np.array([0]), 2: np.array([0])})
-        
+
         try:
             _ = embedding_distance_correlation(G, labels, True, centroids)
             assert False, "Error should have been raised."
         except ConstantInputWarning:
-            pass    
-        
+            pass
+
     test_perfect_correlation()
     test_disconnected_components()
     test_large_linear_graph()

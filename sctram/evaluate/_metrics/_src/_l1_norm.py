@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
 import numpy as np
+
 from sctram.evaluate._metrics._src.validators import validate_zero_or_positive
 
 
 def l1_norm(given_adjacency_matrix: np.ndarray, inferred_adjacency_matrix: np.ndarray, validate_result: bool) -> float:
     """Calculates the L1 norm (Manhattan distance) of the difference between two adjacency matrices.
-    
+
     The L1 norm sums the absolute differences of the corresponding elements in the matrices,
     representing total edge discrepancies and providing a simple and interpretable measure.
 
@@ -17,7 +18,7 @@ def l1_norm(given_adjacency_matrix: np.ndarray, inferred_adjacency_matrix: np.nd
 
     Returns:
         float: The L1 norm of the matrix difference, which is a non-negative scalar.
-    
+
     Advantages:
         - Simple and interpretable measure of total edge discrepancies.
         - Sensitive to both the magnitude and number of differences.
@@ -34,8 +35,8 @@ def l1_norm(given_adjacency_matrix: np.ndarray, inferred_adjacency_matrix: np.nd
     """
     diff_matrix = given_adjacency_matrix - inferred_adjacency_matrix
     score = np.sum(np.abs(diff_matrix))
-    
+
     if validate_result:
         validate_zero_or_positive(score=score)
-    
+
     return score

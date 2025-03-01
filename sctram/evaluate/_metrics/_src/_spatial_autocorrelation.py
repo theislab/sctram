@@ -1,33 +1,32 @@
 #!/usr/bin/env python3
 
-import numpy as np
-import networkx as nx
-from scipy.sparse import csr_matrix
-from scipy.sparse import coo_matrix, csr_matrix, isspmatrix_csr
 from typing import Any, Callable, Union
 
-from sctram.evaluate._metrics._src.validators import validate_between_minus_plus_1 as _validator_moransi
-from sctram.evaluate._metrics._src.validators import validate_zero_or_positive as _validator_gearysc
+import networkx as nx
+import numpy as np
+from loguru import logger
+from scipy.sparse import coo_matrix, csr_matrix, isspmatrix_csr
+
 from sctram.evaluate._metrics._src.utils import prepare_pseudotime
+from sctram.evaluate._metrics._src.validators import validate_numeric as _validator_gearysc
+from sctram.evaluate._metrics._src.validators import validate_numeric as _validator_moransi
 from sctram.utils._utils import Utils
 
-from loguru import logger
-
-_logger = logger.bind(name = "MetricsBase")
+_logger = logger.bind(name="MetricsBase")
 
 
 def morans_i_pseudotime(
-        given_adjacency_matrix: np.ndarray,
-        inferred_pseudotime_array: np.ndarray,
-        labels_array: np.ndarray,
-        validate_result: bool,
-        normalize_weights: bool,
-        force_to_implementation: str
-    ) -> float:
+    given_adjacency_matrix: np.ndarray,
+    inferred_pseudotime_array: np.ndarray,
+    labels_array: np.ndarray,
+    validate_result: bool,
+    normalize_weights: bool,
+    force_to_implementation: str,
+) -> float:
     inferred_pseudotime_array = prepare_pseudotime(inferred_pseudotime_array, method="zscore")
-    # Spatial autocorrelation metrics assume mean-centered data. Standardization 
+    # Spatial autocorrelation metrics assume mean-centered data. Standardization
     # removes scale dependency, isolating spatial patterns.
-    
+
     score = _spatial_autocorrelation(
         given=given_adjacency_matrix,
         inferred=inferred_pseudotime_array,
@@ -35,27 +34,27 @@ def morans_i_pseudotime(
         input_type="pseudotime",
         metric="morans_i",
         normalize_weights=normalize_weights,
-        force_to_implementation=force_to_implementation
+        force_to_implementation=force_to_implementation,
     )
-    
+
     if validate_result:
         _validator_moransi(score=score)
-    
+
     return score
 
 
 def gearys_c_pseudotime(
-        given_adjacency_matrix: np.ndarray,
-        inferred_pseudotime_array: np.ndarray,
-        labels_array: np.ndarray,
-        validate_result: bool,
-        normalize_weights: bool,
-        force_to_implementation: str
-    ) -> float:
+    given_adjacency_matrix: np.ndarray,
+    inferred_pseudotime_array: np.ndarray,
+    labels_array: np.ndarray,
+    validate_result: bool,
+    normalize_weights: bool,
+    force_to_implementation: str,
+) -> float:
     inferred_pseudotime_array = prepare_pseudotime(inferred_pseudotime_array, method="zscore")
-    # Spatial autocorrelation metrics assume mean-centered data. Standardization 
+    # Spatial autocorrelation metrics assume mean-centered data. Standardization
     # removes scale dependency, isolating spatial patterns.
-    
+
     score = _spatial_autocorrelation(
         given=given_adjacency_matrix,
         inferred=inferred_pseudotime_array,
@@ -63,23 +62,23 @@ def gearys_c_pseudotime(
         input_type="pseudotime",
         metric="gearys_c",
         normalize_weights=normalize_weights,
-        force_to_implementation=force_to_implementation
+        force_to_implementation=force_to_implementation,
     )
-    
+
     if validate_result:
         _validator_gearysc(score=score)
-    
+
     return score
 
 
 def morans_i_embedding(
-        given_graph: nx.DiGraph,
-        inferred_embedding: np.ndarray,
-        labels_array: np.ndarray,
-        validate_result: bool,
-        normalize_weights: bool,
-        force_to_implementation: str
-    ) -> float:
+    given_graph: nx.DiGraph,
+    inferred_embedding: np.ndarray,
+    labels_array: np.ndarray,
+    validate_result: bool,
+    normalize_weights: bool,
+    force_to_implementation: str,
+) -> float:
     score = _spatial_autocorrelation(
         given=given_graph,
         inferred=inferred_embedding,
@@ -87,23 +86,23 @@ def morans_i_embedding(
         input_type="embedding",
         metric="morans_i",
         normalize_weights=normalize_weights,
-        force_to_implementation=force_to_implementation
+        force_to_implementation=force_to_implementation,
     )
-    
+
     if validate_result:
         _validator_moransi(score=score)
-    
+
     return score
 
 
 def gearys_c_embedding(
-        given_graph: nx.DiGraph,
-        inferred_embedding: np.ndarray,
-        labels_array: np.ndarray,
-        validate_result: bool,
-        normalize_weights: bool,
-        force_to_implementation: str
-    ) -> float:
+    given_graph: nx.DiGraph,
+    inferred_embedding: np.ndarray,
+    labels_array: np.ndarray,
+    validate_result: bool,
+    normalize_weights: bool,
+    force_to_implementation: str,
+) -> float:
     score = _spatial_autocorrelation(
         given=given_graph,
         inferred=inferred_embedding,
@@ -111,12 +110,12 @@ def gearys_c_embedding(
         input_type="embedding",
         metric="gearys_c",
         normalize_weights=normalize_weights,
-        force_to_implementation=force_to_implementation
+        force_to_implementation=force_to_implementation,
     )
-    
+
     if validate_result:
         _validator_gearysc(score=score)
-    
+
     return score
 
 
@@ -175,7 +174,7 @@ def _calculate_morans_i(x: np.ndarray, spatial_weights: csr_matrix, normalize_we
     """
     if normalize_weights:
         spatial_weights = _normalize_weights(spatial_weights)
-        
+
     n = len(x)
     w = spatial_weights.sum()
     if w == 0:
@@ -189,7 +188,7 @@ def _calculate_morans_i(x: np.ndarray, spatial_weights: csr_matrix, normalize_we
 
     morans_i = (n / w) * (numerator / denominator)
     return morans_i
-    
+
 
 def _calculate_gearys_c(x: np.ndarray, spatial_weights: csr_matrix, normalize_weights: bool) -> float:
     """Calculates Geary's C for the given data and spatial weights.
@@ -243,7 +242,7 @@ def _calculate_gearys_c(x: np.ndarray, spatial_weights: csr_matrix, normalize_we
     """
     if normalize_weights:
         spatial_weights = _normalize_weights(spatial_weights)
-        
+
     n = len(x)
     w = spatial_weights.sum()
     if w == 0:
@@ -251,7 +250,7 @@ def _calculate_gearys_c(x: np.ndarray, spatial_weights: csr_matrix, normalize_we
 
     x_mean = np.mean(x)
     x_diff = x - x_mean
-    denominator = np.sum(x_diff**2) 
+    denominator = np.sum(x_diff**2)
 
     # Compute (x_i - x_j)^2 for all i, j
     # Efficient computation using sparse matrix operations:
@@ -301,8 +300,8 @@ def _normalize_weights(weights: Union[np.ndarray, csr_matrix]) -> Union[np.ndarr
 def _calculate_morans_i_pysal(x: np.ndarray, spatial_weights: csr_matrix, normalize_weights: bool) -> float:
     from esda.moran import Moran
     from libpysal.weights import WSP
-    
-    m = Moran(y = x, w = WSP(spatial_weights).to_W(), transformation='o' if not normalize_weights else "r")
+
+    m = Moran(y=x, w=WSP(spatial_weights).to_W(), transformation="o" if not normalize_weights else "r")
     return m.I
 
 
@@ -310,32 +309,33 @@ def _calculate_gearys_c_pysal(x: np.ndarray, spatial_weights: csr_matrix, normal
     from esda.geary import Geary
     from libpysal.weights import WSP
 
-    g = Geary(y = x, w = WSP(spatial_weights).to_W(), transformation='o' if not normalize_weights else "r")
+    g = Geary(y=x, w=WSP(spatial_weights).to_W(), transformation="o" if not normalize_weights else "r")
     return g.C
 
 
 def _spatial_autocorrelation(
-        given: Any,
-        inferred: Any,
-        labels_array: np.ndarray,
-        metric: str, 
-        input_type: str,
-        force_to_implementation: str,
-        normalize_weights: bool = True,
-    ):
+    given: Any,
+    inferred: Any,
+    labels_array: np.ndarray,
+    metric: str,
+    input_type: str,
+    force_to_implementation: str,
+    normalize_weights: bool = True,
+):
     if force_to_implementation == "package":
         use_pysal_implementation = False
     elif force_to_implementation == "pysal":
         try:
             import esda
             import libpysal
-            use_pysal_implementation = True  
+
+            use_pysal_implementation = True
         except (ImportError, ModuleNotFoundError):
             _logger.warning("`pysal` library not found. Falling back to simpler package implementation.")
-            use_pysal_implementation = False  
+            use_pysal_implementation = False
     else:
         raise ValueError(f"Unexpected variable for `force_to_implementation`: {force_to_implementation!r}")
-        
+
     raw_spatial_metrics: dict[str, Callable[[np.ndarray, np.ndarray], float]] = {
         "morans_i": _calculate_morans_i_pysal if use_pysal_implementation else _calculate_morans_i,
         "gearys_c": _calculate_gearys_c_pysal if use_pysal_implementation else _calculate_gearys_c,
@@ -345,15 +345,9 @@ def _spatial_autocorrelation(
         raise ValueError(f"Unsupported metric '{metric}'. Choose from {list(raw_spatial_metrics.keys())}.")
 
     if input_type == "pseudotime":
-        spatial_weights = _compute_pseudotime_weights(
-            given_adjacency_matrix = given,
-            labels_array = labels_array
-        )
+        spatial_weights = _compute_pseudotime_weights(given_adjacency_matrix=given, labels_array=labels_array)
     elif input_type == "embedding":
-        spatial_weights = _compute_embedding_weights(
-            given_graph=given,
-            labels_array=labels_array
-        )
+        spatial_weights = _compute_embedding_weights(given_graph=given, labels_array=labels_array)
     else:
         raise ValueError(f"Unsupported input_type {input_type!r}")
 
@@ -361,9 +355,7 @@ def _spatial_autocorrelation(
     if not isinstance(x, np.ndarray):
         raise ValueError("x must be either a numpy array.")
     if not isinstance(spatial_weights, csr_matrix):
-        raise ValueError(
-            f"'spatial_weights' must be either a numpy array or a csr_matrix: {type(spatial_weights)!r}"
-        )
+        raise ValueError(f"'spatial_weights' must be either a numpy array or a csr_matrix: {type(spatial_weights)!r}")
     if spatial_weights.ndim != 2:
         raise ValueError("'spatial_weights' must be 2-dimensional.")
     if x.shape[0] != spatial_weights.shape[0]:
@@ -372,7 +364,7 @@ def _spatial_autocorrelation(
     if input_type == "embedding":
         if x.ndim != 2:
             raise ValueError("For elementwise computation, x must be 2-dimensional.")
-        
+
         # Compute metric element-wise across columns. Slicing works for both numpy arrays and csr_matrix
         results = []
         total_cols = x.shape[1]
@@ -397,12 +389,11 @@ def _spatial_autocorrelation(
 
 def _compute_pseudotime_weights(
     given_adjacency_matrix,  # self.subset_given
-    labels_array, # self.subset_given
+    labels_array,  # self.subset_given
 ):
     unique_labels = np.unique(labels_array)
     subset_adjacency_matrix = Utils.adjacency_graph_to_matrix(
-        g=given_adjacency_matrix, 
-        nodelist_filter_and_order=unique_labels
+        g=given_adjacency_matrix, nodelist_filter_and_order=unique_labels
     )
     Utils.validate_adjacency_matrix(subset_adjacency_matrix)
 
@@ -413,14 +404,10 @@ def _compute_pseudotime_weights(
 
 def _compute_embedding_weights(
     given_graph: nx.DiGraph,
-    labels_array, #self.labels  # self.labels for embedding evaluate class is simply labels for the embedding.                       
+    labels_array,  # self.labels  # self.labels for embedding evaluate class is simply labels for the embedding.
 ) -> csr_matrix:
-    adjacency_labels = np.array(
-        list(given_graph.nodes())
-    ).flatten()  # the order does not matter here
-    adj_matrix = Utils.adjacency_graph_to_matrix(
-        g=given_graph, nodelist_filter_and_order=adjacency_labels
-    )
+    adjacency_labels = np.array(list(given_graph.nodes())).flatten()  # the order does not matter here
+    adj_matrix = Utils.adjacency_graph_to_matrix(g=given_graph, nodelist_filter_and_order=adjacency_labels)
     Utils.validate_adjacency_matrix(adj_matrix)
 
     return _create_sparse_cell_adjacency(
@@ -519,4 +506,3 @@ def _create_sparse_cell_adjacency(
     # Create a COO-format sparse matrix and then convert to CSR.
     cell_adj = coo_matrix((data_vals, (row_inds, col_inds)), shape=(n, n)).tocsr()
     return cell_adj
-

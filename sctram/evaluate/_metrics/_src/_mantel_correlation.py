@@ -10,9 +10,15 @@ except ImportError:
     from validators import validate_between_minus_plus_1 as _validator
 
 
-def mantel_correlation(given_adjacency_matrix: np.ndarray, inferred_adjacency_matrix: np.ndarray, validate_result: bool, permutations: int = 10000, seed: int = 0):
+def mantel_correlation(
+    given_adjacency_matrix: np.ndarray,
+    inferred_adjacency_matrix: np.ndarray,
+    validate_result: bool,
+    permutations: int = 10000,
+    seed: int = 0,
+):
     """Calculates the Mantel test statistic between two adjacency matrices.
-    
+
     The Mantel test statistically assesses the correlation between distance matrices derived from
     two adjacency matrices, providing a measure of similarity between the underlying graph structures.
 
@@ -25,7 +31,7 @@ def mantel_correlation(given_adjacency_matrix: np.ndarray, inferred_adjacency_ma
 
     Returns:
         float: The Mantel correlation coefficient, a measure of similarity between the two graphs.
-    
+
     Advantages:
         - Provides a statistical measure of similarity between two network structures.
         - Accounts for spatial or structural dependencies via distance matrices.
@@ -70,11 +76,7 @@ if __name__ == "__main__":
 
     def test_identical_matrices():
         """Test that identical matrices yield a Mantel correlation of 1.0."""
-        A = np.array([
-            [0, 1, 2],
-            [1, 0, 3],
-            [2, 3, 0]
-        ], dtype=float)
+        A = np.array([[0, 1, 2], [1, 0, 3], [2, 3, 0]], dtype=float)
         np.fill_diagonal(A, 0)  # Ensure diagonal is zero
         A = (A + A.T) / 2  # Ensure symmetry
         result = mantel_correlation(A, A, validate_result=True, permutations=0)
@@ -82,43 +84,23 @@ if __name__ == "__main__":
 
     def test_scaled_adjacency_matrices():
         """Test that scaling edge weights results in a correlation of 1.0."""
-        A = np.array([
-            [0, 1, 0],
-            [1, 0, 1],
-            [0, 1, 0]
-        ])
+        A = np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]])
         B = 2 * A  # All edge weights doubled
         result = mantel_correlation(A, B, validate_result=False, permutations=0)
         assert np.isclose(result, 1.0, atol=1e-7), f"Expected 1.0, got {result}"
 
     def test_spearman_correlation():
         """Test a manually verifiable case with expected correlation of -0.5."""
-        A = np.array([
-            [0, 1, 0],
-            [1, 0, 1],
-            [0, 1, 0]
-        ])
-        B = np.array([
-            [0, 1, 1],
-            [1, 0, 0],
-            [1, 0, 0]
-        ])
+        A = np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]])
+        B = np.array([[0, 1, 1], [1, 0, 0], [1, 0, 0]])
         result = mantel_correlation(A, B, validate_result=False, permutations=0)
         expected = -0.5
         assert np.isclose(result, expected, atol=1e-7), f"Expected {expected}, got {result}"
 
     def test_disconnected_graph_raises_error():
         """Test that disconnected graphs raise a ValueError."""
-        A = np.array([  # Node 2 is disconnected
-            [0, 1, 0],
-            [1, 0, 0],
-            [0, 0, 0]
-        ])
-        B = np.array([  # Fully connected
-            [0, 1, 1],
-            [1, 0, 1],
-            [1, 1, 0]
-        ])
+        A = np.array([[0, 1, 0], [1, 0, 0], [0, 0, 0]])  # Node 2 is disconnected
+        B = np.array([[0, 1, 1], [1, 0, 1], [1, 1, 0]])  # Fully connected
         try:
             mantel_correlation(A, B, validate_result=False)
             assert False, "Expected ValueError for disconnected graph"
@@ -129,9 +111,9 @@ if __name__ == "__main__":
         """Test a large matrix (10x10 chain) where correlation should be 1.0."""
         n = 10
         A = np.zeros((n, n))
-        for i in range(n-1):
-            A[i, i+1] = 1
-            A[i+1, i] = 1
+        for i in range(n - 1):
+            A[i, i + 1] = 1
+            A[i + 1, i] = 1
         result = mantel_correlation(A, A, validate_result=False, permutations=0)
         assert np.isclose(result, 1.0, atol=1e-7), f"Expected 1.0, got {result}"
 

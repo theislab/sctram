@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
-from loguru._logger import Logger
-import numpy as np
-import networkx as nx
 import inspect
+
+import networkx as nx
+import numpy as np
+from loguru._logger import Logger
 
 
 class Utils:
@@ -30,11 +31,11 @@ class Utils:
             return dictionary[key]
         else:
             message = f"Default value {default!r} used for missing key {key!r}."
-            if logger_mode=="warning":
+            if logger_mode == "warning":
                 logger.warning(message)
-            elif logger_mode=="debug":
+            elif logger_mode == "debug":
                 logger.debug(message)
-            elif logger_mode=="info":
+            elif logger_mode == "info":
                 logger.info(message)
             else:
                 raise ValueError(f"Unknown 'logger_mode': {logger_mode!r}")
@@ -43,16 +44,16 @@ class Utils:
     @staticmethod
     def validate_adjacency_matrix(arr):
         """Validates that the provided matrix is a proper adjacency matrix.
-        
+
         Args:
         arr (np.ndarray): The matrix to validate.
-        
+
         Raises:
             ValueError: If the matrix is not a numpy array, not 2-dimensional, not square,
                         not symmetric, or contains invalid values (values not between the minimum
                         and maximum allowable edge weights).
         """
-        
+
         if not isinstance(arr, np.ndarray):
             raise ValueError("The matrix must be a numpy array.")
         if arr.ndim != 2:
@@ -73,7 +74,7 @@ class Utils:
 
         Raises:
             ValueError: If the data is not a numpy array, not 1-dimensional, contains NaN or Inf values,
-                        has non-numeric types, or if the array contains any elements outside of a specified 
+                        has non-numeric types, or if the array contains any elements outside of a specified
                         range (for example, beyond typical float precision limits).
 
         """
@@ -87,11 +88,11 @@ class Utils:
             raise ValueError("The data contains NaN or Inf values.")
         if np.any(arr < -np.finfo(np.float64).max) or np.any(arr > np.finfo(np.float64).max):
             raise ValueError("The data contains elements outside the allowable float range.")
-        
+
     @staticmethod
     def validate_2d_matrix(arr):
         """Validates that the provided data is a proper 2D numpy array
-        
+
         Args:
             arr (np.ndarray): The 2D matrix to validate.
 
@@ -113,7 +114,7 @@ class Utils:
         symetrical_graph = g.to_symetrical_multidigraph()  # to have symetrical adjacency matrices
         adj_matrix = nx.to_numpy_array(symetrical_graph, nodelist=nodelist_filter_and_order)
         return adj_matrix
-    
+
     @staticmethod
     def requires_argument(func, arg_name):
         """Check if function `f` requires an argument `arg_name`."""

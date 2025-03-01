@@ -1,26 +1,26 @@
 #!/usr/bin/env python3
 
-import numpy as np
-from scipy.stats import gaussian_kde
-from scipy.linalg import cholesky, LinAlgError
 from typing import Optional
 
+import numpy as np
+from scipy.linalg import LinAlgError, cholesky
+from scipy.stats import gaussian_kde
+
 try:
-    from sctram.evaluate._metrics._src.validators import validate_maximum_1 as _validator
     from sctram.evaluate._metrics._src.utils import prepare_pseudotime
+    from sctram.evaluate._metrics._src.validators import validate_maximum_1 as _validator
 
 except ImportError:
-    from validators import validate_maximum_1 as _validator
     from utils import prepare_pseudotime
-
+    from validators import validate_maximum_1 as _validator
 
 
 def mutual_information_kde(
     given_pseudotime_array: np.ndarray,
     inferred_pseudotime_array: np.ndarray,
     validate_result: bool = True,
-    bw_method: Optional[str] = 'scott',
-    epsilon: float = 1e-5
+    bw_method: Optional[str] = "scott",
+    epsilon: float = 1e-5,
 ) -> float:
     """Compute symmetric Mutual Information (MI) between two 1D pseudotime arrays using regularized KDE.
 
@@ -57,11 +57,11 @@ def mutual_information_kde(
     Benchmarking:
         - Handles n=1000 in <1s on modern hardware
         - Stable for n ≥ 50 samples
-        
+
     Advantages:
         - Captures non-linear dependencies between the arrays.
         - Provides a comprehensive measure of dependency beyond simple linear associations.
-    
+
     Limitations:
         - Sensitive to the choice of bandwidth in KDE estimation.
         - Performance can be affected by sample size and the presence of outliers.
@@ -78,7 +78,7 @@ def mutual_information_kde(
 
     given_pseudotime_array = prepare_pseudotime(given_pseudotime_array, method="zscore")
     inferred_pseudotime_array = prepare_pseudotime(inferred_pseudotime_array, method="zscore")
-    # Mutual Information (KDE): Kernel density estimation (KDE) bandwidth depends on variance. 
+    # Mutual Information (KDE): Kernel density estimation (KDE) bandwidth depends on variance.
     # Standardization ensures consistent bandwidth across variables.
 
     # Handle zero-variance cases
@@ -99,7 +99,7 @@ def mutual_information_kde(
     try:
         L = cholesky(cov, lower=True)
     except LinAlgError:
-        cov += 2*epsilon * np.eye(2)  # Additional regularization
+        cov += 2 * epsilon * np.eye(2)  # Additional regularization
         L = cholesky(cov, lower=True)
     L_inv = np.linalg.inv(L)
     whitened_data = L_inv @ joint_data
@@ -122,7 +122,7 @@ def mutual_information_kde(
 
     if validate_result:
         _validator(score=mi)
-    
+
     return mi
 
 
@@ -152,22 +152,21 @@ if __name__ == "__main__":
         mi_anti = mutual_information_kde(X, Y, validate_result=False)
         mi_corr = mutual_information_kde(X, X, validate_result=False)
         assert np.isclose(mi_anti, mi_corr, rtol=0.1), (
-            f"MI for anti-correlated should be close to perfect correlation. "
-            f"Anti: {mi_anti}, Corr: {mi_corr}"
+            f"MI for anti-correlated should be close to perfect correlation. " f"Anti: {mi_anti}, Corr: {mi_corr}"
         )
 
     def test_nonlinear_dependency():
         """Test MI captures non-linear relationship (Y = X^2)."""
         np.random.seed(42)
         X = np.random.randn(1000)
-        Y = X ** 2
+        Y = X**2
         mi = mutual_information_kde(X, Y, validate_result=False)
         assert mi > 0.5, f"MI for non-linear dependency should be >0.5, got {mi}"
 
     def test_analytical_bivariate_normal():
         """Test MI against analytical result for bivariate normal (rho=0.5)."""
         from scipy.stats import multivariate_normal
-        
+
         rho = 0.5
         cov = [[1, rho], [rho, 1]]
         mean = [0, 0]
@@ -176,9 +175,9 @@ if __name__ == "__main__":
         X, Y = data[:, 0], data[:, 1]
         mi = mutual_information_kde(X, Y, validate_result=False)
         expected_mi = -0.5 * np.log(1 - rho**2)  # Analytical MI ≈ 0.1438 nats
-        assert np.isclose(mi, expected_mi, rtol=0.2), (
-            f"MI for bivariate normal should be close to {expected_mi:.4f}, got {mi:.4f}"
-        )
+        assert np.isclose(
+            mi, expected_mi, rtol=0.2
+        ), f"MI for bivariate normal should be close to {expected_mi:.4f}, got {mi:.4f}"
 
     def test_zero_variance():
         """Test zero variance input raises ValueError."""
@@ -217,10 +216,8 @@ if __name__ == "__main__":
         Y = np.random.randn(1000)
         mi_xy = mutual_information_kde(X, Y, validate_result=False)
         mi_yx = mutual_information_kde(Y, X, validate_result=False)
-        assert np.isclose(mi_xy, mi_yx, rtol=1e-6), (
-            f"MI should be symmetric: MI(X,Y)={mi_xy:.4f}, MI(Y,X)={mi_yx:.4f}"
-        )
-    
+        assert np.isclose(mi_xy, mi_yx, rtol=1e-6), f"MI should be symmetric: MI(X,Y)={mi_xy:.4f}, MI(Y,X)={mi_yx:.4f}"
+
     tests = [
         test_perfect_correlation,
         test_independent_variables,
@@ -232,14 +229,14 @@ if __name__ == "__main__":
         test_symmetry,
         test_analytical_bivariate_normal,
     ]
-    
+
     import sys
-    
+
     for test in tests:
         try:
             test()
             print(f"Passed: {test.__name__}")
         except AssertionError as e:
             print(f"Failed: {test.__name__} - {str(e)}", file=sys.stderr)
-    
+
     print("Testing completed.")

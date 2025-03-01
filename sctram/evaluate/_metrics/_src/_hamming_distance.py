@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 
 import numpy as np
+
 from sctram.evaluate._metrics._src.validators import validate_zero_or_positive
 
 
-def hamming_distance(given_adjacency_matrix: np.ndarray, inferred_adjacency_matrix: np.ndarray, threshold: float, validate_result: bool) -> int:
+def hamming_distance(
+    given_adjacency_matrix: np.ndarray, inferred_adjacency_matrix: np.ndarray, threshold: float, validate_result: bool
+) -> int:
     """Calculates the Hamming Distance between two adjacency matrices.
 
-    The Hamming Distance is the count of differing elements (i.e., mismatched edges) between two square adjacency matrices, 
+    The Hamming Distance is the count of differing elements (i.e., mismatched edges) between two square adjacency matrices,
     representing the number of edge differences between two graphs.
 
     Parameters:
@@ -36,9 +39,8 @@ def hamming_distance(given_adjacency_matrix: np.ndarray, inferred_adjacency_matr
     # Binarize the inferred adjacency matrix using the provided threshold.
     inferred_binary = (inferred_adjacency_matrix >= threshold).astype(int)
     hamming_score = np.sum(given_adjacency_matrix != inferred_binary)
-    
+
     if validate_result:
         validate_zero_or_positive(score=hamming_score)
-    
-    return hamming_score
 
+    return hamming_score

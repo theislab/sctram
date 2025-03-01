@@ -98,7 +98,7 @@ class TrajectoryEvaluationAPI:
         evaluate_params: Optional[Dict[str, Any]] = None,
         metrics: Optional[List[str]] = None,
         _given_adata: Optional[ad.AnnData] = None,
-        _return_inference_anndata = False
+        _return_inference_anndata=False,
     ):
 
         self.logger.info("Starting pseudotime evaluation.")
@@ -111,23 +111,23 @@ class TrajectoryEvaluationAPI:
             _adata = self.adata[self.adata.obs[self.labels_obs].isin(self.input_trajectories.nodes())]
         else:
             _adata = _given_adata
-        
+
         if self.root_label is None or self.root_label not in _adata.obs[self.labels_obs].to_numpy():
             raise ValueError("Root label is required for pseudotime based metrics.")
 
         inference_params = inference_params or dict(
             random_state=42,
             neighbors_params={"n_neighbors": 50},
-            iroot_params=dict(
-                label_key=labels_key, label=self.root_label, method="centroid", outlier_definition_z=3
-            ),
+            iroot_params=dict(label_key=labels_key, label=self.root_label, method="centroid", outlier_definition_z=3),
         )
-        
+
         if _given_adata is None:
             inference = InferenceClass(adata=_adata, labels=_adata.obs[self.labels_obs], **inference_params)
         else:
-            inference = InferenceClass(adata=_adata, labels=_adata.obs[self.labels_obs], neighbour_key=neighbors_key, **inference_params)
-        
+            inference = InferenceClass(
+                adata=_adata, labels=_adata.obs[self.labels_obs], neighbour_key=neighbors_key, **inference_params
+            )
+
         inference.calculate()
         inferred_trajectories = inference.get_result("vector")
 
@@ -150,7 +150,7 @@ class TrajectoryEvaluationAPI:
         )
 
         self.results["pseudotime"] = evaluation.get_result()
-        
+
         if _return_inference_anndata:
             return inference.get_result("anndata")
 
@@ -162,7 +162,7 @@ class TrajectoryEvaluationAPI:
         evaluate_params: Optional[Dict[str, Any]] = None,
         metrics: Optional[List[str]] = None,
         _given_adata: Optional[ad.AnnData] = None,
-        _return_inference_anndata = False
+        _return_inference_anndata=False,
     ):
 
         self.logger.info("Starting adjacency evaluation.")
@@ -183,8 +183,10 @@ class TrajectoryEvaluationAPI:
         if _given_adata is None:
             inference = InferenceClass(adata=_adata, labels=_adata.obs[self.labels_obs], **inference_params)
         else:
-            inference = InferenceClass(adata=_adata, labels=_adata.obs[self.labels_obs], neighbour_key=neighbors_key, **inference_params)
-            
+            inference = InferenceClass(
+                adata=_adata, labels=_adata.obs[self.labels_obs], neighbour_key=neighbors_key, **inference_params
+            )
+
         inference.calculate()
         inferred_trajectories = inference.get_result("adjacency")
         inferred_trajectories_labels = inference.get_result("labels")
@@ -198,7 +200,7 @@ class TrajectoryEvaluationAPI:
         )
 
         self.results["adjacency"] = evaluation.get_result()
-        
+
         if _return_inference_anndata:
             return inference.get_result("anndata")
 

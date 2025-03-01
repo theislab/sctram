@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 
 import numpy as np
+
 from sctram.evaluate._metrics._src.validators import validate_inclusive_between_0_1
 
 
-def jaccard_similarity(given_adjacency_matrix: np.ndarray, inferred_adjacency_matrix: np.ndarray, threshold: float, validate_result: bool) -> float:
+def jaccard_similarity(
+    given_adjacency_matrix: np.ndarray, inferred_adjacency_matrix: np.ndarray, threshold: float, validate_result: bool
+) -> float:
     """Calculates the Jaccard Similarity between the edge sets of two graphs represented by adjacency matrices.
 
     Jaccard Similarity is the ratio of the number of common edges to the total number of unique edges in both graphs.
@@ -35,15 +38,14 @@ def jaccard_similarity(given_adjacency_matrix: np.ndarray, inferred_adjacency_ma
     """
     # Binarize the inferred adjacency matrix using the provided threshold.
     inferred_binary = (inferred_adjacency_matrix >= threshold).astype(int)
-    
+
     set_g1 = set(zip(*np.where(given_adjacency_matrix)))
     set_g2 = set(zip(*np.where(inferred_binary)))
     intersection = set_g1.intersection(set_g2)
     union = set_g1.union(set_g2)
     jaccard = len(intersection) / len(union) if union else 1.0  # Both graphs have no edges
-    
+
     if validate_result:
         validate_inclusive_between_0_1(score=jaccard)
 
     return jaccard
-

@@ -2,14 +2,13 @@
 
 from typing import Any, Dict, Optional, Tuple
 
-
 import numpy as np
 import pandas as pd
 
 from sctram.evaluate._base import EvaluationBase
+from sctram.evaluate._metrics import metrics as mmm
 from sctram.utils._constants import sctram_operate_key
 from sctram.utils._utils import Utils
-from sctram.evaluate._metrics import metrics as mmm
 
 
 class AdjacencyMatrixEvaluation(EvaluationBase):
@@ -61,7 +60,7 @@ class AdjacencyMatrixEvaluation(EvaluationBase):
         # Prepare the input/inferred regardless of the prepare params, as there is no real parameter
         self.prepare_params_before_subset[sctram_operate_key] = True
         self.logger.debug(f"Initialized AdjacencyMatrixEvaluation with metrics: {self.metrics}")
-        
+
     def _calculate(self):
         """Performs the evaluation by comparing the adjacency matrices using the specified metrics.
 
@@ -70,24 +69,24 @@ class AdjacencyMatrixEvaluation(EvaluationBase):
         """
         for metric in self.metrics:
             self.logger.debug(f"Calculating metric: {metric!r}")
-            
+
             if metric in self.available_metrics:
 
                 kwargs = dict(
-                    given_adjacency_matrix = self.prepared_after_subset_given,
-                    inferred_adjacency_matrix = self.prepared_after_subset_inferred,
+                    given_adjacency_matrix=self.prepared_after_subset_given,
+                    inferred_adjacency_matrix=self.prepared_after_subset_inferred,
                 )
-                
+
                 if Utils.requires_argument(mmm[metric]["base_before_val"], arg_name="threshold"):
                     score, logger_message = mmm[metric]["with_desc"](threshold=self.paga_threshold, **kwargs)
                 else:
                     score, logger_message = mmm[metric]["with_desc"](**kwargs)
-                    
+
                 self.result[metric] = score
                 self.logger.info(logger_message)
             else:
                 raise ValueError(f"Unknown metric {metric!r} specified.")
-                                
+
     def get_result(self) -> Any:
         """Retrieves the result of the trajectory evaluation.
 

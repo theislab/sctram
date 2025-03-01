@@ -2,17 +2,18 @@
 
 import numpy as np
 from scipy.stats import wasserstein_distance as scipy_wd
-from sctram.evaluate._metrics._src.validators import validate_zero_or_positive as _validator
+
 from sctram.evaluate._metrics._src.utils import prepare_pseudotime
+from sctram.evaluate._metrics._src.validators import validate_zero_or_positive as _validator
 
 
-def wasserstein_distance_pseudotime(given_pseudotime_array: np.ndarray,
-                                inferred_pseudotime_array: np.ndarray,
-                                validate_result: bool) -> float:
+def wasserstein_distance_pseudotime(
+    given_pseudotime_array: np.ndarray, inferred_pseudotime_array: np.ndarray, validate_result: bool
+) -> float:
     """Compute the Wasserstein distance between two 1D arrays.
 
     This method computes the first Wasserstein distance (Earth Mover's Distance) between two probability distributions.
-    It quantifies the minimum "cost" required to transform one distribution into another, where cost is defined as the 
+    It quantifies the minimum "cost" required to transform one distribution into another, where cost is defined as the
     product of the amount of probability mass moved and the distance by which it is moved.
 
     Parameters:
@@ -38,10 +39,10 @@ def wasserstein_distance_pseudotime(given_pseudotime_array: np.ndarray,
     # Measure absolute distances. Normalization focuses on shape rather than magnitude.
     norm_given = prepare_pseudotime(given_pseudotime_array, method="minmax")
     norm_inferred = prepare_pseudotime(inferred_pseudotime_array, method="minmax")
-    
+
     wd = scipy_wd(given_pseudotime_array, inferred_pseudotime_array)
-    
+
     if validate_result:
         _validator(score=wd)
-    
+
     return wd

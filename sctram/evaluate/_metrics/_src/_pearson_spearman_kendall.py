@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 
 import numpy as np
-from scipy.stats import pearsonr, spearmanr, kendalltau
+from scipy.stats import kendalltau, pearsonr, spearmanr
+
 from sctram.evaluate._metrics._src.validators import validate_between_minus_plus_1 as _validator
 
 
-def pearson_correlation(given_pseudotime_array: np.ndarray,
-                      inferred_pseudotime_array: np.ndarray,
-                      validate_result: bool) -> float:
+def pearson_correlation(
+    given_pseudotime_array: np.ndarray, inferred_pseudotime_array: np.ndarray, validate_result: bool
+) -> float:
     """Compute Pearson correlation coefficient between two 1d arrays.
 
     Parameters:
@@ -30,18 +31,18 @@ def pearson_correlation(given_pseudotime_array: np.ndarray,
         - A value of 1 indicates perfect positive linear correlation.
         - A value of 0 suggests no linear correlation.
         - A value of -1 indicates perfect negative linear correlation.
-    """    
+    """
     corr, _ = pearsonr(given_pseudotime_array, inferred_pseudotime_array)
-    
+
     if validate_result:
         _validator(score=corr)
-    
+
     return corr
 
 
-def spearman_correlation(given_pseudotime_array: np.ndarray,
-                       inferred_pseudotime_array: np.ndarray,
-                       validate_result: bool) -> float:
+def spearman_correlation(
+    given_pseudotime_array: np.ndarray, inferred_pseudotime_array: np.ndarray, validate_result: bool
+) -> float:
     """Compute Spearman rank correlation coefficient between two 1d arrays.
 
     Parameters:
@@ -66,16 +67,16 @@ def spearman_correlation(given_pseudotime_array: np.ndarray,
         - A value of -1 denotes a perfect monotonic decreasing relationship.
     """
     corr, _ = spearmanr(given_pseudotime_array, inferred_pseudotime_array)
-    
+
     if validate_result:
         _validator(score=corr)
-    
+
     return corr
 
 
-def kendall_correlation(given_pseudotime_array: np.ndarray,
-                      inferred_pseudotime_array: np.ndarray,
-                      validate_result: bool) -> float:
+def kendall_correlation(
+    given_pseudotime_array: np.ndarray, inferred_pseudotime_array: np.ndarray, validate_result: bool
+) -> float:
     """Compute Kendall's tau correlation coefficient between 1d arrays.
 
     Parameters:
@@ -100,7 +101,7 @@ def kendall_correlation(given_pseudotime_array: np.ndarray,
         - A value of -1 indicates complete disagreement in the rankings.
     """
     tau, _ = kendalltau(given_pseudotime_array, inferred_pseudotime_array)
-    
+
     if validate_result:
         _validator(score=tau)
     return tau

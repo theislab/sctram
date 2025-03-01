@@ -2,14 +2,15 @@
 
 import numpy as np
 from scipy.stats import cramervonmises_2samp, ks_2samp
+
+from sctram.evaluate._metrics._src.utils import prepare_pseudotime
 from sctram.evaluate._metrics._src.validators import validate_inclusive_between_0_1 as _validator1
 from sctram.evaluate._metrics._src.validators import validate_zero_or_positive as _validator2
-from sctram.evaluate._metrics._src.utils import prepare_pseudotime
 
 
-def cdf_cramer_von_mises(given_pseudotime_array: np.ndarray,
-                     inferred_pseudotime_array: np.ndarray,
-                     validate_result: bool) -> float:
+def cdf_cramer_von_mises(
+    given_pseudotime_array: np.ndarray, inferred_pseudotime_array: np.ndarray, validate_result: bool
+) -> float:
     """Compute the Cramér-von Mises (CvM) statistic between two 1D arrays.
 
     This function quantifies the overall discrepancy between two distributions by calculating the integrated
@@ -37,18 +38,18 @@ def cdf_cramer_von_mises(given_pseudotime_array: np.ndarray,
     # Compare CDF shapes. Normalization removes scale bias in distribution alignment.
     given_pseudotime_array = prepare_pseudotime(given_pseudotime_array, method="minmax")
     inferred_pseudotime_array = prepare_pseudotime(inferred_pseudotime_array, method="minmax")
-    
+
     cvm_stat = cramervonmises_2samp(inferred_pseudotime_array, given_pseudotime_array).statistic
-    
+
     if validate_result:
         _validator2(score=cvm_stat)
-    
+
     return cvm_stat
 
 
-def cdf_kolmogorov_smirnov(given_pseudotime_array: np.ndarray,
-                                  inferred_pseudotime_array: np.ndarray,
-                                  validate_result: bool) -> float:
+def cdf_kolmogorov_smirnov(
+    given_pseudotime_array: np.ndarray, inferred_pseudotime_array: np.ndarray, validate_result: bool
+) -> float:
     """Compute the Kolmogorov-Smirnov (KS) statistic between two 1D arrays.
 
     This function compares two distributions by calculating the maximum absolute difference
@@ -76,10 +77,10 @@ def cdf_kolmogorov_smirnov(given_pseudotime_array: np.ndarray,
     # Compare CDF shapes. Normalization removes scale bias in distribution alignment.
     given_pseudotime_array = prepare_pseudotime(given_pseudotime_array, method="minmax")
     inferred_pseudotime_array = prepare_pseudotime(inferred_pseudotime_array, method="minmax")
-    
+
     ks_statistic, _ = ks_2samp(inferred_pseudotime_array, given_pseudotime_array)
-    
+
     if validate_result:
         _validator1(score=ks_statistic)
-    
+
     return ks_statistic

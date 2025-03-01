@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
-from contextlib import contextmanager
-from scanpy._settings import settings  # This is Scanpy's settings, including verbosity and _root_logger
 import logging
+from contextlib import contextmanager
+
 from loguru import logger
+from scanpy._settings import settings  # This is Scanpy's settings, including verbosity and _root_logger
+
 
 class InterceptHandler(logging.Handler):
     def emit(self, record):
@@ -19,11 +21,12 @@ class InterceptHandler(logging.Handler):
 
         logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
 
+
 @contextmanager
 def redirect_scanpy_logs_to_loguru(custom_caller: str):
     """
     Redirect logs from Scanpy's logger to Loguru with a custom caller string.
-    
+
     Parameters
     ----------
     custom_caller : str
@@ -39,7 +42,7 @@ def redirect_scanpy_logs_to_loguru(custom_caller: str):
     # Use Scanpy’s internal logger.
     scanpy_logger = settings._root_logger
     original_handlers = scanpy_logger.handlers[:]  # Copy the current handlers.
-    
+
     # Define a custom intercept handler that attaches our custom caller.
     class CustomInterceptHandler(logging.Handler):
         def emit(self, record):
@@ -49,10 +52,10 @@ def redirect_scanpy_logs_to_loguru(custom_caller: str):
                 level = record.levelno
             # Bind the custom caller string and forward the message.
             logger.bind(custom_caller=custom_caller).log(level, record.getMessage())
-    
+
     # Replace Scanpy's handlers with our custom handler.
     scanpy_logger.handlers = [CustomInterceptHandler()]
-    
+
     try:
         yield  # Run the code inside the with-block.
     finally:

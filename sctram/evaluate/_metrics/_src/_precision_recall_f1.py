@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 
 import numpy as np
+
 from sctram.evaluate._metrics._src.validators import validate_inclusive_between_0_1
 
 
 def precision(
-    given_adjacency_matrix: np.ndarray,
-    inferred_adjacency_matrix: np.ndarray,
-    threshold: float,
-    validate_result: bool
+    given_adjacency_matrix: np.ndarray, inferred_adjacency_matrix: np.ndarray, threshold: float, validate_result: bool
 ) -> float:
     """Calculates the precision for given and inferred adjacency matrices.
 
@@ -26,15 +24,12 @@ def precision(
         given_adjacency_matrix=given_adjacency_matrix,
         inferred_adjacency_matrix=inferred_adjacency_matrix,
         threshold=threshold,
-        validate_result=validate_result
+        validate_result=validate_result,
     )
 
 
 def recall(
-    given_adjacency_matrix: np.ndarray,
-    inferred_adjacency_matrix: np.ndarray,
-    threshold: float,
-    validate_result: bool
+    given_adjacency_matrix: np.ndarray, inferred_adjacency_matrix: np.ndarray, threshold: float, validate_result: bool
 ) -> float:
     """
     Calculates the recall for given and inferred adjacency matrices.
@@ -53,15 +48,12 @@ def recall(
         given_adjacency_matrix=given_adjacency_matrix,
         inferred_adjacency_matrix=inferred_adjacency_matrix,
         threshold=threshold,
-        validate_result=validate_result
+        validate_result=validate_result,
     )
 
 
 def f1_score(
-    given_adjacency_matrix: np.ndarray,
-    inferred_adjacency_matrix: np.ndarray,
-    threshold: float,
-    validate_result: bool
+    given_adjacency_matrix: np.ndarray, inferred_adjacency_matrix: np.ndarray, threshold: float, validate_result: bool
 ) -> float:
     """
     Calculates the F1 Score for given and inferred adjacency matrices.
@@ -80,18 +72,20 @@ def f1_score(
         given_adjacency_matrix=given_adjacency_matrix,
         inferred_adjacency_matrix=inferred_adjacency_matrix,
         threshold=threshold,
-        validate_result=validate_result
+        validate_result=validate_result,
     )
 
 
-def _precision_recall_f1(given_adjacency_matrix: np.ndarray,
-                        inferred_adjacency_matrix: np.ndarray,
-                        metric: str,
-                        threshold: float,
-                        validate_result: bool) -> float:
+def _precision_recall_f1(
+    given_adjacency_matrix: np.ndarray,
+    inferred_adjacency_matrix: np.ndarray,
+    metric: str,
+    threshold: float,
+    validate_result: bool,
+) -> float:
     """
     Computes a performance metric (Precision, Recall, or F1 Score) for comparing two square adjacency matrices.
-    Designed for a mathematics/statistics audience, this function evaluates the quality of inferred graph structures 
+    Designed for a mathematics/statistics audience, this function evaluates the quality of inferred graph structures
     by thresholding the inferred adjacency matrix and comparing it to the true (given) adjacency matrix.
 
     Parameters:
@@ -120,17 +114,17 @@ def _precision_recall_f1(given_adjacency_matrix: np.ndarray,
     """
     # Binarize the inferred matrix using the given threshold
     inferred_binary = (inferred_adjacency_matrix >= threshold).astype(int)
-    
+
     # Calculate true positives, predicted positives, and actual positives
     true_positive = np.sum((inferred_binary == 1) & (given_adjacency_matrix == 1))
     predicted_positive = np.sum(inferred_binary == 1)
     actual_positive = np.sum(given_adjacency_matrix == 1)
-    
+
     # Compute precision, recall, and F1 score
     precision = true_positive / predicted_positive if predicted_positive > 0 else 0.0
     recall = true_positive / actual_positive if actual_positive > 0 else 0.0
     f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
-    
+
     # Select the metric based on the input argument
     if metric == "precision":
         score = precision
@@ -140,9 +134,9 @@ def _precision_recall_f1(given_adjacency_matrix: np.ndarray,
         score = f1
     else:
         raise ValueError(f"Invalid metric {metric!r} for precision/recall/F1 calculation.")
-    
+
     # Validate that the score is zero or positive if requested
     if validate_result:
         validate_inclusive_between_0_1(score=score)
-    
+
     return score

@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 
-import numpy as np
 import networkx as nx
-from scipy import sparse
-from ot import emd2
+import numpy as np
 from loguru import logger
+from ot import emd2
+from scipy import sparse
 
 try:
-    from sctram.evaluate._metrics._src.validators import validate_zero_or_positive as _validator
     from sctram.evaluate._metrics._src.utils import convert_scanpy_neighbors_to_indices
+    from sctram.evaluate._metrics._src.validators import validate_zero_or_positive as _validator
 except ImportError:
-    from validators import validate_zero_or_positive as _validator
     from utils import convert_scanpy_neighbors_to_indices
+    from validators import validate_zero_or_positive as _validator
 
 
 _logger = logger.bind(name="MetricBase")
@@ -41,10 +41,10 @@ def wasserstein_distance_embedding(
 
     Statistical Intuition:
         Models the alignment between biological graph structure and embedding neighborhoods using OT theory:
-        1. Graph as Railway Blueprint: 
+        1. Graph as Railway Blueprint:
             - Nodes = Cities (cell types), Edges = Allowed tracks (biological transitions)
             - Shortest path distances define transition costs (direct vs multi-step journeys)
-        2. Embedding as Passenger Flow: 
+        2. Embedding as Passenger Flow:
             - KNN neighborhoods = Observed travel patterns
             - Empirical distribution shows actual cell-type transitions
         3. Wasserstein as Rerouting Cost:
@@ -59,14 +59,15 @@ def wasserstein_distance_embedding(
 
     """
     embedded_neighbors = convert_scanpy_neighbors_to_indices(
-        scanpy_neighbors_matrix=precomputed_embedded_connectivities,
-        k=n_neighbors - 1  # exclude self
+        scanpy_neighbors_matrix=precomputed_embedded_connectivities, k=n_neighbors - 1  # exclude self
     )
     n_cells = embedded_neighbors.shape[0]
 
     # Validate input shapes
-    assert embedded_neighbors.shape == (n_cells, n_neighbors - 1), \
-        f"Neighbor indices shape {embedded_neighbors.shape} != ({n_cells}, {n_neighbors-1})"
+    assert embedded_neighbors.shape == (
+        n_cells,
+        n_neighbors - 1,
+    ), f"Neighbor indices shape {embedded_neighbors.shape} != ({n_cells}, {n_neighbors-1})"
     unique_labels = list(given_graph.nodes())
     t = len(unique_labels)
     if t == 0:
@@ -100,7 +101,7 @@ def wasserstein_distance_embedding(
 
         # Compute Q distribution (embedding neighbors)
         unique_q, counts_q = np.unique(u_neighbor_labels, return_counts=True)
-        
+
         # Filtering step to handle unknown labels
         valid_mask = np.isin(unique_q, unique_labels)
         valid_unique_q = unique_q[valid_mask]
@@ -125,7 +126,7 @@ def wasserstein_distance_embedding(
         else:
             # Handle weighted or unweighted graph
             if nx.is_weighted(given_graph):
-                weights = np.array([given_graph[u][v].get('weight', 1.0) for v in graph_neighbors])
+                weights = np.array([given_graph[u][v].get("weight", 1.0) for v in graph_neighbors])
             else:
                 weights = np.ones(len(graph_neighbors))
             weights_sum = weights.sum()
@@ -149,12 +150,12 @@ def wasserstein_distance_embedding(
 
     if validate_result:
         _validator(score=avg_wd)
-    
+
     return avg_wd
 
 
-if __name__ == '__main__':
-    
+if __name__ == "__main__":
+
     def create_valid_scanpy_neighbors(n_cells: int, k: int, seed_row: int = 0) -> sparse.csr_matrix:
         """Create a valid scanpy neighbor matrix where:
         - seed_row has neighbors [1, 2, ..., k]
@@ -162,30 +163,30 @@ if __name__ == '__main__':
         """
         indices = []
         indptr = [0]
-        
+
         # Create neighbors for seed_row
-        seed_neighbors = np.arange(1, k+1)
+        seed_neighbors = np.arange(1, k + 1)
         indices.extend(seed_neighbors)
         indptr.append(len(indices))
-        
+
         # Create neighbors for other rows (cyclically repeat valid indices)
         for i in range(1, n_cells):
             row_neighbors = np.arange(k)  # Valid cyclic indices
             indices.extend(row_neighbors)
             indptr.append(len(indices))
-        
+
         data = np.ones(len(indices), dtype=np.float32)
         return sparse.csr_matrix((data, indices, indptr), shape=(n_cells, n_cells))
-    
+
     def test_perfect_match():
         """Test case where graph transitions perfectly match embedding neighbors (WD=0)."""
         G = nx.DiGraph()
-        G.add_edges_from([('A', 'B'), ('B', 'A')])
-        
-        labels = np.array(['A', 'B'])
+        G.add_edges_from([("A", "B"), ("B", "A")])
+
+        labels = np.array(["A", "B"])
         n_neighbors = 2
         embedded_conn = create_valid_scanpy_neighbors(n_cells=2, k=1, seed_row=0)
-        
+
         result = wasserstein_distance_embedding(G, labels, embedded_conn, n_neighbors, validate_result=True)
         expected = 0.0
         assert np.isclose(result, expected), f"Perfect match failed. Expected {expected}, got {result}"
@@ -193,12 +194,12 @@ if __name__ == '__main__':
     def test_orphan_node_zero_wd():
         """Test orphan node (no outgoing edges) with self neighbors (WD=0)."""
         G = nx.DiGraph()
-        G.add_node('A')  # Orphan node
-        
-        labels = np.array(['A', 'A'])
+        G.add_node("A")  # Orphan node
+
+        labels = np.array(["A", "A"])
         n_neighbors = 2
         embedded_conn = create_valid_scanpy_neighbors(n_cells=2, k=1, seed_row=0)
-        
+
         result = wasserstein_distance_embedding(G, labels, embedded_conn, n_neighbors, validate_result=True)
         expected = 0.0
         assert np.isclose(result, expected), f"Orphan node test failed. Expected {expected}, got {result}"
@@ -206,12 +207,12 @@ if __name__ == '__main__':
     def test_no_overlap_high_wd():
         """Test case with complete mismatch between graph and embedding (WD=3.0)."""
         G = nx.DiGraph()
-        G.add_edges_from([('A', 'B'), ('B', 'B')])
-        
-        labels = np.array(['A', 'A', 'B', 'B'])
+        G.add_edges_from([("A", "B"), ("B", "B")])
+
+        labels = np.array(["A", "A", "B", "B"])
         n_neighbors = 2
         embedded_conn = create_valid_scanpy_neighbors(n_cells=4, k=1, seed_row=0)
-        
+
         result = wasserstein_distance_embedding(G, labels, embedded_conn, n_neighbors, validate_result=True)
         expected = 3.0  # Corrected from 2.0 to 3.0 based on cost matrix analysis
         assert np.isclose(result, expected), f"No overlap test failed. Expected {expected}, got {result}"
@@ -219,17 +220,17 @@ if __name__ == '__main__':
     def test_large_manual_calculation():
         """Test with manually computed WD for a structured graph and embedding."""
         G = nx.DiGraph()
-        G.add_edges_from([('A', 'B'), ('B', 'C'), ('C', 'C')])
-        
+        G.add_edges_from([("A", "B"), ("B", "C"), ("C", "C")])
+
         # Manually create embedded connectivities for 3 cells (A, B, C)
         indices = [1, 2, 2, 0, 2, 1]
         indptr = [0, 2, 4, 6]
         data = np.ones(6, dtype=np.float32)
         embedded_conn = sparse.csr_matrix((data, indices, indptr), shape=(3, 3))
-        
-        labels = np.array(['A', 'B', 'C'])
+
+        labels = np.array(["A", "B", "C"])
         n_neighbors = 3  # k=2 (excluding self)
-        
+
         result = wasserstein_distance_embedding(G, labels, embedded_conn, n_neighbors, validate_result=True)
         expected = (0.5 + 2.0 + 2.0) / 3  # Manually computed expected average WD
         assert np.isclose(result, expected, rtol=1e-3), f"Manual calculation failed. Expected {expected}, got {result}"
@@ -259,25 +260,25 @@ if __name__ == '__main__':
         neighbor distributions roughly match the graph.
         """
         # Create a graph with 3 cell types and full connectivity
-        cell_types = ['A', 'B', 'C']
+        cell_types = ["A", "B", "C"]
         G = nx.DiGraph()
         G.add_nodes_from(cell_types)
         for u in cell_types:
             for v in cell_types:
                 if u != v:
                     G.add_edge(u, v, weight=1.0)
-        
+
         # Create a labels array: 90 cells evenly distributed among 3 types
         n_cells = 90
-        labels_array = np.array(['A'] * 30 + ['B'] * 30 + ['C'] * 30)
-        
+        labels_array = np.array(["A"] * 30 + ["B"] * 30 + ["C"] * 30)
+
         # Create a KNN connectivity matrix (neighbors include self, so n_neighbors=6 for instance)
         n_neighbors = 6
         connectivity = create_knn_connectivity(n_cells, n_neighbors)
-        
+
         # Compute the score
         score = wasserstein_distance_embedding(G, labels_array, connectivity, n_neighbors)
-        
+
         assert score >= 0
 
     def test_imbalanced_cell_types():
@@ -285,23 +286,23 @@ if __name__ == '__main__':
         Scenario 2: Imbalanced cell types.
         One cell type ('A') is rare compared to others, testing if the method handles imbalances.
         """
-        cell_types = ['A', 'B', 'C']
+        cell_types = ["A", "B", "C"]
         G = nx.DiGraph()
         G.add_nodes_from(cell_types)
         # Define transitions: more transitions from B and C, and 'A' has few connections
-        G.add_edge('B', 'A', weight=0.5)
-        G.add_edge('B', 'C', weight=0.5)
-        G.add_edge('C', 'B', weight=1.0)
-        G.add_edge('A', 'A', weight=1.0)  # 'A' only transitions to itself
+        G.add_edge("B", "A", weight=0.5)
+        G.add_edge("B", "C", weight=0.5)
+        G.add_edge("C", "B", weight=1.0)
+        G.add_edge("A", "A", weight=1.0)  # 'A' only transitions to itself
 
         # Create a labels array with imbalance: 'A' is rare
-        labels_array = np.array(['A'] * 10 + ['B'] * 45 + ['C'] * 45)
+        labels_array = np.array(["A"] * 10 + ["B"] * 45 + ["C"] * 45)
         n_cells = labels_array.shape[0]
         n_neighbors = 6
         connectivity = create_knn_connectivity(n_cells, n_neighbors)
-        
+
         score = wasserstein_distance_embedding(G, labels_array, connectivity, n_neighbors)
-        
+
         assert score >= 0
 
     def test_graph_with_orphan_nodes():
@@ -309,20 +310,20 @@ if __name__ == '__main__':
         Scenario 3: Graph with orphan nodes (nodes with no outgoing edges).
         Tests if the self-transition fallback works correctly.
         """
-        cell_types = ['A', 'B', 'C']
+        cell_types = ["A", "B", "C"]
         G = nx.DiGraph()
         G.add_nodes_from(cell_types)
         # Only 'B' and 'C' have transitions; 'A' is an orphan.
-        G.add_edge('B', 'C', weight=1.0)
-        G.add_edge('C', 'B', weight=1.0)
-        
-        labels_array = np.array(['A'] * 30 + ['B'] * 30 + ['C'] * 30)
+        G.add_edge("B", "C", weight=1.0)
+        G.add_edge("C", "B", weight=1.0)
+
+        labels_array = np.array(["A"] * 30 + ["B"] * 30 + ["C"] * 30)
         n_cells = labels_array.shape[0]
         n_neighbors = 6
         connectivity = create_knn_connectivity(n_cells, n_neighbors)
-        
+
         score = wasserstein_distance_embedding(G, labels_array, connectivity, n_neighbors)
-        
+
         assert score >= 0
 
     def test_weighted_transitions():
@@ -330,24 +331,24 @@ if __name__ == '__main__':
         Scenario 4: Weighted transitions.
         The graph has weighted edges, and we simulate that the embedding reflects these weight differences.
         """
-        cell_types = ['A', 'B', 'C', 'D']
+        cell_types = ["A", "B", "C", "D"]
         G = nx.DiGraph()
         G.add_nodes_from(cell_types)
         # Define a more complex weighted graph
-        G.add_edge('A', 'B', weight=2.0)
-        G.add_edge('A', 'C', weight=1.0)
-        G.add_edge('B', 'C', weight=3.0)
-        G.add_edge('C', 'D', weight=4.0)
-        G.add_edge('D', 'A', weight=1.0)
-        
+        G.add_edge("A", "B", weight=2.0)
+        G.add_edge("A", "C", weight=1.0)
+        G.add_edge("B", "C", weight=3.0)
+        G.add_edge("C", "D", weight=4.0)
+        G.add_edge("D", "A", weight=1.0)
+
         # Create a labels array with 120 cells in a non-uniform distribution
-        labels_array = np.array(['A'] * 20 + ['B'] * 30 + ['C'] * 50 + ['D'] * 20)
+        labels_array = np.array(["A"] * 20 + ["B"] * 30 + ["C"] * 50 + ["D"] * 20)
         n_cells = labels_array.shape[0]
         n_neighbors = 7  # e.g., 7 neighbors including self
         connectivity = create_knn_connectivity(n_cells, n_neighbors)
-        
+
         score = wasserstein_distance_embedding(G, labels_array, connectivity, n_neighbors)
-        
+
         assert score >= 0
 
     # Execute all tests

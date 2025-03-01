@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-import numpy as np
 import gudhi as gd
+import numpy as np
 from gudhi.wasserstein import wasserstein_distance
 from scipy.sparse.csgraph import shortest_path
 
@@ -9,7 +9,6 @@ try:
     from sctram.evaluate._metrics._src.validators import validate_zero_or_positive as _validator
 except ImportError:
     from validators import validate_zero_or_positive as _validator
-
 
 
 def _compute_diagrams(adj: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -39,8 +38,9 @@ def _compute_diagrams(adj: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
             dgm0.append((birth, death))
         elif dim == 1:
             dgm1.append((birth, death))
-    
+
     return _process_diagram(dgm0), _process_diagram(dgm1)
+
 
 def _process_diagram(diagram: list) -> np.ndarray:
     """Handle infinite persistence and convert to numpy array"""
@@ -53,7 +53,7 @@ def _process_diagram(diagram: list) -> np.ndarray:
         max_birth = max([b for b, d in diagram]) if diagram else 0.0
         max_finite = max_birth + 1.0  # Adjusted to ensure significant persistence
         epsilon = 1e-6
-    
+
     processed = []
     for birth, death in diagram:
         if death == np.inf:
@@ -61,14 +61,12 @@ def _process_diagram(diagram: list) -> np.ndarray:
         else:
             adjusted_death = death
         processed.append((birth, adjusted_death))
-    
+
     return np.array(processed)
 
 
 def persistence_diagram_distance(
-    given_adjacency_matrix: np.ndarray,
-    inferred_adjacency_matrix: np.ndarray,
-    validate_result: bool
+    given_adjacency_matrix: np.ndarray, inferred_adjacency_matrix: np.ndarray, validate_result: bool
 ) -> float:
     """Computes topological distance between adjacency matrices using persistent homology
     and Wasserstein distance between persistence diagrams.
@@ -84,7 +82,7 @@ def persistence_diagram_distance(
        their persistence strengths.
     4. Dimensional Synthesis: Combined 0D+1D analysis detects both connectivity differences
        (component structure) and cyclic structure variations (loop presence/absence).
-    
+
     Parameters:
         ref_adj: Reference adjacency matrix (n x n), symmetric, non-negative
         test_adj: Test adjacency matrix (n x n), symmetric, non-negative
@@ -94,15 +92,15 @@ def persistence_diagram_distance(
     dgm0_ref, dgm1_ref = _compute_diagrams(given_adjacency_matrix)
     dgm0_test, dgm1_test = _compute_diagrams(inferred_adjacency_matrix)
 
-    w0 = wasserstein_distance(dgm0_ref, dgm0_test, order=1)  #, enable_autodiff=True)
-    w1 = wasserstein_distance(dgm1_ref, dgm1_test, order=1)  #, enable_autodiff=True)
-    
+    w0 = wasserstein_distance(dgm0_ref, dgm0_test, order=1)  # , enable_autodiff=True)
+    w1 = wasserstein_distance(dgm1_ref, dgm1_test, order=1)  # , enable_autodiff=True)
+
     # Convert total distance to similarity score
     score = w0 + w1
 
     if validate_result:
         _validator(score=score)
-    
+
     return score
 
 
@@ -130,12 +128,7 @@ if __name__ == "__main__":
     def test_disconnected_vs_connected():
         """Test distance between disconnected and connected graphs (0D difference)."""
         # Reference: Two disconnected edges (0-1 and 2-3)
-        ref_adj = np.array([
-            [0, 1, 0, 0],
-            [1, 0, 0, 0],
-            [0, 0, 0, 1],
-            [0, 0, 1, 0]
-        ], dtype=np.float64)
+        ref_adj = np.array([[0, 1, 0, 0], [1, 0, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]], dtype=np.float64)
         # Test: Fully connected (complete graph)
         test_adj = np.ones((4, 4), dtype=np.float64) - np.eye(4)
         distance = persistence_diagram_distance(ref_adj, test_adj, validate_result=True)
@@ -144,21 +137,11 @@ if __name__ == "__main__":
     def test_cycle_vs_no_cycle():
         """Test distance between cyclic and acyclic graphs (1D difference)."""
         # Reference: 4-node cycle (square without diagonals)
-        ref_adj = np.array([
-            [0, 1, 0, 1],
-            [1, 0, 1, 0],
-            [0, 1, 0, 1],
-            [1, 0, 1, 0]
-        ], dtype=np.float64)
-        
+        ref_adj = np.array([[0, 1, 0, 1], [1, 0, 1, 0], [0, 1, 0, 1], [1, 0, 1, 0]], dtype=np.float64)
+
         # Test: Line graph (0-1-2-3, acyclic)
-        test_adj = np.array([
-            [0, 1, 0, 0],
-            [1, 0, 1, 0],
-            [0, 1, 0, 1],
-            [0, 0, 1, 0]
-        ], dtype=np.float64)
-        
+        test_adj = np.array([[0, 1, 0, 0], [1, 0, 1, 0], [0, 1, 0, 1], [0, 0, 1, 0]], dtype=np.float64)
+
         distance = persistence_diagram_distance(ref_adj, test_adj, validate_result=False)
         assert np.isclose(distance, 0.5, atol=1e-3), f"Expected ~0.5, got {distance}"
 
@@ -168,13 +151,13 @@ if __name__ == "__main__":
         base_adj = np.random.rand(4, 4)
         base_adj = (base_adj + base_adj.T) / 2  # Symmetrize
         np.fill_diagonal(base_adj, 0)
-        
+
         # Add small noise
         noise = np.random.normal(0, 0.01, base_adj.shape)
         noise = (noise + noise.T) / 2  # Symmetrize noise
         test_adj = np.clip(base_adj + noise, 0, None)  # Ensure non-negativity
         np.fill_diagonal(test_adj, 0)
-        
+
         distance = persistence_diagram_distance(base_adj, test_adj, validate_result=True)
         assert distance < 0.5, f"Expected small distance, got {distance}"
 

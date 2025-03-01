@@ -1,22 +1,23 @@
 #!/usr/bin/env python3
 
-import numpy as np
-import networkx as nx
 from typing import Optional
+
+import networkx as nx
+import numpy as np
 from scipy import sparse
 from sklearn.decomposition import PCA
 
 try:
-    from sctram.evaluate._metrics._src.validators import validate_between_minus_plus_1 as _validator
     from sctram.evaluate._metrics._src.utils import Centroids, convert_scanpy_neighbors_to_indices
+    from sctram.evaluate._metrics._src.validators import validate_between_minus_plus_1 as _validator
 except ImportError:
-    from validators import validate_between_minus_plus_1 as _validator
     from utils import Centroids, convert_scanpy_neighbors_to_indices
+    from validators import validate_between_minus_plus_1 as _validator
 
 
-def _find_edge_cells(u, v, inferred_embedding, centroids, k, labels_array, orthogonal_distance_coefficient = np.inf):
+def _find_edge_cells(u, v, inferred_embedding, centroids, k, labels_array, orthogonal_distance_coefficient=np.inf):
     """
-    Find k cells from inferred_embedding that are labeled as belonging to node u and lie between 
+    Find k cells from inferred_embedding that are labeled as belonging to node u and lie between
     the centroids of node u and node v. Cells are selected based on their projection along the edge
     direction, and only those within the segment defined by the centroids are considered.
 
@@ -29,7 +30,7 @@ def _find_edge_cells(u, v, inferred_embedding, centroids, k, labels_array, ortho
         orthogonal_distance_coefficient (float): If infinite, it is effectively disabled.
             Cells are not only aligned with the edge direction but are also spatially close to the edge are chosen.
             This filters out cells that might lie along the projection line but are too far from the actual biological
-            path (as represented by the edge between the centroids). The coefficient is chosen to determine  
+            path (as represented by the edge between the centroids). The coefficient is chosen to determine
             distance relative to the edge lenght.
         k (int): Number of cells to return.
 
@@ -52,10 +53,10 @@ def _find_edge_cells(u, v, inferred_embedding, centroids, k, labels_array, ortho
     orthogonal_distances = np.linalg.norm(orthogonal_vectors, axis=1)
 
     # Filter cells by belonging to node u using labels_array.
-    node_u_mask = (labels_array == u)
+    node_u_mask = labels_array == u
     # Cells' projection values are within 0 and norm_edge, and orthogonal distances less than d/2.
-    orthogonal_mask = (orthogonal_distances < norm_edge * orthogonal_distance_coefficient)
-    
+    orthogonal_mask = orthogonal_distances < norm_edge * orthogonal_distance_coefficient
+
     valid_mask = (projection_scalars > 0) & (projection_scalars < norm_edge) & orthogonal_mask & node_u_mask
     valid_indices = np.where(valid_mask)[0]
     if len(valid_indices) == 0:
@@ -75,14 +76,14 @@ def _find_edge_cells(u, v, inferred_embedding, centroids, k, labels_array, ortho
 def _get_edge_local_cells(u, v, inferred_embedding, centroids, embedded_neighbors, k, labels_array):
     """
     First, find k cells that lie along the edge from centroid_u to centroid_v.
-    Then, using the precomputed neighbor indices, take the union of the neighbors 
+    Then, using the precomputed neighbor indices, take the union of the neighbors
     of these k cells to form the local cell set for PCA.
     """
     edge_cells = _find_edge_cells(u, v, inferred_embedding, centroids, k, labels_array)
     # print("len(edge_cells)", len(edge_cells))
     neighbor_indices = set()
     for cell_idx in edge_cells:
-        # embedded_neighbors is expected to be an array-like where each element contains 
+        # embedded_neighbors is expected to be an array-like where each element contains
         # the indices of neighbor cells for that particular cell.
         neighbor_indices.update(embedded_neighbors[cell_idx])
     neighbor_indices = np.array(list(neighbor_indices))
@@ -131,7 +132,7 @@ def directionality_preservation(
         pca_components (int): Number of PCA components to use (default: 1).
 
     Returns:
-        float: Average alignment (cosine similarity) across valid edges. Range [-1,1], 
+        float: Average alignment (cosine similarity) across valid edges. Range [-1,1],
         but typically positive. Higher values (closer to 1) indicate better alignment.
 
     Advantages:
@@ -157,7 +158,7 @@ def directionality_preservation(
     embedded_neighbors = convert_scanpy_neighbors_to_indices(
         scanpy_neighbors_matrix=precomputed_embedded_connectivities,
         k=n_neighbors - 1,  # excluding the cell itself
-        include_itself=False
+        include_itself=False,
     )
 
     for u, v in given_graph.edges():
@@ -174,7 +175,9 @@ def directionality_preservation(
 
         # Instead of taking neighbors around centroid_u, find k cells along the edge from u to v,
         # then get the union of their neighbors.
-        local_cells = _get_edge_local_cells(u, v, inferred_embedding, centroids, embedded_neighbors, k_cells, labels_array)
+        local_cells = _get_edge_local_cells(
+            u, v, inferred_embedding, centroids, embedded_neighbors, k_cells, labels_array
+        )
         # print("len(local_cells)", len(local_cells))
         if len(local_cells) < 2:
             raise ValueError("Insufficient cells for PCA")
@@ -199,4 +202,3 @@ def directionality_preservation(
         _validator(score=score)
 
     return score
-

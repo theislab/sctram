@@ -2,15 +2,13 @@
 
 import numpy as np
 from sklearn.metrics import normalized_mutual_info_score
-from sctram.evaluate._metrics._src.validators import validate_inclusive_between_0_1 as _validator
-from sctram.evaluate._metrics._src.utils import prepare_pseudotime
 
+from sctram.evaluate._metrics._src.utils import prepare_pseudotime
+from sctram.evaluate._metrics._src.validators import validate_inclusive_between_0_1 as _validator
 
 
 def normalized_mutual_information(
-    given_pseudotime_array: np.ndarray,
-    inferred_pseudotime_array: np.ndarray,
-    validate_result: bool = True
+    given_pseudotime_array: np.ndarray, inferred_pseudotime_array: np.ndarray, validate_result: bool = True
 ) -> float:
     """
     Compute the Normalized Mutual Information (NMI) between two pseudotime arrays after robust preprocessing.
@@ -72,9 +70,9 @@ def normalized_mutual_information(
 
         if iqr == 0:
             # Use data range if IQR=0 but data has variation
-            bin_width = 2 * data_range / (n ** (1/3))
+            bin_width = 2 * data_range / (n ** (1 / 3))
         else:
-            bin_width = 2 * iqr / (n ** (1/3))
+            bin_width = 2 * iqr / (n ** (1 / 3))
 
         bin_count = int(np.ceil(data_range / bin_width))
         # Enforce minimum 2 bins for non-constant data

@@ -10,74 +10,77 @@ except ImportError:
     from validators import validate_maximum_1 as _validator
 
 
-def r_squared(given_pseudotime_array: np.ndarray,
-                 inferred_pseudotime_array: np.ndarray,
-                 validate_result: bool) -> float:
+def r_squared(
+    given_pseudotime_array: np.ndarray, inferred_pseudotime_array: np.ndarray, validate_result: bool
+) -> float:
     """Calculate R-squared between two 1D arrays.
-    
-    This method computes the coefficient of determination (R-squared), which represents the 
-    proportion of variance in the given (reference) pseudotime that is predictable from the 
+
+    This method computes the coefficient of determination (R-squared), which represents the
+    proportion of variance in the given (reference) pseudotime that is predictable from the
     inferred pseudotime. This is a common metric in regression analysis for evaluating goodness-of-fit.
-    
+
     Parameters:
         given_pseudotime_array (np.ndarray): A 1D array
         inferred_pseudotime_array (np.ndarray): A 1D array
         validate_result (bool): Whether to validate result with expected range.
-        
+
     Returns:
         float: The R-squared value, ranging from negative infinity to 1, with higher values indicating a better fit.
-        
+
     Advantages:
         - Provides an intuitive measure of how well the inferred matrix explains the variance in the reference matrix.
         - Widely used and understood in regression contexts.
-        
+
     Limitations:
         - Sensitive to the data's range and distribution.
         - Can be misleading if non-linear relationships dominate.
-        
+
     Interpretation:
         - An R-squared of 1 indicates a perfect fit.
         - A value of 0 indicates that the model explains none of the variance.
         - Negative values suggest that the model performs worse than a simple horizontal line.
     """
     r2 = r2_score(given_pseudotime_array, inferred_pseudotime_array)
-    
+
     if validate_result:
         _validator(score=r2)
-    
+
     return r2
 
-def r_squared_with_spline(given_pseudotime_array: np.ndarray,
-                             inferred_pseudotime_array: np.ndarray,
-                             validate_result: bool,
-                             smoothing_factor: float = None,
-                             spline_degree: int = 3) -> float:
+
+def r_squared_with_spline(
+    given_pseudotime_array: np.ndarray,
+    inferred_pseudotime_array: np.ndarray,
+    validate_result: bool,
+    smoothing_factor: float = None,
+    spline_degree: int = 3,
+) -> float:
     """Calculate R-squared using a Univariate Spline fit between two 1D arrays.
-    
-    This method first sorts the inferred pseudotime and its corresponding reference values, fits a Univariate Spline 
-    (of a specified degree) to capture potential non-linear relationships, and then computes the R-squared value 
+
+    This method first sorts the inferred pseudotime and its corresponding reference values, fits a Univariate Spline
+    (of a specified degree) to capture potential non-linear relationships, and then computes the R-squared value
     between the given pseudotime and the spline predictions.
-    
+
     Parameters:
         given_pseudotime_array (np.ndarray): A 1D array
         inferred_pseudotime_array (np.ndarray): A 1D array
         validate_result (bool): Whether to validate result with expected range.
         spline_degree (int, optional): Degree of the smoothing spline. Defaults to 3.
-        smoothing_factor (float, optional): Regularization parameter controlling smoothness. 
-                                            Higher values increase smoothing. If None, uses 
+        smoothing_factor (float, optional): Regularization parameter controlling smoothness.
+                                            Higher values increase smoothing. If None, uses
                                             scipy's default (len(x)). Defaults to None.
-        
+
     Returns:
         float: The R-squared value for the spline fit, indicating the goodness-of-fit for capturing non-linear relationships.
-        
+
     Advantages:
         - Captures non-linear associations between the two matrices.
         - Offers a more flexible fit compared to a purely linear model.
-        
+
     Limitations:
         - The result is sensitive to the choice of spline degree and the sorting procedure.
         - May overfit if the spline degree is set too high.
-        
+
     Interpretation:
         - An R-squared value near 1 indicates an excellent non-linear fit.
         - Values around 0 suggest that the spline does not capture the variance well.
@@ -86,18 +89,17 @@ def r_squared_with_spline(given_pseudotime_array: np.ndarray,
     sorted_indices = np.argsort(inferred_pseudotime_array)
     x_sorted = inferred_pseudotime_array[sorted_indices]
     y_sorted = given_pseudotime_array[sorted_indices]
-    
+
     # Fit the Univariate Spline to the sorted data
     spline = UnivariateSpline(x_sorted, y_sorted, k=spline_degree, s=smoothing_factor)
     # Predict y values using the original inferred values
     y_pred = spline(inferred_pseudotime_array)
     r2 = r2_score(given_pseudotime_array, y_pred)
-    
+
     if validate_result:
         _validator(score=r2)
-        
-    return r2
 
+    return r2
 
     # y = given_pseudotime
     # x = inferred_pseudotime
@@ -106,7 +108,7 @@ def r_squared_with_spline(given_pseudotime_array: np.ndarray,
     # if np.isclose(ss_total, 0):
     #     _logger.warning("Given pseudotime is constant. R² is undefined.")
     #     return 0.0
-    
+
     # Cross-validation setup
     # kf = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
     # s_values = np.logspace(-6, 0, num=20) * ss_total  # s candidates scaled by SS_total
@@ -135,7 +137,7 @@ def r_squared_with_spline(given_pseudotime_array: np.ndarray,
     #         except Exception as e:
     #             _logger.debug(f"Spline fit failed for s={s:.2e}: {str(e)}")
     #             continue
-        
+
     #     if len(mse_fold) == cv_folds:  # Require successful fits in all folds
     #         avg_mse = np.mean(mse_fold)
     #         if avg_mse < best_mse:
@@ -160,7 +162,7 @@ def r_squared_with_spline(given_pseudotime_array: np.ndarray,
 
 
 if __name__ == "__main__":
-    
+
     def test_perfect_linear_relationship_shuffled():
         np.random.seed(42)
         inferred = np.arange(100)
@@ -171,7 +173,7 @@ if __name__ == "__main__":
 
     def test_perfect_cubic_relationship():
         inferred = np.linspace(-10, 10, 1000)
-        given = inferred ** 3
+        given = inferred**3
         r2 = r_squared_with_spline(given, inferred, validate_result=False, spline_degree=3)
         assert np.isclose(r2, 1.0), f"Expected R²=1.0, got {r2}"
 
@@ -210,10 +212,10 @@ if __name__ == "__main__":
 
     def test_perfect_quadratic_relationship_degree_2():
         inferred = np.linspace(-5, 5, 500)
-        given = inferred ** 2
+        given = inferred**2
         r2 = r_squared_with_spline(given, inferred, validate_result=False, spline_degree=2)
         assert np.isclose(r2, 1.0), f"Expected R²=1.0, got {r2}"
-    
+
     test_perfect_linear_relationship_shuffled()
     test_perfect_cubic_relationship()
     test_constant_given()

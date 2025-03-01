@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 
 import numpy as np
-    
+
 try:
     from sctram.evaluate._metrics._src.validators import validate_zero_or_positive as _validator
 except ImportError:
     from validators import validate_zero_or_positive as _validator
 
 
-def spectral_distance(given_adjacency_matrix: np.ndarray, inferred_adjacency_matrix: np.ndarray, validate_result: bool) -> float:
+def spectral_distance(
+    given_adjacency_matrix: np.ndarray, inferred_adjacency_matrix: np.ndarray, validate_result: bool
+) -> float:
     """Calculates the Spectral Distance between two adjacency matrices.
 
     Spectral Distance measures the dissimilarity between two graphs by comparing the eigenvalues of their adjacency matrices.
@@ -43,15 +45,15 @@ def spectral_distance(given_adjacency_matrix: np.ndarray, inferred_adjacency_mat
     eigen_g2_sorted = np.sort_complex(eigen_g2)
     # Compute Euclidean (L2) norm of eigenvalue differences
     score = np.linalg.norm(eigen_g1_sorted - eigen_g2_sorted, ord=2)
-    
+
     if validate_result:
         _validator(score=score)
-    
+
     return score
 
 
 if __name__ == "__main__":
-    
+
     def test_identical_matrices():
         """Test that identical matrices yield a spectral distance of 0."""
         A = np.eye(3)
@@ -60,9 +62,7 @@ if __name__ == "__main__":
 
     def test_permuted_adjacency_matrices():
         """Test that isomorphic graphs (permuted adjacency matrices) have distance 0."""
-        A = np.array([[0, 1, 0], 
-                    [1, 0, 1], 
-                    [0, 1, 0]])
+        A = np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]])
         # Permute rows and columns to create isomorphic graph
         B = A[[2, 1, 0], :][:, [2, 1, 0]]
         score = spectral_distance(A, B, validate_result=False)
@@ -78,10 +78,8 @@ if __name__ == "__main__":
 
     def test_manual_2x2_case():
         """Test manually calculated spectral distance for 2x2 matrices."""
-        A = np.array([[0, 1], 
-                    [1, 0]])
-        B = np.array([[0, 2], 
-                    [2, 0]])
+        A = np.array([[0, 1], [1, 0]])
+        B = np.array([[0, 2], [2, 0]])
         expected = np.sqrt(2)
         score = spectral_distance(A, B, validate_result=False)
         np.testing.assert_almost_equal(score, expected, decimal=6)
@@ -104,7 +102,7 @@ if __name__ == "__main__":
         B = np.diag([1, 2, 3])
         score = spectral_distance(A, B, validate_result=False)
         np.testing.assert_almost_equal(score, 0.0, decimal=6)
-    
+
     test_identical_matrices()
     test_permuted_adjacency_matrices()
     test_zero_vs_identity()

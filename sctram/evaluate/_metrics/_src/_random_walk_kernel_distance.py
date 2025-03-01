@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
 import numpy as np
-from scipy.linalg import eigvals
 from loguru import logger
+from scipy.linalg import eigvals
 
 from sctram.evaluate._metrics._src.validators import validate_inclusive_between_0_1 as _validator
-    
+
 _logger = logger.bind(name="MetricsBase")
 
 
@@ -14,24 +14,24 @@ def random_walk_kernel_distance(
     inferred_adjacency_matrix: np.ndarray,
     validate_result: bool,
     target_lambda: float = 0.1,  # User's desired lambda
-    max_k_max: int = 100,       # User's desired k_max
+    max_k_max: int = 100,  # User's desired k_max
     safety_factor: float = 0.9,  # Multiplier for lambda_max (e.g., 0.9 = 90% of lambda_max)
-    **kwargs
+    **kwargs,
 ) -> float:
     # Compute spectral radii
     rho_A = np.max(np.abs(eigvals(given_adjacency_matrix)))
     rho_B = np.max(np.abs(eigvals(inferred_adjacency_matrix)))
     lambda_max = 1.0 / (rho_A * rho_B)
-    
+
     # Adjust lambda_param to stay within safe bounds
     safe_lambda = min(target_lambda, safety_factor * lambda_max)
-    
+
     # Adjust k_max based on machine precision.
     # Avoids redundant computations for terms that vanish numerically
     eps = np.finfo(float).eps
     effective_k_max = int(np.ceil(np.log(eps) / np.log(safe_lambda))) if safe_lambda != 0 else 0
     safe_k_max = min(max_k_max, effective_k_max)
-    
+
     return _random_walk_kernel_distance(
         given_adjacency_matrix,
         inferred_adjacency_matrix,
@@ -39,8 +39,9 @@ def random_walk_kernel_distance(
         lambda_param=safe_lambda,
         k_max=safe_k_max,
         check_spectral_radius=False,  # Already enforced
-        **kwargs
+        **kwargs,
     )
+
 
 def _random_walk_kernel_distance(
     given_adjacency_matrix: np.ndarray,
@@ -87,7 +88,7 @@ def _random_walk_kernel_distance(
         Convergence is guaranteed if λ < 1/(ρ(A)ρ(B)), where ρ is the spectral radius.
     """
     n = given_adjacency_matrix.shape[0]
-    
+
     # Check convergence condition if required
     if check_spectral_radius:
         rho_A = np.max(np.abs(eigvals(given_adjacency_matrix)))
@@ -118,14 +119,14 @@ def _random_walk_kernel_distance(
             A_k = np.eye(n)
             B_k = np.eye(n)
         else:
-            A_k = A_powers[k-1]  # A_powers[0] = A^1, ..., A_powers[k_max-1] = A^k_max
-            B_k = B_powers[k-1]
+            A_k = A_powers[k - 1]  # A_powers[0] = A^1, ..., A_powers[k_max-1] = A^k_max
+            B_k = B_powers[k - 1]
 
         trace_GH = np.trace(A_k @ B_k)
         trace_GG = np.trace(A_k @ A_k)
         trace_HH = np.trace(B_k @ B_k)
 
-        weight = lambda_param ** k
+        weight = lambda_param**k
         K_GH += weight * trace_GH
         K_GG += weight * trace_GG
         K_HH += weight * trace_HH
@@ -134,7 +135,7 @@ def _random_walk_kernel_distance(
     denominator = np.sqrt(K_GG * K_HH)
     if denominator <= np.finfo(float).eps:
         return ValueError
-    
+
     normalized_kernel = K_GH / denominator
     # Clamp to [0, 1] to handle numerical instability or truncation effects
     normalized_kernel = np.clip(normalized_kernel, 0.0, 1.0)
@@ -142,5 +143,5 @@ def _random_walk_kernel_distance(
 
     if validate_result:
         _validator(score=distance)
-    
+
     return distance

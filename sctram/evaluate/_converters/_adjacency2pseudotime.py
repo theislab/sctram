@@ -11,8 +11,6 @@ from scipy.sparse.linalg import eigsh
 from sklearn.preprocessing import MinMaxScaler
 
 from sctram.utils._utils import Utils
-from loguru import logger
-
 
 _logger = logger.bind(name="Converters")
 

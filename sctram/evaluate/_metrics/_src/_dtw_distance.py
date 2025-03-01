@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 
-import numpy as np
 import fastdtw
-from sctram.evaluate._metrics._src.validators import validate_zero_or_positive as _validator
+import numpy as np
+
 from sctram.evaluate._metrics._src.utils import prepare_pseudotime
+from sctram.evaluate._metrics._src.validators import validate_zero_or_positive as _validator
 
 
-def dtw_distance(given_pseudotime_array: np.ndarray,
-                             inferred_pseudotime_array: np.ndarray,
-                             validate_result: bool,
-                             radius: int = None):
+def dtw_distance(
+    given_pseudotime_array: np.ndarray, inferred_pseudotime_array: np.ndarray, validate_result: bool, radius: int = None
+):
     """Compute the normalized Dynamic Time Warping (DTW) distance between two 1D arrays of pseudotime.
 
     This method employs DTW to capture
@@ -17,7 +17,7 @@ def dtw_distance(given_pseudotime_array: np.ndarray,
     alignment by warping the time axis, ensuring that sequences with local shifts or variations
     can be compared effectively.
 
-    Parameters: 
+    Parameters:
         given_pseudotime_array (np.ndarray): A 1D array
         inferred_pseudotime_array (np.ndarray): A 1D array
         radius (int): Search radius for FastDTW. Automatically determined if None. Default: None.
@@ -48,22 +48,18 @@ def dtw_distance(given_pseudotime_array: np.ndarray,
     # Measure absolute distances. Normalization focuses on shape rather than magnitude.
     given_pseudotime_array = prepare_pseudotime(given_pseudotime_array, method="minmax")
     inferred_pseudotime_array = prepare_pseudotime(inferred_pseudotime_array, method="minmax")
-    
+
     # Set adaptive radius if not specified (heuristic: 0.1% of length)
     if radius is None:
         radius = max(1, int(np.ceil(len(given_pseudotime_array) / 1e3)))
-    
-    distance, path = fastdtw.fastdtw(
-        given_pseudotime_array,
-        inferred_pseudotime_array,
-        radius=radius
-    )
-    
+
+    distance, path = fastdtw.fastdtw(given_pseudotime_array, inferred_pseudotime_array, radius=radius)
+
     # Normalize by path length to remove scale dependence
     path_length = len(path)
     score = distance / path_length if path_length > 0 else 0.0
-    
+
     if validate_result:
         _validator(score=score)
-        
+
     return score

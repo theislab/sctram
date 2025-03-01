@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
-import networkx as nx
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, Optional, Union
 
+import networkx as nx
 import yaml
 from loguru import logger
 

@@ -8,8 +8,10 @@ except ImportError:
     from validators import validate_zero_or_positive as _validator
 
 
-def frobenius(given_adjacency_matrix: np.ndarray, inferred_adjacency_matrix: np.ndarray, validate_result: bool) -> float:
-    """Frobenius norm of the difference.    
+def frobenius(
+    given_adjacency_matrix: np.ndarray, inferred_adjacency_matrix: np.ndarray, validate_result: bool
+) -> float:
+    """Frobenius norm of the difference.
 
     Calculates the Frobenius norm of the difference between two adjacency matrices,
     which quantifies the structural dissimilarity between two graphs represented by these matrices.
@@ -36,22 +38,22 @@ def frobenius(given_adjacency_matrix: np.ndarray, inferred_adjacency_matrix: np.
         - A score of 0 indicates identical graphs with no structural differences.
         - Lower scores represent minimal differences, suggesting high similarity between the graphs.
         - Higher scores indicate greater differences, implying significant structural dissimilarity.
-        - The score range can vary depending on the size of the matrices and the nature of the graph structures. 
-            The actual range and interpretation of scores should be contextualized to the specific graphs 
+        - The score range can vary depending on the size of the matrices and the nature of the graph structures.
+            The actual range and interpretation of scores should be contextualized to the specific graphs
             being analyzed, particularly their size and density.
     """
     diff_matrix = given_adjacency_matrix - inferred_adjacency_matrix
     score = np.linalg.norm(diff_matrix, "fro")
-    
+
     if validate_result:
         # always need to provide validate
         _validator(score=score)
-    
-    return score 
+
+    return score
 
 
 if __name__ == "__main__":
-    
+
     def test_identical_matrices():
         """Test when both adjacency matrices are identical, expecting a score of 0.0."""
         given = np.zeros((5, 5))
@@ -72,7 +74,7 @@ if __name__ == "__main__":
         """Test matrices with non-integer differences."""
         given = np.array([[0.5, 0.5], [0.5, 0.5]])
         inferred = np.array([[0.3, 0.3], [0.3, 0.3]])
-        expected = np.sqrt(4 * (0.2 ** 2))  # sqrt(4 * 0.04) = 0.4
+        expected = np.sqrt(4 * (0.2**2))  # sqrt(4 * 0.04) = 0.4
         score = frobenius(given, inferred, validate_result=True)
         np.testing.assert_almost_equal(score, 0.4, decimal=6)
 
@@ -102,7 +104,7 @@ if __name__ == "__main__":
         expected = np.sqrt(0.43)  # ≈ 0.655743852
         score = frobenius(given, inferred, validate_result=True)
         np.testing.assert_almost_equal(score, expected, decimal=6)
-    
+
     test_identical_matrices()
     test_single_edge_difference()
     test_non_integer_differences()

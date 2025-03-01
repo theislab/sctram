@@ -8,7 +8,9 @@ except ImportError:
     from validators import validate_inclusive_between_0_1 as _validator
 
 
-def accuracy(given_adjacency_matrix: np.ndarray, inferred_adjacency_matrix: np.ndarray, threshold: float, validate_result: bool) -> float:
+def accuracy(
+    given_adjacency_matrix: np.ndarray, inferred_adjacency_matrix: np.ndarray, threshold: float, validate_result: bool
+) -> float:
     """Calculates the accuracy of the inferred adjacency matrix.
 
     Accuracy is defined as the proportion of correctly inferred edges (both present and absent)
@@ -47,12 +49,12 @@ def accuracy(given_adjacency_matrix: np.ndarray, inferred_adjacency_matrix: np.n
 
     if validate_result:
         _validator(score=score)
-    
+
     return score
 
 
 if __name__ == "__main__":
-    
+
     def test_perfect_match():
         """Test when the inferred matrix perfectly matches the given matrix."""
         given = np.ones((5, 5), dtype=int)
@@ -101,18 +103,15 @@ if __name__ == "__main__":
 
     def test_mixed_ones_and_zeros():
         """Test a matrix with a mix of correct and incorrect entries."""
-        given = np.array([
-            [1, 0, 0, 0],
-            [0, 1, 0, 0],
-            [0, 0, 1, 0],
-            [0, 0, 0, 0]
-        ])
-        inferred = np.array([
-            [0.7, 0.3, 0.2, 0.1],  # → [1,0,0,0]
-            [0.1, 0.8, 0.3, 0.0],  # → [0,1,0,0]
-            [0.4, 0.2, 0.4, 0.0],  # → [0,0,0,0]
-            [0.0, 0.0, 0.0, 0.9]   # → [0,0,0,1]
-        ])
+        given = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 0]])
+        inferred = np.array(
+            [
+                [0.7, 0.3, 0.2, 0.1],  # → [1,0,0,0]
+                [0.1, 0.8, 0.3, 0.0],  # → [0,1,0,0]
+                [0.4, 0.2, 0.4, 0.0],  # → [0,0,0,0]
+                [0.0, 0.0, 0.0, 0.9],  # → [0,0,0,1]
+            ]
+        )
         threshold = 0.5
         # Correct matches: 14 out of 16 → 0.875
         expected = 14 / 16

@@ -24,13 +24,11 @@ def _compute_laplacian(adj: np.ndarray) -> np.ndarray:
 
 
 def laplacian_spectral_emd(
-    given_adjacency_matrix: np.ndarray,
-    inferred_adjacency_matrix: np.ndarray,
-    validate_result: bool
+    given_adjacency_matrix: np.ndarray, inferred_adjacency_matrix: np.ndarray, validate_result: bool
 ) -> float:
     """Compute the Earth Mover's Distance (EMD) between the normalized Laplacian eigenvalue spectra of two graphs.
 
-    It compares two square adjacency matrices by computing their graph Laplacians, extracting the eigenvalue spectra, 
+    It compares two square adjacency matrices by computing their graph Laplacians, extracting the eigenvalue spectra,
     normalizing these spectra, and then quantifying their difference using the Earth Mover's Distance (EMD).
     This approach captures global structural differences between the graphs.
 
@@ -59,31 +57,31 @@ def laplacian_spectral_emd(
     """
     L1 = _compute_laplacian(given_adjacency_matrix)
     L2 = _compute_laplacian(inferred_adjacency_matrix)
-    
+
     # Compute eigenvalues in ascending order for symmetric matrices
     eig1 = np.linalg.eigvalsh(L1)
     eig2 = np.linalg.eigvalsh(L2)
-    
+
     # Total sums of eigenvalues (trace of Laplacian) used for normalization.
     total1 = eig1.sum()
     total2 = eig2.sum()
     if total1 <= 0 or total2 <= 0:
         raise ValueError("Adjacency graphs are either disconnected or empty")
-    
+
     eig1_norm = eig1 / total1
     eig2_norm = eig2 / total2
-    
+
     # Compute EMD between normalized spectra
     score = wasserstein_distance(eig1_norm, eig2_norm)
-    
+
     if validate_result:
         _validator(score)
-        
+
     return score
-    
-    
+
+
 if __name__ == "__main__":
-    
+
     def test_identity_matrices_raise_error():
         """Test that identity matrices (self-loops only) raise ValueError due to zero Laplacian trace."""
         n = 3
@@ -116,9 +114,9 @@ if __name__ == "__main__":
         line_adj = np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]], dtype=float)
         # 3-node cycle (triangle) adjacency
         cycle_adj = np.array([[0, 1, 1], [1, 0, 1], [1, 1, 0]], dtype=float)
-        
+
         emd = laplacian_spectral_emd(line_adj, cycle_adj, validate_result=False)
-        expected_emd = 1/6  # Precomputed expected value
+        expected_emd = 1 / 6  # Precomputed expected value
         assert np.isclose(emd, expected_emd, atol=1e-6), f"Expected EMD {expected_emd}, got {emd}"
 
     def test_non_square_matrices_raise_error():
@@ -134,9 +132,7 @@ if __name__ == "__main__":
     def test_block_diagonal_matrices():
         """Test EMD between two block diagonal matrices with known structure."""
         # Two 3-node line graphs (total 6 nodes)
-        block3 = np.array([[0, 1, 0],
-                        [1, 0, 1],
-                        [0, 1, 0]], dtype=float)
+        block3 = np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]], dtype=float)
         adj1 = np.zeros((6, 6))
         adj1[:3, :3] = block3
         adj1[3:, 3:] = block3.copy()
@@ -144,11 +140,11 @@ if __name__ == "__main__":
         # Three 2-node line graphs (total 6 nodes)
         adj2 = np.zeros((6, 6))
         for i in range(0, 6, 2):
-            adj2[i, i+1] = 1
-            adj2[i+1, i] = 1
+            adj2[i, i + 1] = 1
+            adj2[i + 1, i] = 1
 
         emd = laplacian_spectral_emd(adj1, adj2, validate_result=False)
-        expected_emd = 5/72  # Precomputed expected value
+        expected_emd = 5 / 72  # Precomputed expected value
         assert np.isclose(emd, expected_emd, atol=1e-6), f"Expected EMD {expected_emd}, got {emd}"
 
     def test_large_complete_graphs_zero_emd():
@@ -158,7 +154,7 @@ if __name__ == "__main__":
         adj = np.ones((n, n)) - np.eye(n)
         emd = laplacian_spectral_emd(adj, adj, validate_result=False)
         assert emd == 0.0, f"EMD should be 0 for identical large graphs, got {emd}"
-    
+
     test_identity_matrices_raise_error()
     test_empty_matrices_raise_error()
     test_identical_matrices_zero_emd()

@@ -8,9 +8,9 @@ import pandas as pd
 
 from sctram.evaluate._base import EvaluationBase
 from sctram.evaluate._converters._adjacency2pseudotime import LabelAdjacencyPseudotimeConverter
+from sctram.evaluate._metrics import metrics as mmm
 from sctram.utils._constants import sctram_operate_key
 from sctram.utils._utils import Utils
-from sctram.evaluate._metrics import metrics as mmm
 
 
 class PseudotimeEvaluationBase(EvaluationBase):
@@ -74,7 +74,9 @@ class PseudotimeEvaluationBase(EvaluationBase):
         self.logger.debug("Checking the consistency between the given graph and labels.")
         l1, l2 = len(self.inferred_trajectory), len(self.labels)
         if l1 != l2:
-            raise ValueError(f"Datapoint amount in the inferred trajectory does not match the number of given labels: {l1!r} vs {l2!r}")
+            raise ValueError(
+                f"Datapoint amount in the inferred trajectory does not match the number of given labels: {l1!r} vs {l2!r}"
+            )
 
     def _prepare_before_subset(self) -> Tuple[np.ndarray, np.ndarray]:
         """Prepares the trajectories after subsetting. `_prepare_after_subset` is used instead.
@@ -204,7 +206,7 @@ class PseudotimeValuesEvaluation(PseudotimeEvaluationBase):
         "cdf_kolmogorov_smirnov",
         "cdf_cramer_von_mises",
         "morans_i_pseudotime",
-        "gearys_c_pseudotime"
+        "gearys_c_pseudotime",
     ]
 
     def _calculate(self):
@@ -215,27 +217,27 @@ class PseudotimeValuesEvaluation(PseudotimeEvaluationBase):
         """
         for metric in self.metrics:
             self.logger.debug(f"Calculating metric: {metric!r}")
-            
+
             if metric in ["morans_i_pseudotime", "gearys_c_pseudotime"]:
                 self.logger.warning(f"Implementation of the spatial metric {metric!r} may be problematic.")
                 score, logger_message = mmm[metric]["with_desc"](
-                    given_adjacency_matrix = self.subset_given,
-                    inferred_pseudotime_array = self.prepared_after_subset_inferred,
-                    labels_array = self.subset_labels,
-                    normalize_weights = True,
-                    force_to_implementation = "package"
+                    given_adjacency_matrix=self.subset_given,
+                    inferred_pseudotime_array=self.prepared_after_subset_inferred,
+                    labels_array=self.subset_labels,
+                    normalize_weights=True,
+                    force_to_implementation="package",
                 )
-                
+
             elif metric in self.available_metrics:
 
                 score, logger_message = mmm[metric]["with_desc"](
-                    given_pseudotime_array = self.prepared_after_subset_given,
-                    inferred_pseudotime_array = self.prepared_after_subset_inferred,
+                    given_pseudotime_array=self.prepared_after_subset_given,
+                    inferred_pseudotime_array=self.prepared_after_subset_inferred,
                 )
-                
+
             else:
                 raise ValueError(f"Unknown metric {metric!r} specified.")
-            
+
             self.result[metric] = score
             self.logger.info(logger_message)
 

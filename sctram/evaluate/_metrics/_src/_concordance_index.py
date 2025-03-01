@@ -10,9 +10,7 @@ except ImportError:
 
 
 def concordance_index(
-    given_pseudotime_array: np.ndarray,
-    inferred_pseudotime_array: np.ndarray,
-    validate_result: bool = True
+    given_pseudotime_array: np.ndarray, inferred_pseudotime_array: np.ndarray, validate_result: bool = True
 ) -> float:
     """Compute the Concordance Index (CI) between two pseudotime arrays.
 
@@ -36,16 +34,16 @@ def concordance_index(
         2. Pairs with tied `given_pseudotime` are excluded (non-admissible).
         3. CI ranges [0,1], with 0.5 indicating random agreement.
         4. Mathematically equivalent to the area under the ROC curve for pairwise comparisons.
-    
+
     Advantages:
         - Provides a global measure of agreement between two orderings.
         - Non-parametric and does not assume a specific relationship form between the arrays.
-    
+
     Limitations:
         - Requires at least two samples for computation.
         - Sensitive to tied pairs; pairs with equal values in either array are excluded.
         - May be computationally intensive for very large arrays due to pairwise comparisons.
-    
+
     Interpretation:
         - A value of 1 indicates perfect concordance (complete agreement in order).
         - A value of 0.5 suggests random concordance (no better than chance).
@@ -86,6 +84,7 @@ def concordance_index(
 
 
 if __name__ == "__main__":
+
     def test_perfect_concordance():
         given = np.array([1, 2, 3, 4, 5])
         inferred = np.array([0.9, 2.1, 3.0, 3.9, 5.1])
@@ -102,7 +101,7 @@ if __name__ == "__main__":
         given = np.array([1, 2, 3, 4])
         inferred = np.array([5, 5, 5, 5])
         ci = concordance_index(given, inferred)
-        expected = (0 + 0.5*6)/6  # 6 admissible pairs, all tied
+        expected = (0 + 0.5 * 6) / 6  # 6 admissible pairs, all tied
         assert np.isclose(ci, 0.5), f"All tied failed: {ci:.4f}"
 
     def test_partial_ties():
@@ -111,7 +110,7 @@ if __name__ == "__main__":
         # Admissible pairs: 6
         # Concordant: (0,2), (0,3), (1,2), (1,3) = 4
         # Tied: (0,1), (2,3) = 2
-        expected = (4 + 0.5*2)/6
+        expected = (4 + 0.5 * 2) / 6
         ci = concordance_index(given, inferred)
         assert np.isclose(ci, expected, atol=1e-4), f"Partial ties failed: {ci:.4f} vs {expected:.4f}"
 
@@ -120,7 +119,7 @@ if __name__ == "__main__":
         inferred = np.array([1, 2, 3, 4])
         # Admissible pairs: 6
         # Concordant: 5 pairs (all except (3,2))
-        expected = 5/6
+        expected = 5 / 6
         ci = concordance_index(given, inferred)
         assert np.isclose(ci, expected, atol=1e-4), f"Complex case failed: {ci:.4f} vs {expected:.4f}"
 
@@ -129,7 +128,7 @@ if __name__ == "__main__":
         np.random.seed(42)
         size = 1000
         given = np.arange(size)
-        
+
         # Perfect case
         inferred = given + np.random.uniform(-0.1, 0.1, size)
         ci = concordance_index(given, inferred)
@@ -147,13 +146,13 @@ if __name__ == "__main__":
     def test_edge_cases():
         # All given tied
         try:
-            concordance_index(np.array([2,2,2]), np.array([1,2,3]))
+            concordance_index(np.array([2, 2, 2]), np.array([1, 2, 3]))
             assert False, "All tied given should raise error"
         except ValueError as e:
             assert "No admissible pairs" in str(e)
 
         # Minimal valid case
-        ci = concordance_index(np.array([1,2]), np.array([1.1, 2.0]))
+        ci = concordance_index(np.array([1, 2]), np.array([1.1, 2.0]))
         assert np.isclose(ci, 1.0), f"Minimal case failed: {ci:.4f}"
 
     test_perfect_concordance()

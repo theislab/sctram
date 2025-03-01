@@ -19,7 +19,7 @@ REMOTE_USER="kemal.inecik"
 REMOTE_HOST="hpc-build01"
 REMOTE_PATH="$SERVER_PATH/$PROJECT_NAME"
 
-EXCLUSIONS=("__pycache__" "*.DS_Store" ".idea" ".mypy_cache" "*.ipynb_checkpoints" "*.virtual_documents" ".git" "__temp__")
+EXCLUSIONS=("__pycache__" "*.DS_Store" ".idea" ".mypy_cache" "*.ipynb_checkpoints" "*.virtual_documents" ".git" "__temp__" ".pytest_cache")
 SYNC_DIRS=("reproducibility/server_sync")
 
 # Define ssh and rsync options

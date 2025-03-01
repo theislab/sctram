@@ -1,31 +1,32 @@
 #!/usr/bin/env python3
 
 import glob
-import numpy as np
-import os 
-from loguru import logger
-import time
-import yaml
 import importlib
 import importlib.util
+import os
+import time
 import traceback
 from functools import partial
 from typing import Optional
 
+import numpy as np
+import yaml
+from loguru import logger
 
 _logger = logger.bind(name="MetricConfig")
 
 
 class MetricConfigError(Exception):
     """Custom exception for metric configuration errors."""
+
     pass
 
 
 def metric_decorator(category: Optional[str] = None, message: Optional[str] = None):
     def decorator(func):
         def wrapper(*args, return_description: bool, **kwargs):
-            
-            error_message = None            
+
+            error_message = None
             start_time = time.perf_counter()  # Start timing
 
             # Calculate the metric
@@ -41,21 +42,20 @@ def metric_decorator(category: Optional[str] = None, message: Optional[str] = No
             # Check if the description needs to be returned based on runtime argument
             if return_description:
                 description_string = description_creator(
-                    message=message,
-                    category=category,
-                    score=score,
-                    time=elapsed_time,
-                    error_message=error_message
+                    message=message, category=category, score=score, time=elapsed_time, error_message=error_message
                 )
                 return (score, description_string)
             else:
                 return score
 
         return wrapper
+
     return decorator
 
 
-def description_creator(message: str, category: str, score: float, time: float, error_message: Optional[str] = None) -> str:
+def description_creator(
+    message: str, category: str, score: float, time: float, error_message: Optional[str] = None
+) -> str:
     """Creates a concise, single-line description string for logging purposes, emphasizing clarity, precision.
 
     Parameters:
@@ -75,38 +75,42 @@ def description_creator(message: str, category: str, score: float, time: float, 
     category_pretty_dict = {
         "adjacency": "Adjacency-based",
         "pseudotime": "Pseudotime-based",
-        "embedding": "Embedding-based"
+        "embedding": "Embedding-based",
     }
-    
+
     if message is None or category is None:
-        raise MetricConfigError("Both 'message' and 'category' must be provided in metric decarator, and cannot be None.")
+        raise MetricConfigError(
+            "Both 'message' and 'category' must be provided in metric decarator, and cannot be None."
+        )
 
     # Attempt to retrieve the pretty format for the category, raising a clear error if the category is not supported.
     try:
         category_pretty = category_pretty_dict[category]
     except KeyError:
-        raise MetricConfigError(f"Unsupported category '{category}'. Valid categories are: {', '.join(category_pretty_dict.keys())}.")
+        raise MetricConfigError(
+            f"Unsupported category '{category}'. Valid categories are: {', '.join(category_pretty_dict.keys())}."
+        )
 
     # Convert the score to string and format the time with precision.
     score_str = str(score)
     time_str = f"{time:.4f} sec"
-    
+
     # Compose the description string
     description = f"Metric: {message!r} ({category_pretty}), Score: {score_str!r}, Computation Time: {time_str!r}"
     if error_message:
         description += f", Error raised:\n{error_message!r}"
-        
+
     return description
 
 
 def load_and_validate_metrics_config(config_path):
     """Validate the structure and contents of the metrics configuration."""
     try:  # Load and parse the YAML file.
-        with open(config_path, "r") as f:
+        with open(config_path) as f:
             config = yaml.safe_load(f)
     except Exception as e:
         raise MetricConfigError(f"Failed to read or parse the configuration file '{config_path}': {e}")
-    
+
     if not isinstance(config, dict):
         raise MetricConfigError("The configuration must be a dictionary.")
 
@@ -121,13 +125,7 @@ def load_and_validate_metrics_config(config_path):
     referenced_base = set()
 
     for idx, metric_def in enumerate(config["metrics"], start=1):
-        required_keys = {
-            "base_function": str,
-            "module": str,
-            "category": str,
-            "message": str,
-            "validate_result": bool
-        }
+        required_keys = {"base_function": str, "module": str, "category": str, "message": str, "validate_result": bool}
 
         for key, expected_type in required_keys.items():
             if key not in metric_def:
@@ -138,22 +136,21 @@ def load_and_validate_metrics_config(config_path):
         module_path = f"{__package__}._src.{metric_def['module']}" if __package__ else metric_def["module"]
         if importlib.util.find_spec(module_path) is None:
             raise MetricConfigError(f"Module '{module_path}' does not exist.")
-        
+
         pair = (metric_def["module"], metric_def["base_function"])
         if pair in referenced_pairs:
-            raise MetricConfigError(f"Function {metric_def['base_function']!r} in Module {module_path!r} configured more than one times.")
+            raise MetricConfigError(
+                f"Function {metric_def['base_function']!r} in Module {module_path!r} configured more than one times."
+            )
         else:
             referenced_pairs.add(pair)
-            
+
         if metric_def["base_function"] in referenced_base:
             raise MetricConfigError(f"Function {metric_def['base_function']!r} configured more than one times.")
         else:
             referenced_base.add(metric_def["base_function"])
-        
-    all_python_modules = set(
-        os.path.splitext(os.path.basename(f))[0] 
-        for f in glob.glob(f"{directory}/_src/_*.py")
-    )
+
+    all_python_modules = {os.path.splitext(os.path.basename(f))[0] for f in glob.glob(f"{directory}/_src/_*.py")}
     referenced_modules = {i for i, _ in referenced_pairs}
     unused_modules = all_python_modules - referenced_modules
     if unused_modules:
@@ -178,10 +175,7 @@ def load_metrics(config_path: str):
         base_func = partial(base_func_before_validation, validate_result=metric_def["validate_result"])
 
         # Decorate the function.
-        decorated_func = metric_decorator(
-            category=metric_def["category"],
-            message=metric_def["message"]
-        )(base_func)
+        decorated_func = metric_decorator(category=metric_def["category"], message=metric_def["message"])(base_func)
 
         # Create the version with the return_description parameter set to True.
         metric_with_desc = partial(decorated_func, return_description=True)
@@ -192,10 +186,11 @@ def load_metrics(config_path: str):
             "base_before_val": base_func_before_validation,
             "base": base_func,
             "without_desc": metric_without_desc,
-            "with_desc": metric_with_desc
+            "with_desc": metric_with_desc,
         }
 
     return metrics
+
 
 # Get the absolute path to the directory where metric config located
 base_directory = os.path.dirname(os.path.abspath(__file__))

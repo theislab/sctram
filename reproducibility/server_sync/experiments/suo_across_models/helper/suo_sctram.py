@@ -64,15 +64,11 @@ def main():
         logger_level="DEBUG"
     )
     
-    try:
-        api.evaluate_with_defaults()
-    except Exception as e:
-        print("Error! Only a part of the metrics may or may not be saved."
-    finally:
-        df = api.get_all_results()
-        print(df)
-        df.to_pickle(output_file)
-        print(f"Saved result for {args.lineage!r} with {args.use_rep!r} of group {args.trajectory!r} to {output_file!r}")
+    api.evaluate_with_defaults()
+    df = api.get_all_results()
+    print(df)
+    df.to_pickle(output_file)
+    print(f"Saved result for {args.lineage!r} with {args.use_rep!r} of group {args.trajectory!r} to {output_file!r}")
 
 if __name__ == "__main__":
     main()
