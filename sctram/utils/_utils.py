@@ -25,7 +25,7 @@ class Utils:
                 if the key is not found.
 
         Raises:
-            Warning: If the default value is used, a warning is issued.
+            ValueError: If the default value is used, a warning is issued.
         """
         if key in dictionary:
             return dictionary[key]
@@ -53,7 +53,6 @@ class Utils:
                         not symmetric, or contains invalid values (values not between the minimum
                         and maximum allowable edge weights).
         """
-
         if not isinstance(arr, np.ndarray):
             raise ValueError("The matrix must be a numpy array.")
         if arr.ndim != 2:

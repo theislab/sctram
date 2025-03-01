@@ -51,8 +51,8 @@ class InputTrajectory(nx.DiGraph):
         return symetrical_graph
 
     def get_unique_root(self):
-        """
-        Returns the unique root of the directed graph G.
+        """Returns the unique root of the directed graph G.
+
         A root is defined as a node with no incoming edges.
 
         Raises:
