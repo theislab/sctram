@@ -155,9 +155,9 @@ class EmbeddingTrajectoryEvaluation(EvaluationBase):
                     given_graph = self.prepared_after_subset_given,
                     labels_array = self.labels,
                     precomputed_embedded_connectivities = connectivities,
-                    skip_single_branches = True,
-                    spectral_n_init = 50,
-                    min_cells_per_branch = 50,
+                    skip_single_branches = False,
+                    spectral_n_init = 100,
+                    min_cells_per_branch = 15,
                     random_state = 0
                 )
                 

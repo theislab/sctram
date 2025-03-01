@@ -2,8 +2,10 @@
 
 from functools import cached_property
 from typing import Any, Dict, List, Set
-
+from loguru import logger
 import networkx as nx
+
+_logger = logger.bind(name="InputTrajectory")
 
 
 class InputTrajectory(nx.DiGraph):
@@ -23,6 +25,7 @@ class InputTrajectory(nx.DiGraph):
     """
 
     def to_symetrical_multidigraph(self) -> nx.MultiDiGraph:
+        # TODO: several places in the code, this should be used instead of manually doing it. 
         """Create a nx.MultiDiGraph version by just making each edge two sided.
 
         Copies the edge attribute for each direction.
@@ -45,6 +48,24 @@ class InputTrajectory(nx.DiGraph):
             symetrical_graph.add_edge(v, u, **data)
 
         return symetrical_graph
+
+    def get_unique_root(self):
+        """
+        Returns the unique root of the directed graph G.
+        A root is defined as a node with no incoming edges.
+        
+        Raises:
+            ValueError: if there are zero or multiple roots.
+        """
+        # Find all nodes with in-degree 0
+        roots = [node for node in self.nodes if self.in_degree(node) == 0]
+        
+        if len(roots) == 1:
+            return roots[0]
+        elif len(roots) == 0:
+            raise ValueError("No root found: the graph has no node with in-degree 0.")
+        else:
+            raise ValueError(f"Multiple roots found: {roots}")
 
     @cached_property
     def identify(self) -> List[Dict[str, Any]]:

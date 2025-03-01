@@ -6,9 +6,11 @@ from scipy.sparse import csr_matrix
 from scipy.sparse import coo_matrix, csr_matrix, isspmatrix_csr
 from typing import Any, Callable, Union
 
-from sctram.evaluate._metrics._src.validators import validate_between_minus_plus_1 as _validator
+from sctram.evaluate._metrics._src.validators import validate_between_minus_plus_1 as _validator_moransi
+from sctram.evaluate._metrics._src.validators import validate_zero_or_positive as _validator_gearysc
 from sctram.evaluate._metrics._src.utils import prepare_pseudotime
 from sctram.utils._utils import Utils
+
 from loguru import logger
 
 _logger = logger.bind(name = "MetricsBase")
@@ -37,7 +39,7 @@ def morans_i_pseudotime(
     )
     
     if validate_result:
-        _validator(score=score)
+        _validator_moransi(score=score)
     
     return score
 
@@ -65,7 +67,7 @@ def gearys_c_pseudotime(
     )
     
     if validate_result:
-        _validator(score=score)
+        _validator_gearysc(score=score)
     
     return score
 
@@ -89,7 +91,7 @@ def morans_i_embedding(
     )
     
     if validate_result:
-        _validator(score=score)
+        _validator_moransi(score=score)
     
     return score
 
@@ -113,7 +115,7 @@ def gearys_c_embedding(
     )
     
     if validate_result:
-        _validator(score=score)
+        _validator_gearysc(score=score)
     
     return score
 

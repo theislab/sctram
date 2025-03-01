@@ -8,6 +8,7 @@ import time
 import yaml
 import importlib
 import importlib.util
+import traceback
 from functools import partial
 from typing import Optional
 
@@ -32,7 +33,8 @@ def metric_decorator(category: Optional[str] = None, message: Optional[str] = No
                 score = func(*args, **kwargs)
             except Exception as e:
                 score = np.nan
-                error_message = f"{str(e)} (Line {e.__traceback__.tb_lineno})"
+                # error_message = f"{str(e)} (Line {e.__traceback__.tb_lineno})"
+                error_message = traceback.format_exc()  # for debugging
 
             elapsed_time = time.perf_counter() - start_time  # Stop timing
 
@@ -92,7 +94,7 @@ def description_creator(message: str, category: str, score: float, time: float, 
     # Compose the description string
     description = f"Metric: {message!r} ({category_pretty}), Score: {score_str!r}, Computation Time: {time_str!r}"
     if error_message:
-        description += f", Error: {error_message!r}"
+        description += f", Error raised:\n{error_message!r}"
         
     return description
 

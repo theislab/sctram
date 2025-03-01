@@ -129,10 +129,8 @@ class AdjacencyMatrixEvaluation(EvaluationBase):
             raise ValueError("All diagonal elements must be zero.")
         if not np.all((inferred_adjacency >= 0) & (inferred_adjacency <= 1)):
             raise ValueError("All values must be within the range [0, 1].")
-        if inferred_adjacency.max() != 1.0 or inferred_adjacency.min() != 0.0:
-            raise ValueError(f"Min and max values should be 0 and 1 respectively.")
         if not np.all(np.isfinite(inferred_adjacency)) or np.any(np.isnan(inferred_adjacency)):
-            raise ValueError(f"There is nan or inf in the adjacency matrix..")
+            raise ValueError(f"There is nan or inf in the adjacency matrix.")
 
         return inferred_adjacency
 

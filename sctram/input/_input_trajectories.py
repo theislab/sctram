@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import networkx as nx
+import pickle
 from typing import Optional, Iterable, Any, Union
 
 from sctram.utils._constants import InputGraphPossibleTypes, key_trajectories
@@ -26,20 +27,25 @@ class InputTrajectories(nx.MultiDiGraph):
     """
 
     def __init__(
-            self, 
-            ground_truth_trajectories: InputGraphPossibleTypes,
-            additional_nodes: Optional[Iterable[str]] = None,
-            node_attributes: Optional[dict[str, dict[str, Any]]] = None  
-        ):
-        super().__init__(incoming_graph_data=None, multigraph_input=None)
+        self,
+        ground_truth_trajectories: Optional[InputGraphPossibleTypes] = None,
+        additional_nodes: Optional[Iterable[str]] = None,
+        node_attributes: Optional[dict[str, dict[str, Any]]] = None,
+    ):
+        # Initialize parent with all potential NetworkX arguments
+        super().__init__()
         
-        # Generate the graph using read_dict and merge into self
-        new_gtt = read_dict(
-            ground_truth_trajectories=ground_truth_trajectories,
-            additional_nodes=additional_nodes,
-            node_attributes=node_attributes
-        )
-        self.update_trajectory(new_gtt)
+        # Initialize mandatory attributes
+        self.graph.setdefault(key_trajectories, [])
+        
+        # Process trajectories only if provided
+        if ground_truth_trajectories is not None:
+            new_gtt = read_dict(
+                ground_truth_trajectories=ground_truth_trajectories,
+                additional_nodes=additional_nodes,
+                node_attributes=node_attributes
+            )
+            self.update_trajectory(new_gtt)
 
     def get_trajectory(self, trajectory: str, include_additional_nodes: bool) -> InputTrajectory:
         """Extracts a subgraph corresponding to a specific trajectory.
@@ -65,6 +71,9 @@ class InputTrajectories(nx.MultiDiGraph):
                 only the edges and nodes pertinent to that trajectory. This subgraph can be used
                 for further analysis, visualization, or processing specific to the trajectory.
         """
+        if trajectory not in self.graph[key_trajectories]:
+            raise ValueError(f"Trajectory is not found: {trajectory!r}.")
+        
         # Initialize an empty directed graph for the subgraph
         trajectory_subgraph = InputTrajectory()
 
@@ -206,6 +215,8 @@ class InputTrajectories(nx.MultiDiGraph):
                 raise ValueError(f"Trajectory {trajectory!r} is a multigraph, which is not allowed.")
             elif nx.number_of_selfloops(trajectory_subgraph) != 0:
                 raise ValueError(f"Trajectory {trajectory!r} contains self-loops.")
+            elif not nx.is_weakly_connected(trajectory_subgraph):
+                raise ValueError(f"Trajectory {trajectory!r} is not weakly connected.")
 
     def verify(self):
         """Performs comprehensive verification of all trajectories within the graph.
@@ -220,3 +231,28 @@ class InputTrajectories(nx.MultiDiGraph):
         potential errors or inconsistencies in downstream operations.
         """
         self._check_individual_trajectories()
+        
+    # def save(self, path: str) -> None:
+    #     """Serialize the InputTrajectories instance to a file using pickle.
+        
+    #     Args:
+    #         path: Path to the output file.
+    #     """
+    #     with open(path, 'wb') as f:
+    #         pickle.dump(self, f)
+
+    # @classmethod
+    # def load(cls, path: str) -> "InputTrajectories":
+    #     """Safe loading method with exact type checking"""
+    #     with open(path, "rb") as f:
+    #         obj = pickle.load(f)
+    #     if type(obj) is not cls:
+    #         raise TypeError(f"Loaded object is type {type(obj)}, expected {cls}")
+    #     return obj
+    
+    def __repr__(self):
+        return (
+            f"InputTrajectories(trajectories={len(self.graph[key_trajectories])}, "
+            f"nodes={self.number_of_nodes()}, edges={self.number_of_edges()})"
+        )
+    

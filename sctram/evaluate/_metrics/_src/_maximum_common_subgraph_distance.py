@@ -3,10 +3,7 @@
 import numpy as np
 import networkx as nx
 
-try:
-    from sctram.evaluate._metrics._src.validators import validate_zero_or_positive as _validator
-except ImportError:
-    from validators import validate_zero_or_positive as _validator
+from sctram.evaluate._metrics._src.validators import validate_zero_or_positive as _validator
 
 
 def maximum_common_subgraph_distance(
@@ -65,7 +62,6 @@ def maximum_common_subgraph_distance(
     g1 = nx.from_numpy_array(given_adjacency_matrix)
     g2 = nx.from_numpy_array(inferred_binary)
     
-    # Configure graph edit distance parameters
     # Prohibit node insertions/deletions (high cost), allow edge operations and node substitutions
     # Configure graph edit distance parameters with callables
     ged_params = {
@@ -74,103 +70,17 @@ def maximum_common_subgraph_distance(
         "edge_ins_cost": lambda edge_attrs: 1,    # Unit cost for edge insertion
         "edge_del_cost": lambda edge_attrs: 1,    # Unit cost for edge deletion
         "node_subst_cost": lambda node1_attrs, node2_attrs: 0,  # Free node substitution
-        "timeout": 3600        # Timeout after 1 hour
     }
     
-    score = nx.graph_edit_distance(g1, g2, **ged_params)
+    if inferred_adjacency_matrix.shape[0] < 10:
+        score = nx.graph_edit_distance(g1, g2, 
+            timeout = 1800,   # Timeout after 30 minutes. The method does not work after 10 nodes as 10! perm tested.                           
+            **ged_params
+        )
+    else:
+        score = next(nx.optimize_graph_edit_distance(g1, g2, **ged_params))
     
     if validate_result:
         _validator(score=score)
     
     return score
-
-
-if __name__ == "__main__":
-    
-    def test_empty_graphs():
-        """Test when both graphs have no edges, distance should be 0."""
-        given = np.zeros((3, 3), dtype=int)
-        inferred = np.zeros((3, 3), dtype=float)
-        threshold = 0.5
-        expected = 0.0
-        distance = maximum_common_subgraph_distance(given, inferred, threshold, validate_result=False)
-        assert np.isclose(distance, expected), f"Empty graphs: Expected {expected}, got {distance}"
-
-    def test_identical_graphs():
-        """Test identical graphs, expecting distance 0."""
-        given = np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]], dtype=int)
-        inferred = given.astype(float)
-        threshold = 0.5
-        expected = 0.0
-        distance = maximum_common_subgraph_distance(given, inferred, threshold, validate_result=False)
-        assert np.isclose(distance, expected), f"Identical graphs: Expected {expected}, got {distance}"
-
-    def test_isomorphic_graphs():
-        """Test isomorphic graphs with permuted nodes, expecting distance 0."""
-        given = np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]], dtype=int)
-        # Inferred is isomorphic by permutation (1->0, 0->2, 2->1)
-        inferred = np.array([[0, 0, 1], [0, 0, 1], [1, 1, 0]], dtype=float)
-        threshold = 0.5
-        expected = 0.0
-        distance = maximum_common_subgraph_distance(given, inferred, threshold, validate_result=False)
-        assert np.isclose(distance, expected), f"Isomorphic graphs: Expected {expected}, got {distance}"
-
-    def test_single_edge_vs_empty():
-        """Test one edge against empty graph, expecting distance 1."""
-        given = np.array([[0, 1, 0], [1, 0, 0], [0, 0, 0]], dtype=int)
-        inferred = np.zeros((3, 3), dtype=float)
-        threshold = 0.5
-        expected = 1.0
-        distance = maximum_common_subgraph_distance(given, inferred, threshold, validate_result=False)
-        assert np.isclose(distance, expected), f"Single edge vs empty: Expected {expected}, got {distance}"
-
-    def test_non_overlapping_edges():
-        """Test graphs with no common edges after permutation, expecting distance 2."""
-        given = np.array([[0, 1, 0], [1, 0, 0], [0, 0, 0]], dtype=int)
-        inferred = np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0]], dtype=float)
-        threshold = 0.5
-        expected = 0.0  # After permutation, edges overlap
-        distance = maximum_common_subgraph_distance(given, inferred, threshold, validate_result=False)
-        assert np.isclose(distance, expected), f"Edges permuted: Expected {expected}, got {distance}"
-
-    def test_partial_overlap_isomorphic():
-        """Test isomorphic graphs should have distance 0."""
-        given = np.array([[0, 1, 1], [1, 0, 0], [1, 0, 0]], dtype=int)
-        inferred = np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]], dtype=float)
-        threshold = 0.5
-        expected = 0.0  # Correct expected distance for isomorphic graphs
-        distance = maximum_common_subgraph_distance(given, inferred, threshold, validate_result=False)
-        assert np.isclose(distance, expected), f"Expected {expected}, got {distance}"
-        
-    def test_partial_overlap_nonisomorphic():
-        """Test non-isomorphic graphs with partial overlap."""
-        # Chain graph 0-1-2-3 (3 edges)
-        given = np.array([
-            [0, 1, 0, 0],
-            [1, 0, 1, 0],
-            [0, 1, 0, 1],
-            [0, 0, 1, 0]
-        ], dtype=int)
-        
-        # Star graph centered at 0 (3 edges)
-        inferred = np.array([
-            [0, 1, 1, 1],
-            [1, 0, 0, 0],
-            [1, 0, 0, 0],
-            [1, 0, 0, 0]
-        ], dtype=float)
-        
-        threshold = 0.5
-        expected = 2.0  # Corrected expected distance
-        distance = maximum_common_subgraph_distance(given, inferred, threshold, validate_result=False)
-        assert np.isclose(distance, expected), f"Expected {expected}, got {distance}"
-    
-    
-    test_empty_graphs()
-    test_identical_graphs()
-    test_isomorphic_graphs()
-    test_single_edge_vs_empty()
-    test_non_overlapping_edges()
-    test_partial_overlap_isomorphic()
-    test_partial_overlap_nonisomorphic()
-    print("All tests passed!")

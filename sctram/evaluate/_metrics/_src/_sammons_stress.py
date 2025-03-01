@@ -6,19 +6,16 @@ import itertools
 from scipy.spatial.distance import pdist
 from loguru import logger
 
-try:
-    from sctram.evaluate._metrics._src.validators import validate_inclusive_between_0_1 as _validator
-    from sctram.evaluate._metrics._src.utils import Centroids
-except ImportError:
-    from validators import validate_inclusive_between_0_1 as _validator
-    from utils import Centroids
+from sctram.evaluate._metrics._src.validators import validate_inclusive_between_0_1 as _validator
+from sctram.evaluate._metrics._src.utils import Centroids
+from sctram.input._input_trajectory import InputTrajectory
 
 
 _logger = logger.bind(name="MetricBase")
 
 
 def sammons_stress(
-    given_graph: nx.DiGraph,
+    given_graph: InputTrajectory,
     centroids: Centroids,
     validate_result: bool,
     embedding_metric: str = "cosine"
@@ -34,7 +31,7 @@ def sammons_stress(
         where s = (Σ e_ij) / (Σ (e_ij^2 / d_ij)) minimizes the stress.
 
     Parameters:
-        given_graph (nx.DiGraph): Graph where nodes represent labels (e.g., cell types).
+        given_graph (InputTrajectory): Graph where nodes represent labels (e.g., cell types).
         centroids (Centroids): Object providing centroids for graph nodes via `get_centroids(nodes)`.
         validate_result (bool): A bool deciding whether or not validate the score based on `validate` method.
         embedding_metric (str): Distance metric for embedding ('euclidean' or 'cosine').
@@ -93,21 +90,23 @@ def sammons_stress(
 
 
 def _get_distances_matrices(
-    given_graph: nx.Graph,
+    given_graph: InputTrajectory,
     centroids: Centroids,
     embedding_metric: str
 ) -> tuple[np.ndarray, np.ndarray]:
     """Computes pairwise graph shortest-path distances and embedding centroid distances.
 
     Parameters:
-        given_graph (nx.Graph): Graph with nodes representing labels.
+        given_graph (InputTrajectory): Graph with nodes representing labels.
         centroids (Centroids): Provides centroids for each node.
         embedding_metric (str): Distance metric for embeddings ('euclidean' or 'cosine').
 
     Returns:
         tuple: (graph_distances, embedding_distances) as condensed distance matrices.
     """
-    nodes = list(given_graph.nodes())
+    g = given_graph.to_symetrical_multidigraph()
+    
+    nodes = list(g.nodes())
     if len(nodes) < 2:
         raise ValueError("Graph must contain at least 2 nodes.")
 
@@ -116,7 +115,7 @@ def _get_distances_matrices(
     embedding_distances = pdist(centroid_coords, metric=embedding_metric)
 
     # Compute all-pairs shortest paths in the graph
-    path_lengths = dict(nx.all_pairs_shortest_path_length(given_graph))
+    path_lengths = dict(nx.all_pairs_shortest_path_length(g))
     graph_distances = []
     for i, j in itertools.combinations(nodes, 2):
         dist = path_lengths.get(i, {}).get(j, np.nan)

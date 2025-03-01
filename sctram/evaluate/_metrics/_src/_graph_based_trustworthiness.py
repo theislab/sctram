@@ -5,17 +5,17 @@ import networkx as nx
 from bisect import bisect_left, bisect_right
 from scipy import sparse
 from collections import defaultdict
+from loguru import logger
 
-try:
-    from sctram.evaluate._metrics._src.validators import validate_between_minus_plus_1 as _validator
-    from sctram.evaluate._metrics._src.utils import convert_scanpy_neighbors_to_indices
-except ImportError:
-    from validators import validate_between_minus_plus_1 as _validator
-    from utils import convert_scanpy_neighbors_to_indices
+from sctram.evaluate._metrics._src.validators import validate_between_minus_plus_1 as _validator
+from sctram.evaluate._metrics._src.utils import convert_scanpy_neighbors_to_indices
+from sctram.input._input_trajectory import InputTrajectory
+
+_logger = logger.bind(name="MetricBase")
 
 
 def graph_based_trustworthiness(
-    given_graph: nx.Graph,
+    given_graph: InputTrajectory,
     labels_array: np.ndarray,
     n_neighbors: int,
     precomputed_embedded_connectivities: sparse.csr_matrix,
@@ -50,7 +50,7 @@ def graph_based_trustworthiness(
         - Preprocessing graph distances is O(t^2) for t cell types.
 
     Parameters:
-        given_graph (nx.Graph): Cell type relationship graph with nodes as cell types.
+        given_graph (InputTrajectory): Cell type relationship graph with nodes as cell types.
         labels_array (np.ndarray): Cell type labels for each cell (length n).
         n_neighbors (int): Number of neighbors considered (k).
         precomputed_embedded_connectivities (sparse.csr_matrix): Precomputed k-nearest neighbor connectivities.
@@ -87,10 +87,11 @@ def graph_based_trustworthiness(
 
     return trust
 
-def _preprocess_graph(graph: nx.Graph, labels: np.ndarray):
+def _preprocess_graph(graph: InputTrajectory, labels: np.ndarray):
+    g = graph.to_symetrical_multidigraph()
     """Precompute graph relationships and cell type mappings."""
-    cell_types = list(graph.nodes())
-    shortest_paths = dict(nx.all_pairs_shortest_path_length(graph))
+    cell_types = list(g.nodes())
+    shortest_paths = dict(nx.all_pairs_shortest_path_length(g))
 
     # Create cell type to indices mapping
     label_to_indices = defaultdict(list)
@@ -128,67 +129,47 @@ def _preprocess_graph(graph: nx.Graph, labels: np.ndarray):
     return cell_type_info, type_distance
 
 
-def _convert_scanpy_neighbors_to_indices(scanpy_neighbors_distances: sparse.csr_matrix) -> sparse.csr_matrix:
-    """Converts Scanpy's neighbors distances matrix to indices matrix for trustworthiness calculation.
-    
-    Parameters:
-        scanpy_neighbors_distances (sparse.csr_matrix): Distances matrix from 
-            `sc.pp.neighbors()`, shape (n_cells, n_total_cells). Each row contains 
-            distances to nearest neighbors sorted in ascending order.
-    
-    Returns:
-        sparse.csr_matrix: CSR matrix where each row contains column indices from 
-        input distances matrix, representing embedding neighbor indices sorted by distance.
-    """
-    n_cells = scanpy_neighbors_distances.shape[0]
-    indices_list = []
-    
-    # Extract column indices for each row from distances CSR matrix
-    for i in range(n_cells):
-        start = scanpy_neighbors_distances.indptr[i]
-        end = scanpy_neighbors_distances.indptr[i+1]
-        indices_list.append(scanpy_neighbors_distances.indices[start:end])
-    
-    # Create dense array of neighbor indices and convert to CSR
-    embedded_indices = np.vstack(indices_list)
-    return sparse.csr_matrix(embedded_indices)
-
-
 def _compute_trustworthiness(labels, embedded_neighbors, cell_type_info, type_distance, k, n_samples):
-    """Core trustworthiness calculation with dynamic normalization."""
-    penalty = 0.0
+    """Core trustworthiness calculation with graph-cell filtering and foreign type handling."""
+    # Identify valid cells (types present in graph) and foreign types
+    graph_cell_types = set(cell_type_info.keys())
+    valid_indices = [i for i, lbl in enumerate(labels) if lbl in graph_cell_types]
+    n_valid = len(valid_indices)
+    
+    if n_valid == 0:
+        raise ValueError("No cells match graph cell types - metric undefined")
+
+    # Recalculate label counts only for valid cells
+    valid_labels = labels[valid_indices]
     label_counts = defaultdict(int)
-    for lbl in labels:
+    for lbl in valid_labels:
         label_counts[lbl] += 1
 
-    # Precompute max_penalty components for each cell
+    # Precompute max_penalty components for VALID CELLS ONLY
     total_max_penalty = 0.0
     max_penalty_components = []
-    for i in range(n_samples):
+    for i in valid_indices:
         src_type = labels[i]
-        m_i = label_counts[src_type] - 1  # Exclude self
-        C_i = n_samples - m_i - 1  # Cross-type cells count
+        m_i = label_counts[src_type] - 1  # Same-type count in valid subset
+        C_i = n_valid - m_i - 1  # Cross-type count in valid subset
         t_i = max(k - m_i, 0)
         x_i = min(k, C_i)
         contribution = x_i * max(C_i - t_i, 0)
         max_penalty_components.append(contribution)
         total_max_penalty += contribution
 
-    # Compute penalty by comparing embedded neighbors to graph structure
-    for i in range(n_samples):
+    # Compute penalty considering foreign types
+    penalty = 0.0
+    for i in valid_indices:
         src_type = labels[i]
         src_info = cell_type_info[src_type]
         sorted_targets = src_info['sorted_targets']
         cum_counts = src_info['cumulative_counts']
         indices_map = src_info['indices_map']
 
-        m_i = label_counts[src_type] - 1
+        m_i = label_counts[src_type] - 1  # Use filtered count
         t_i = max(k - m_i, 0)
-        if t_i <= 0:
-            # All cross-type neighbors are penalized
-            allowed_cross = 0
-        else:
-            allowed_cross = t_i
+        allowed_cross = t_i if t_i > 0 else 0
 
         for j in embedded_neighbors[i]:
             if j == i:
@@ -197,18 +178,25 @@ def _compute_trustworthiness(labels, embedded_neighbors, cell_type_info, type_di
             j_type = labels[j]
             if j_type == src_type:
                 continue  # Same type, no penalty
-            
-            # Calculate cross-type rank
+
+            # Handle foreign cell types (not in graph)
+            if j_type not in graph_cell_types:
+                # Treat as maximally distant (rank = total cross-type cells + 1)
+                C_i = n_valid - m_i - 1  # Only valid cross-types
+                rank = C_i + 1  # Foreign cells come after all valid cross-types
+                excess = max(rank - allowed_cross, 0)
+                penalty += excess
+                continue
+
+            # Original rank calculation for graph-based cells
             distance = type_distance[src_type][j_type]
-            targets = [t for t, _ in sorted_targets]
             distances = [d for _, d in sorted_targets]
 
-            # Find position in sorted targets
-            idx = bisect_left(distances, distance)
+            # Binary search for distance position
             start_idx = bisect_left(distances, distance)
             end_idx = bisect_right(distances, distance)
 
-            # Find number of types with distance < current or same distance and type < j_type
+            # Calculate types before current type at same distance
             same_dist_targets = sorted_targets[start_idx:end_idx]
             types_before = 0
             for t, _ in same_dist_targets:
@@ -217,25 +205,22 @@ def _compute_trustworthiness(labels, embedded_neighbors, cell_type_info, type_di
                 elif t == j_type:
                     break
 
+            # Calculate base rank from cumulative counts
             base_rank = cum_counts[start_idx-1][1] if start_idx > 0 else 0
             base_rank += types_before
 
-            # Position within j_type's cells
+            # Calculate position within j_type's cells
             type_indices = indices_map.get(j_type, [])
             pos = bisect_left(type_indices, j)
-            rank = base_rank + pos + 1  # 1-based
+            rank = base_rank + pos + 1  # 1-based ranking
 
-            # Apply penalty if rank exceeds allowed_cross
+            # Apply penalty if exceeds allowed cross-type neighbors
             excess = rank - allowed_cross
             if excess > 0:
                 penalty += excess
 
-    # Calculate final score
-    if total_max_penalty > 0:
-        trust = 1.0 - (penalty / total_max_penalty)
-    else:
-        trust = 1.0  # All neighbors are perfectly preserved
-    
+    # Calculate final score with filtered normalization
+    trust = 1.0 - (penalty / total_max_penalty) if total_max_penalty > 0 else 1.0
     return trust
 
 if __name__ == "__main__":

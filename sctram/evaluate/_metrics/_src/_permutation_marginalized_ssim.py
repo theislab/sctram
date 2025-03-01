@@ -6,9 +6,9 @@ import numpy as np
 from skimage.metrics import structural_similarity as ssim
 
 try:
-    from sctram.evaluate._metrics._src.validators import validate_inclusive_between_0_1 as _validator
+    from sctram.evaluate._metrics._src.validators import validate_between_minus_plus_1 as _validator
 except ImportError:
-    from validators import validate_inclusive_between_0_1 as _validator
+    from validators import validate_between_minus_plus_1 as _validator
 
 
 def permutation_marginalized_ssim(given_adjacency_matrix: np.ndarray, inferred_adjacency_matrix: np.ndarray, validate_result: bool, permutations: int = 10000, seed: int = 0) -> float:

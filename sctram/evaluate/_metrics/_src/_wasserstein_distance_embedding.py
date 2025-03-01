@@ -4,6 +4,7 @@ import numpy as np
 import networkx as nx
 from scipy import sparse
 from ot import emd2
+from loguru import logger
 
 try:
     from sctram.evaluate._metrics._src.validators import validate_zero_or_positive as _validator
@@ -11,6 +12,9 @@ try:
 except ImportError:
     from validators import validate_zero_or_positive as _validator
     from utils import convert_scanpy_neighbors_to_indices
+
+
+_logger = logger.bind(name="MetricBase")
 
 
 def wasserstein_distance_embedding(
@@ -44,7 +48,7 @@ def wasserstein_distance_embedding(
             - KNN neighborhoods = Observed travel patterns
             - Empirical distribution shows actual cell-type transitions
         3. Wasserstein as Rerouting Cost:
-            - Measures minimal "work" (Σ mass×distance) to reshape:
+            - Measures minimal "work" (Σ massxdistance) to reshape:
                 - Q (embedding's observed flow) → P (graph's prescribed routes)
             - Penalizes mismatches proportionally to their topological distance in the graph
             - Accounts for both transition existence (edge presence) and validity (path length)
@@ -96,9 +100,15 @@ def wasserstein_distance_embedding(
 
         # Compute Q distribution (embedding neighbors)
         unique_q, counts_q = np.unique(u_neighbor_labels, return_counts=True)
+        
+        # Filtering step to handle unknown labels
+        valid_mask = np.isin(unique_q, unique_labels)
+        valid_unique_q = unique_q[valid_mask]
+        valid_counts_q = counts_q[valid_mask]
+
         q = np.zeros(t)
-        for lbl, cnt in zip(unique_q, counts_q):
-            q[label_to_idx[lbl]] = cnt
+        for lbl, cnt in zip(valid_unique_q, valid_counts_q):
+            q[label_to_idx[lbl]] += cnt
         q_sum = q.sum()
         if q_sum == 0:
             # No valid neighbors for label {u}. Using uniform Q

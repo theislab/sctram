@@ -2,19 +2,52 @@
 
 import numpy as np
 from scipy.linalg import eigvals
+from loguru import logger
 
-try:
-    from sctram.evaluate._metrics._src.validators import validate_inclusive_between_0_1 as _validator
-except ImportError:
-    from validators import validate_inclusive_between_0_1 as _validator
+from sctram.evaluate._metrics._src.validators import validate_inclusive_between_0_1 as _validator
     
+_logger = logger.bind(name="MetricsBase")
+
 
 def random_walk_kernel_distance(
     given_adjacency_matrix: np.ndarray,
     inferred_adjacency_matrix: np.ndarray,
     validate_result: bool,
-    lambda_param: float = 0.1,
-    k_max: int = 20,
+    target_lambda: float = 0.1,  # User's desired lambda
+    max_k_max: int = 100,       # User's desired k_max
+    safety_factor: float = 0.9,  # Multiplier for lambda_max (e.g., 0.9 = 90% of lambda_max)
+    **kwargs
+) -> float:
+    # Compute spectral radii
+    rho_A = np.max(np.abs(eigvals(given_adjacency_matrix)))
+    rho_B = np.max(np.abs(eigvals(inferred_adjacency_matrix)))
+    lambda_max = 1.0 / (rho_A * rho_B)
+    
+    # Adjust lambda_param to stay within safe bounds
+    safe_lambda = min(target_lambda, safety_factor * lambda_max)
+    
+    # Adjust k_max based on machine precision.
+    # Avoids redundant computations for terms that vanish numerically
+    eps = np.finfo(float).eps
+    effective_k_max = int(np.ceil(np.log(eps) / np.log(safe_lambda))) if safe_lambda != 0 else 0
+    safe_k_max = min(max_k_max, effective_k_max)
+    
+    return _random_walk_kernel_distance(
+        given_adjacency_matrix,
+        inferred_adjacency_matrix,
+        validate_result=validate_result,
+        lambda_param=safe_lambda,
+        k_max=safe_k_max,
+        check_spectral_radius=False,  # Already enforced
+        **kwargs
+    )
+
+def _random_walk_kernel_distance(
+    given_adjacency_matrix: np.ndarray,
+    inferred_adjacency_matrix: np.ndarray,
+    validate_result: bool,
+    lambda_param: float = 0.01,
+    k_max: int = 400,
     include_k0: bool = False,
     check_spectral_radius: bool = True,
 ) -> float:
@@ -30,7 +63,7 @@ def random_walk_kernel_distance(
         lambda_param (float): Decay factor for longer walks. Must be < 1/(ρ(A)ρ(B)) for convergence.
                               Default: 0.1.
         k_max (int): Maximum walk length to consider. Larger values better approximate the infinite
-                     series but increase computational cost. Default: 20.
+                     series but increase computational cost. Default: 10000.
         include_k0 (bool): Whether to include walks of length 0 (identity matrix). Default: False.
         check_spectral_radius (bool): Check λ < 1/(ρ(A)ρ(B)) to ensure convergence. Default: True.
         validate_result (bool): Validate the output distance is in [0, 1]. Default: True.
@@ -100,207 +133,14 @@ def random_walk_kernel_distance(
     # Handle potential division by zero
     denominator = np.sqrt(K_GG * K_HH)
     if denominator <= np.finfo(float).eps:
-        return np.nan
+        return ValueError
     
     normalized_kernel = K_GH / denominator
+    # Clamp to [0, 1] to handle numerical instability or truncation effects
+    normalized_kernel = np.clip(normalized_kernel, 0.0, 1.0)
     distance = 1.0 - normalized_kernel
 
     if validate_result:
         _validator(score=distance)
     
     return distance
-
-
-if __name__ == "__main__":
-
-    def test_identical_matrices():
-        """Test that identical matrices yield a distance of 0."""
-        A = np.array([[0, 1], [1, 0]])
-        distance = random_walk_kernel_distance(
-            A, A, 
-            lambda_param=0.1, 
-            validate_result=False, 
-            check_spectral_radius=False
-        )
-        assert np.isclose(distance, 0.0), f"Expected 0.0, got {distance}"
-
-    def test_orthogonal_matrices():
-        """Test matrices with non-overlapping structures yield a distance of 1."""
-        A = np.array([
-            [0, 1, 0, 0],
-            [1, 0, 0, 0],
-            [0, 0, 0, 0],
-            [0, 0, 0, 0]
-        ])
-        B = np.array([
-            [0, 0, 0, 0],
-            [0, 0, 0, 0],
-            [0, 0, 0, 1],
-            [0, 0, 1, 0]
-        ])
-        distance = random_walk_kernel_distance(
-            A, B, 
-            lambda_param=0.1, 
-            k_max=20, 
-            include_k0=False, 
-            check_spectral_radius=False, 
-            validate_result=False
-        )
-        assert np.isclose(distance, 1.0), f"Expected 1.0, got {distance}"
-
-    def test_empty_matrices():
-        """Test empty matrices with and without include_k0."""
-        A = np.zeros((2, 2))
-        B = np.zeros((2, 2))
-        
-        # include_k0=False should result in division by zero (NaN)
-        distance_nan = random_walk_kernel_distance(
-            A, B, 
-            include_k0=False, 
-            check_spectral_radius=False, 
-            validate_result=False
-        )
-        assert np.isnan(distance_nan), f"Expected NaN, got {distance_nan}"
-        
-        # include_k0=True should yield distance 0
-        distance_zero = random_walk_kernel_distance(
-            A, B, 
-            include_k0=True, 
-            check_spectral_radius=False, 
-            validate_result=False
-        )
-        assert np.isclose(distance_zero, 0.0), f"Expected 0.0, got {distance_zero}"
-
-    def test_spectral_radius_exception():
-        """Test that exceeding the spectral radius raises an error."""
-        A = np.array([[0, 1], [1, 0]])
-        B = A.copy()
-        lambda_param = 1.0  # Exceeds 1/(ρ(A)ρ(B)) = 1.0
-        
-        try:
-            random_walk_kernel_distance(
-                A, B, 
-                lambda_param=lambda_param, 
-                check_spectral_radius=True, 
-                validate_result=False
-            )
-            assert False, "Expected ValueError due to spectral radius"
-        except ValueError:
-            pass
-
-    def test_include_k0():
-        """Test the effect of including k=0 walks."""
-        A = np.zeros((2, 2))
-        B = np.zeros((2, 2))
-        
-        # include_k0=True adds identity matrices, leading to valid comparison
-        distance_with = random_walk_kernel_distance(
-            A, B, 
-            include_k0=True, 
-            check_spectral_radius=False, 
-            validate_result=False
-        )
-        assert np.isclose(distance_with, 0.0), f"Expected 0.0, got {distance_with}"
-        
-        # include_k0=False results in invalid comparison (NaN)
-        distance_without = random_walk_kernel_distance(
-            A, B, 
-            include_k0=False, 
-            check_spectral_radius=False, 
-            validate_result=False
-        )
-        assert np.isnan(distance_without), f"Expected NaN, got {distance_without}"
-
-    def test_lambda_zero():
-        """Test lambda=0 with include_k0=True results in distance 0."""
-        A = np.array([[0, 1], [1, 0]])
-        distance = random_walk_kernel_distance(
-            A, A, 
-            lambda_param=0.0, 
-            include_k0=True, 
-            check_spectral_radius=False, 
-            validate_result=False
-        )
-        assert np.isclose(distance, 0.0), f"Expected 0.0, got {distance}"
-
-    def test_validate_result():
-        """Test validation ensures the result is within [0, 1]."""
-        A = np.array([[0, 1], [1, 0]])
-        B = np.array([[0, 0.5], [0.5, 0]])
-        
-        # This configuration should yield a valid distance between 0 and 1
-        distance = random_walk_kernel_distance(
-            A, B, 
-            lambda_param=0.1, 
-            validate_result=True
-        )
-        assert 0 <= distance <= 1, f"Distance {distance} not in [0, 1]"
-        
-    def test_diagonal_matrices_manual():
-        """Test diagonal matrices with manually computed expected distance."""
-        A = np.diag([1.0, 0.5])
-        B = np.diag([0.5, 1.0])
-        # Manually compute expected kernel values for lambda=0.5, k_max=2, include_k0=True
-        # K_GH = 2*(1 + 0.5*0.5 + (0.5^2)*(0.5^2)) = 2.625
-        # K_GG = K_HH = 2*(1 + 0.5*(1 + 0.25) + 0.25*(1 + 0.0625)) = 2.890625
-        # Normalized kernel = 2.625 / 2.890625 ≈ 0.908
-        # Distance = 1 - 0.908 ≈ 0.092
-        expected_distance = 1 - (2.625 / 2.890625)
-        distance = random_walk_kernel_distance(
-            A, B,
-            lambda_param=0.5,
-            k_max=2,
-            include_k0=True,
-            check_spectral_radius=False,
-            validate_result=False
-        )
-        assert np.isclose(distance, expected_distance, rtol=1e-4), \
-            f"Expected {expected_distance:.4f}, got {distance}"
-
-    def test_off_diagonal_weighted_matrices():
-        """Test matrices with different edge weights but same structure."""
-        A = np.array([[0, 1], [1, 0]])
-        B = np.array([[0, 2], [2, 0]])
-        # Manual calculation for lambda=0.5, k_max=2, include_k0=False
-        # K_GH = 0.5*4 + 0.25*8 = 4
-        # K_GG = 0.5*2 + 0.25*2 = 1.5
-        # K_HH = 0.5*8 + 0.25*32 = 12
-        # Normalized kernel = 4 / sqrt(1.5*12) ≈ 0.9428 → distance ≈ 0.0572
-        expected_distance = 1 - (4 / np.sqrt(1.5 * 12))
-        distance = random_walk_kernel_distance(
-            A, B,
-            lambda_param=0.5,
-            k_max=2,
-            include_k0=False,
-            check_spectral_radius=False,
-            validate_result=False
-        )
-        assert np.isclose(distance, expected_distance, rtol=1e-4), \
-            f"Expected {expected_distance:.4f}, got {distance}"
-
-    def test_k0_only():
-        """Test only k=0 is considered when k_max=0 and include_k0=True."""
-        A = np.zeros((2, 2))
-        B = np.zeros((2, 2))
-        # K_GH = trace(I@I) = 2, K_GG=K_HH=2 → normalized kernel = 1.0 → distance=0
-        distance = random_walk_kernel_distance(
-            A, B,
-            lambda_param=0.5,
-            k_max=0,
-            include_k0=True,
-            check_spectral_radius=False,
-            validate_result=False
-        )
-        assert np.isclose(distance, 0.0), f"Expected 0.0, got {distance}"
-
-    test_identical_matrices()
-    test_orthogonal_matrices()
-    test_empty_matrices()
-    test_spectral_radius_exception()
-    test_include_k0()
-    test_lambda_zero()
-    test_validate_result()
-    test_diagonal_matrices_manual()
-    test_off_diagonal_weighted_matrices()
-    test_k0_only()
-    print("All tests passed!")

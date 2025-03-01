@@ -86,9 +86,9 @@ class TrajectoryEvaluationAPI:
         return metrics
 
     def evaluate_with_defaults(self):
+        self.evaluate_embedding()
         adata = self.evaluate_adjacency(_return_inference_anndata=True)
         self.evaluate_pseudotime(_given_adata=adata)
-        self.evaluate_embedding()
 
     def evaluate_pseudotime(
         self,
