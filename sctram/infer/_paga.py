@@ -7,8 +7,9 @@ import scanpy as sc
 from anndata import AnnData
 from pandas import DataFrame, Series
 
-from sctram._constants import labels_key
 from sctram.infer._base import InferenceBase
+from sctram.utils._constants import labels_key
+from sctram.utils._loguru_scanpy_capture import redirect_scanpy_logs_to_loguru
 
 
 class PAGAInference(InferenceBase):
@@ -62,7 +63,8 @@ class PAGAInference(InferenceBase):
     def _calculate(self):
         """Performs the PAGA calculation."""
         self._needs_neighbors(neighbors_params=self.neighbors_params)
-        sc.tl.paga(self.adata_prepared, groups=labels_key, **self.paga_params)
+        with redirect_scanpy_logs_to_loguru(custom_caller="sc.tl.paga"):
+            sc.tl.paga(self.adata_prepared, groups=labels_key, **self.paga_params)
 
     def get_result(self, return_mode: str) -> Union[AnnData, np.ndarray]:
         """Retrieves the result of the PAGA trajectory inference.
@@ -86,6 +88,6 @@ class PAGAInference(InferenceBase):
             paga_graph = self.adata_prepared.uns["paga"]["connectivities"].toarray()
             return paga_graph
         elif return_mode == "labels":
-            return self.adata_prepared.obs[labels_key].cat.categories
+            return self.adata_prepared.obs[labels_key].cat.categories.values
         else:
             raise ValueError("Invalid 'return_mode'.")

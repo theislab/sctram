@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import logging
 import random
 from abc import ABC, abstractmethod
 from typing import Any, Literal, Optional, Union
@@ -9,9 +8,11 @@ import numpy as np
 import pandas as pd
 import scanpy as sc
 from anndata import AnnData
+from loguru import logger
 from scipy.sparse import csr_matrix
 
-from sctram._constants import connectivities_key, distances_key, labels_key, neighbors_key, x_diffmap_key
+from sctram.utils._constants import connectivities_key, distances_key, labels_key, neighbors_key, x_diffmap_key
+from sctram.utils._loguru_scanpy_capture import redirect_scanpy_logs_to_loguru
 
 
 class AnndataPreperation:
@@ -46,7 +47,7 @@ class AnndataPreperation:
         Args:
             random_state (Optional[int], optional): See `TrajectoryEmbeddingBase.__init__`.
         """
-        self.logger = logging.getLogger(self.__class__.__name__)  # Configure logging
+        self.logger = logger.bind(name="AnndataPreperation")
         self.random_state = random_state
 
     def initialize_adata(
@@ -460,7 +461,7 @@ class InferenceAndEmbeddingBase(ABC):
             raise ValueError("'subclass_mode' must be 'trajectory inference' or 'embedding calculation'")
 
         self.random_state = random_state
-        self.logger = logging.getLogger(self.__class__.__name__)  # Configure logging
+        self.logger = logger.bind(name="InferenceAndEmbeddingBase")
 
         if self.random_state is not None:  # Set random seed
             sc.settings.seed = self.random_state
@@ -511,14 +512,17 @@ class InferenceAndEmbeddingBase(ABC):
     def _needs_neighbors(self, neighbors_params):
         if neighbors_key not in self.adata_prepared.uns:
             self.logger.info("Computing neighbors.")
-            sc.pp.neighbors(self.adata_prepared, **neighbors_params)
+            with redirect_scanpy_logs_to_loguru(custom_caller="scanpy.pp.neighbors"):
+                # ToDo: connectivities_key, distances_key, neighbors_key should be in-sync with scanpy
+                sc.pp.neighbors(self.adata_prepared, **neighbors_params)
         else:
             self.logger.info("Using precomputed neighbors from AnnData.")
 
     def _needs_diffmap(self, diffmap_params):
         if x_diffmap_key not in self.adata_prepared.obsm:
             self.logger.info("Computing Diffusion Map.")
-            sc.tl.diffmap(self.adata_prepared, **diffmap_params)
+            with redirect_scanpy_logs_to_loguru(custom_caller="sc.tl.diffmap"):
+                sc.tl.diffmap(self.adata_prepared, **diffmap_params)
             self.logger.debug("Diffusion Map computed successfully.")
         else:
             self.logger.info("Diffusion Map is already calculated.")

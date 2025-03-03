@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import logging
 import tempfile
 from pathlib import Path
 from random import choice
@@ -12,10 +11,10 @@ from zipfile import BadZipFile, ZipFile
 import gdown
 import requests
 from filelock import SoftFileLock, Timeout
+from loguru import logger
 from tqdm import tqdm
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("downloader")
+_logger = logger.bind(name="DatasetDownloader")
 
 
 def is_google_drive_url(url: str) -> bool:
@@ -103,40 +102,40 @@ def download_dataset(
     try:
         with lock:
             if download_path.exists() and not overwrite:
-                logger.warning(f"File {download_path!r} already exists. Skipping download.")
+                _logger.warning(f"File {download_path!r} already exists. Skipping download.")
                 return
 
             # Temporary file path for streaming download
             temp_download_path = download_path.with_suffix(".part")
 
             if is_gdrive:
-                logger.info("Detected Google Drive URL. Using gdown for download.")
+                _logger.info("Detected Google Drive URL. Using gdown for download.")
                 # Extract file ID
                 file_id = extract_google_drive_file_id(url)
                 if not file_id:
-                    logger.error("Failed to extract Google Drive file ID. Aborting download.")
+                    _logger.error("Failed to extract Google Drive file ID. Aborting download.")
                     return
                 # Generate a direct download URL compatible with gdown
                 direct_download_url = f"https://drive.google.com/uc?id={file_id}"
 
                 try:
-                    logger.debug(f"Starting Google Drive download with gdown. URL: {direct_download_url}")
+                    _logger.debug(f"Starting Google Drive download with gdown. URL: {direct_download_url}")
                     # gdown handles the confirmation token internally
                     # fuzzy=True allows gdown to accept various Google Drive URL formats
                     gdown.download(direct_download_url, str(temp_download_path), quiet=False, fuzzy=True)
                 except Exception as e:
-                    logger.error(f"gdown failed to download the file. Error: {e}")
+                    _logger.error(f"gdown failed to download the file. Error: {e}")
                     if temp_download_path.exists():
                         temp_download_path.unlink()  # Remove incomplete download
                     return
             else:
                 # Use requests for direct downloads
                 try:
-                    logger.info(f"Starting download from URL: {url}")
+                    _logger.info(f"Starting download from URL: {url}")
                     with requests.get(url, stream=True) as response:
                         response.raise_for_status()
                         total_size = int(response.headers.get("content-length", 0))
-                        logger.debug(f"Total file size: {total_size} bytes")
+                        _logger.debug(f"Total file size: {total_size} bytes")
 
                         # Initialize tqdm progress bar
                         with tqdm(total=total_size, unit="B", unit_scale=True, desc=f"Downloading {filename}") as pbar:
@@ -146,30 +145,30 @@ def download_dataset(
                                         f.write(chunk)
                                         pbar.update(len(chunk))
                 except requests.RequestException as e:
-                    logger.error(f"Failed to download the file. Error: {e}")
+                    _logger.error(f"Failed to download the file. Error: {e}")
                     if temp_download_path.exists():
                         temp_download_path.unlink()  # Remove incomplete download
                     return
 
             # Rename the temporary file to the final download path
             temp_download_path.rename(download_path)
-            logger.info(f"Downloaded {download_path!r} successfully.")
+            _logger.info(f"Downloaded {download_path!r} successfully.")
 
             # If the file is a ZIP archive and unzip is requested
             if unzip and download_path.suffix.lower() == ".zip":
                 try:
                     with ZipFile(download_path, "r") as zip_ref:
                         zip_ref.extractall(destination)
-                    logger.info(f"Extracted {download_path!r} to {destination!r}.")
+                    _logger.info(f"Extracted {download_path!r} to {destination!r}.")
                     # Optionally, remove the ZIP file after extraction
                     # download_path.unlink()
                 except BadZipFile:
-                    logger.error(f"The file {download_path!r} is not a valid ZIP archive.")
+                    _logger.error(f"The file {download_path!r} is not a valid ZIP archive.")
 
     except Timeout:
-        logger.error(f"Failed to acquire lock on {lock_path!r}. Another download might be in progress.")
+        _logger.error(f"Failed to acquire lock on {lock_path!r}. Another download might be in progress.")
     except Exception as e:
-        logger.error(f"An unexpected error occurred: {e}")
+        _logger.error(f"An unexpected error occurred: {e}")
     finally:
         if lock.is_locked:
             lock.release()
@@ -178,6 +177,6 @@ def download_dataset(
     if lock_path.exists():
         try:
             lock_path.unlink()
-            logger.info(f"Removed stale lock file {lock_path!r}.")
+            _logger.info(f"Removed stale lock file {lock_path!r}.")
         except Exception as e:
-            logger.warning(f"Failed to remove stale lock file {lock_path!r}. Error: {e}")
+            _logger.warning(f"Failed to remove stale lock file {lock_path!r}. Error: {e}")

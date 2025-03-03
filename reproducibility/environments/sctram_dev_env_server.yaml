@@ -1,0 +1,215 @@
+# sctram_dev_env Environment
+
+name: sctram_dev_env
+
+channels:
+    - conda-forge # Community-driven conda channel
+
+dependencies:
+    # Python and Package Management
+    - python=3.11 # Python programming language
+    - pip # Python package installer
+
+    # JupyterLab and Extensions
+    - jupyterlab>4.1 # Interactive development environment
+    - notebook # Jupyter Notebook support
+    - markdown # Markdown rendering
+    - nodejs # JavaScript runtime for JupyterLab extensions
+    - jupyterlab_widgets # Interactive widgets for JupyterLab
+    - ipywidgets # Interactive widgets for IPython
+    - python-lsp-server # Language Server Protocol for Python
+    - jupyterlab-lsp # LSP integration for JupyterLab
+    - jupyterlab_code_formatter # Code formatter extension for JupyterLab
+    - ipython # Interactive Python shell
+    - nbdime # Diff and merge tools for Jupyter Notebooks
+
+    # Development Tools
+    - isort # Sorts imports in Python files
+    - black # Python code formatter
+    - flake8 # Python linting tool
+    - pyupgrade # Automatically upgrade syntax for newer Python
+    - pre-commit-hooks # Pre-commit hooks
+    - pre-commit # Framework for managing pre-commit hooks
+    - cython # C extensions for Python
+    - hypothesis # Tool for property-based testing
+    - setuptools>=18.0.1 # Packaging utilities # PhenoGraph dependency
+    - pytest # Simple and scalable testing framework
+    - pytest-cov # Coverage plugin for pytest
+
+    # Type Checking
+    - mypy # Static type checker
+    - mypy_extensions # Experimental type system extensions for programs checked with the mypy typechecker
+    - typing_extensions # Backported type hints for older Python versions
+    - jaxtyping # Type annotations for JAX
+    - types-pyyaml # Type stubs for the PyYAML
+    - pandas-stubs # Type stubs for pandas
+
+    # Utilities and General Tools
+    - requests # HTTP requests library
+    - tqdm # Progress bars
+    - memory_profiler # Memory usage profiling
+    - gputil # GPU management utilities
+    - python-dateutil #  Extensions to the standard Python datetime module
+    - psutil>4 # System and process utilities # PhenoGraph dependency
+    - rclone # File synchronization tool
+    - gdown # Google drive utility
+    - jsonpickle # JSON serialization/deserialization
+    - dill # Enhanced serialization for Python objects
+    - pyyaml # YAML parsing and serialization
+    - pytoml # TOML parsing
+    - loguru # Simplified logging library for Python
+    - cachetools # Caching utilities for Python
+    - line_profiler # Line-by-line profiling for Python
+    - gitpython # Git interface for Python
+    - dvc # Version control for machine learning projects
+    - send2trash # Python library to natively send files to Trash (or Recycle bin) on all platforms
+
+    # Data Manipulation
+    - pandas>=2.0.0 # Data analysis library
+    - sparse # Sparse data structures
+    - numpy<2.0.0 # Numerical computing library
+    - numexpr>=2.8.4 # Fast numerical expression evaluator for NumPy
+    - future>=0.16.0 # Compatibility layer between Python 2 and 3
+    - polars # Fast DataFrames library
+    - natsort # Natural sorting for lists # rapids dependency
+
+    # Data Handling and Storage
+    - pytables # Hierarchical database for large datasets
+    - hdf5 # Hierarchical Data Format version 5
+    - h5py # HDF5 interface for Python
+    - zarr # Chunked, compressed, N-dimensional arrays
+    - anytree # Tree data structures
+    - arrow # Better date and time handling
+    - pyarrow>=9.0 # Apache Arrow for columnar data
+    - joblib # Lightweight pipelining in Python
+    - pymysql # MySQL client for Python
+    - click>=7.1.2 # celltypist dependency
+    - numpy_groupies>=0.9.22 # sctk dependency
+
+    # Scientific Computing
+    - scipy>=1.6.0,<1.13 # Scientific computing library # scarches and bbknn dependency
+    - networkx # Network analysis and graph theory
+    - fa2 # The fastest ForceAtlas2 algorithm
+    - statsmodels>=0.12 # Statistical models and tests
+    - llvmlite # LLVM bindings for Python # scib dependency
+    - deprecated # Deprecation utilities # scib dependency
+    - umap-learn>=0.5.0 # Dimensionality reduction technique # scib dependency
+    - gudhi # Library for topological data analysis (TDA) and simplicial complexes
+    - eagerpy # Needed for gudhi wasserstein method.
+    - openpyxl>=3.0.4 # celltypist dependency
+    - fastdtw # Dynamic Time Warping (DTW) algorithm
+    - esda # Spatial Data Analysis
+
+    # Visualization
+    - matplotlib>=3.7 # Plotting library
+    - seaborn>0.13 # Statistical data visualization
+    - hiplot # Interactive visualization tool
+    - adjustText # Adjust text positions in matplotlib plots
+    - colorcet # Color palettes for visualization
+    - colorlover # Color scales for visualization
+    - plottable # Advanced plotting utilities # scib-metrics dependency
+    - tabulate # Pretty-print tabular data
+    - upsetplot # Upset plots for visualizing set intersections
+    - rich # Rich text and formatting in terminal # scib-metrics dependency
+    - cycler # Composable cycles for matplotlib
+    - datashader # Data visualization tool for large datasets # pytometry dependency
+    - mscorefonts # Microsoft core fonts for better plot rendering
+    - pygments # Syntax highlighting package
+    - colorama # Cross-platform colored terminal text
+    - hiplot # Interactive visualization tool
+    - shapely # Geometric operations
+    - scikit-plot # Plotting utilities for scikit-learn
+    - emoji # Add emoji support in Python applications
+    - pydot # Graph visualization tool # scib dependency
+
+    # Machine Learning
+    - scikit-learn # Machine learning library
+    - scikit-image
+    - scikit-bio
+    - scikit-sparse # Sparse matrix operations for scikit-learn
+    - scikit-learn-intelex # Intel optimizations for scikit-learn # Should be commented out for MAC Silicon
+    - xgboost>=2.0.3 # Gradient boosting framework
+    - minisom # Self-organizing maps for data clustering # pytometry dependency
+    - hdbscan # Hierarchical density-based clustering
+    - pynndescent # Nearest neighbor descent for high dimensions # scib-metrics dependency
+    - python-levenshtein # Levenshtein distance calculations
+    - pygam # Generalized Additive Models in Python
+
+    # Hyperparameter Tuning
+    - seml # Experiment management for machine learning # Should be commented out for MAC Silicon
+    - wandb # Experiment tracking and visualization
+    - optuna # Hyperparameter optimization framework
+    - hydra-core # Configuration management framework
+    - hydra-colorlog # Hydra plugin for colored logging
+    - hydra-submitit-launcher # Submitit Launcher for Hydra apps
+    - mlflow # Experiment tracking and model management
+    - psycopg2 # PostgreSQL database adapter for Python
+    - mysqlclient # Python interface to MySQL
+    - kedro # Reproducible, maintainable data science code framework
+    - scikit-optimize # Sequential model-based optimization
+
+    # Deep Learning Frameworks
+    - lightning # Lightning framework for scalable AI
+    - torchmetrics # Metrics for PyTorch models
+    - pytorch-lightning # High-level interface for PyTorch
+    - pytorch::torchvision # Computer vision utilities for PyTorch
+    - pytorch::torchaudio # Audio utilities for PyTorch
+    - pytorch::captum # Model interpretability for PyTorch
+    - pyg::pyg # PyTorch Geometric, a library for deep learning on graphs and irregular structures
+    - cuda-version=12.5 # Specific CUDA version # Should be commented out for MAC Silicon
+    - pytorch::pytorch=*=*cuda* # PyTorch with CUDA support, version to be resolved by Conda # Should be commented out for MAC Silicon
+    - nvidia::cuda # CUDA Toolkit for GPU support # Should be commented out for MAC Silicon
+    - cutensor # CUDA Tensor Core library # Should be commented out for MAC Silicon
+    - cusparselt # CUDA sparse library # Should be commented out for MAC Silicon
+    - cudnn # CUDA Deep Neural Network library # Should be commented out for MAC Silicon
+    - cupy # CUDA array library for Python # Should be commented out for MAC Silicon
+    - rapidsai::rapids=24.12 # RAPIDS data science libraries # Should be commented out for MAC Silicon
+    - cudf # GPU DataFrame library, part of RAPIDS # Should be commented out for MAC Silicon
+    - cuml # GPU-accelerated machine learning library, part of RAPIDS # Should be commented out for MAC Silicon
+    - numba # Just-in-time compiler for Python # Should be commented out for MAC Silicon
+    - jaxlib=0.4.23 # JAX library dependencies
+    - jax=0.4.23 # High-performance machine learning library
+    - chex=0.1.86 # Utilities for JAX # scib-metrics dependency
+
+    # Single-cell Analysis
+    - scvi-tools=1.2.2 # Single-cell variational inference tools
+    - scanpy=1.10.4 # Single-cell analysis tools
+    - anndata=0.11.2 # Annotated data structures for single-cell
+    - mudata=0.3.1 # Multi-omics data handling
+    - muon # Multimodal omics analysis framework
+    - mellon>=1.3.0 # Non-parametric density estimator
+    - omnipath=1.0.8 # Pathway data for biology
+    - igraph>=0.10,<0.12 # Network analysis library
+    - python-igraph # Python interface for igraph
+    - leidenalg # Community detection algorithms
+    - loompy # Single-cell data analysis
+    - python-louvain # Louvain community detection
+    - louvain==0.8.2 # Community detection algorithm
+    - biopython # Bioinformatics library
+    - ott-jax # Optimal transport tools with JAX
+    - pot # Python Optimal Transport library
+    - moscot=0.3.4 # Optimal transport for single-cell analysis
+    - cellrank>2.0.0 # Dynamics from multi-view single-cell data
+    - bioconda::goatools=1.2.3 # Python scripts to find enrichment of GO terms
+    - bioconda::decoupler=1.5.0 # Ensemble of methods to infer biological activities from omics data # rapids dependency
+    - bioconda::pybiomart=0.2.0 # Access to BioMart databases
+    - bioconda::scrublet # Doublet prediction in single-cell RNA-sequencing data
+
+    # Pip Packages. This may causes to downgrade some packages.
+    - pip:
+          - scib==1.1.6 # Single-cell benchmarking tools
+          - scib-metrics==0.5.1 # Metrics for single-cell benchmarking
+          - rapids-singlecell==0.11.0 # RAPIDS library for single-cell analysis # Should be commented out for MAC Silicon
+          - PhenoGraph==1.5.7 # Clustering algorithm for high-dimensional data
+          - sctk==0.2.2 # A large collection of functions built around the scanpy ecosystem
+          - palantir==1.3.6 # modeling continuous cell state and cell fate choices in single cell data
+          # Type Stubs for Improved Type Checking
+          - types-Send2Trash # Type stubs for Send2Trash
+          - types-colorama # Type stubs for colorama
+          - types-jsonschema # Type stubs for jsonschema
+          - types-psutil # Type stubs for psutil
+          - types-python-dateutil # Type stubs for python-dateutil
+          - types-requests # Type stubs for requests
+          - types-setuptools # Type stubs for setuptools
+          - types-six # Type stubs for six
+          - types-xxhash # Type stubs for xxhash

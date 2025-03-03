@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 
-import logging
-import numpy as np
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from sctram.input import InputTrajectory
+import numpy as np
+from loguru import logger
 
-metrics_key = "metrics"
-sctram_operate_key = "_sctram_operate"
+from sctram.input import InputTrajectory
+from sctram.utils._constants import evaluate_metrics_key, sctram_operate_key
 
 
 class EvaluationBase(ABC):
@@ -26,7 +25,7 @@ class EvaluationBase(ABC):
         subset_params (Dict[str, Any]): Parameters for subsetting the data.
         prepare_params_before_subset (Dict[str, Any]): Parameters for preparing the data before subsetting.
         prepare_params_after_subset (Dict[str, Any]): Parameters for preparing the data after subsetting.
-        logger (logging.Logger): Logger for the class.
+        logger (loguru.logger): Logger for the class.
         given_trajectory (InputTrajectory): The ground truth trajectory.
         inferred (Any): The inferred trajectory.
         subset_given (Any): Subset of the given trajectory.
@@ -38,7 +37,7 @@ class EvaluationBase(ABC):
         result (Any): The result of the evaluation.
     """
 
-    available_metrics: Optional[List[str]] = None
+    available_metrics: List[str]  # This is needed to be completed in metricsmixin classes.
 
     def __init__(
         self,
@@ -60,17 +59,17 @@ class EvaluationBase(ABC):
         self.prepare_params_before_subset = self._params_variable_prepare(prepare_params_before_subset)
         self.prepare_params_after_subset = self._params_variable_prepare(prepare_params_after_subset)
 
-        self.logger = logging.getLogger(self.__class__.__name__)
-        
+        self.logger = logger.bind(name="EvaluationBase")
+
         # Labels given in `evaluate` method.
-        self.labels: Optional[np.ndarray] = None  # New attribute to store labels
-        self.subset_labels: Optional[np.ndarray] = None
+        self.labels: Any = None  # New attribute to store labels
+        self.subset_labels: Any = None
 
         # Unprocessed inputs to `evaluate` method.
-        self.given_trajectory: Optional[InputTrajectory] = None
+        self.given_trajectory: Any = None
         self.inferred_trajectory: Any = None
 
-        # In general, either one of the prepare methods are used but both are kept in 
+        # In general, either one of the prepare methods are used but both are kept in
         # this parent class for code consistency.
         self.prepared_before_subset_given: Any = None
         self.prepared_before_subset_inferred: Any = None
@@ -87,14 +86,14 @@ class EvaluationBase(ABC):
     def _verify_method_params(self, method_params: Optional[Dict[str, Any]]) -> Tuple[Dict[str, Any], List[str]]:
         if method_params is None or not isinstance(method_params, dict):
             raise ValueError("`method_params` should be a dict.")
-        if metrics_key not in method_params:
-            raise ValueError(f"`method_params` must contain {metrics_key!r} key.")
+        if evaluate_metrics_key not in method_params:
+            raise ValueError(f"`method_params` must contain {evaluate_metrics_key!r} key.")
 
-        metrics = method_params[metrics_key]
+        metrics = method_params[evaluate_metrics_key]
         if not isinstance(metrics, list):
-            raise ValueError(f"metrics_key {metrics_key!r} should be a list of metric names.")
+            raise ValueError(f"metrics_key {evaluate_metrics_key!r} should be a list of metric names.")
 
-        if self.available_metrics is None:
+        if self.available_metrics is None or len(self.available_metrics) == 0:
             raise NotImplementedError(f"Subclass {self.__class__.__name__!r} should define `available_metrics`.")
 
         for metric in metrics:
@@ -106,12 +105,12 @@ class EvaluationBase(ABC):
     def _params_variable_prepare(self, params_variable):
         if params_variable is None:
             params_variable = dict()
-        
+
         if not isinstance(params_variable, dict):
             raise ValueError(
                 f"Expected a dictionary for params_variable, but received type: {type(params_variable).__name__}."
             )
-        
+
         for key in params_variable:
             if not isinstance(key, str):
                 raise ValueError(
@@ -126,7 +125,6 @@ class EvaluationBase(ABC):
             params_variable[sctram_operate_key] = False
 
         return params_variable
-        
 
     def evaluate(
         self,
@@ -187,6 +185,7 @@ class EvaluationBase(ABC):
             else:
                 self.subset_given = self.prepared_before_subset_given
                 self.subset_inferred = self.prepared_before_subset_inferred
+                self.subset_labels = self.labels
 
             # Prepare trajectories after subsetting
             if self.prepare_params_after_subset[sctram_operate_key]:
@@ -198,7 +197,7 @@ class EvaluationBase(ABC):
 
             # Perform the evaluation calculation
             self.logger.debug("Performing evaluation calculation.")
-            self._calculate()
+            self._calculate()  # in MetricsMixin classes.
 
             self.logger.info("Evaluation completed successfully.")
             return self.get_result()
@@ -242,20 +241,19 @@ class EvaluationBase(ABC):
         if labels.dtype.type is not np.str_ and labels.dtype.type is not np.object_:
             # np.str_ covers fixed-length strings, np.object_ can include Python strings
             raise ValueError("Labels array must contain strings.")
-        
+
         return labels
 
     @abstractmethod
     def _verify_labels_data_specific(self):
         """Verifies that labels is consistent with input trajectory and/or inferred trajectory.
-        
+
         This method must be implemented in subclasses to handle the specific format.
-        
+
         Raises:
             NotImplementedError: as this is abstractmethod.
         """
         raise NotImplementedError
-
 
     @abstractmethod
     def _verify_inferred_trajectory(self, inferred: Any) -> Any:
@@ -279,45 +277,41 @@ class EvaluationBase(ABC):
     def _prepare_before_subset(self) -> Tuple[Any, Any]:
         """Prepares the trajectories before subsetting.
 
-        This method must be implemented in subclasses to handle preparation 
+        This method must be implemented in subclasses to handle preparation
         specific to the data formats before subsetting.
 
         Returns:
             Tuple[Any, Any]: The prepared given and inferred trajectories before subsetting.
-        
+
         Raises:
             NotImplementedError: as this is abstractmethod.
         """
         raise NotImplementedError
 
     @abstractmethod
-    def _subset(self) -> Tuple[Any, Any]:
+    def _subset(self) -> Tuple[Any, Any, Any]:
         """Subsets the trajectories based on `subset_params`.
 
         This method must be implemented in subclasses to handle subsetting specific to the data formats.
 
         Returns:
             Tuple[Any, Any]: The subsetted given and inferred trajectories.
-        
+
         Raises:
             NotImplementedError: as this is abstractmethod.
         """
         raise NotImplementedError
 
     @abstractmethod
-    def _prepare_after_subset(self, subset_given: Any, subset_inferred: Any) -> Tuple[Any, Any]:
+    def _prepare_after_subset(self) -> Tuple[Any, Any]:
         """Prepares the trajectories after subsetting.
 
-        This method must be implemented in subclasses to handle preparation specific 
+        This method must be implemented in subclasses to handle preparation specific
         to the data formats after subsetting.
-
-        Args:
-            subset_given (Any): The subsetted given trajectory.
-            subset_inferred (Any): The subsetted inferred trajectory.
 
         Returns:
             Tuple[Any, Any]: The prepared given and inferred trajectories after subsetting.
-        
+
         Raises:
             NotImplementedError: as this is abstractmethod.
         """
@@ -328,7 +322,7 @@ class EvaluationBase(ABC):
         """Performs the specific evaluation calculation.
 
         This method must be implemented in subclasses to perform the evaluation and store the result in `self.result`.
-        
+
         Raises:
             NotImplementedError: as this is abstractmethod.
         """
@@ -337,7 +331,7 @@ class EvaluationBase(ABC):
     @abstractmethod
     def get_result(self) -> Any:
         """Retrieves the result of the evaluation.
-        
+
         Raises:
             NotImplementedError: as this is abstractmethod.
         """

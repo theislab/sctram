@@ -146,3 +146,7 @@ dmypy.json
 
 # development
 __temp__/
+*slurm_out*.out
+*slurm_out*.log
+*slurm_job*.sh
+*slurm-*.out

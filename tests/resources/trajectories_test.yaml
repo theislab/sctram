@@ -1,0 +1,62 @@
+# tests/resources/trajectories_test.yaml
+
+test_cases:
+    - name: "perfect_vs_imperfect"
+      description: >
+          Compare a perfect trajectory (exact match with ground truth) with a slightly
+          imperfect trajectory (one edge is modified).
+      ground_truth:
+          edges:
+              - [Vehicle_1.0, BMS_0.001]
+              - [BMS_0.001, BMS_0.005]
+              - [BMS_0.005, BMS_0.01]
+              - [BMS_0.01, BMS_0.05]
+              - [BMS_0.05, BMS_0.1]
+              - [BMS_0.1, BMS_0.5]
+              - [BMS_0.5, BMS_1.0]
+      trajectories:
+          perfect:
+              edges:
+                  - [Vehicle_1.0, BMS_0.001]
+                  - [BMS_0.001, BMS_0.005]
+                  - [BMS_0.005, BMS_0.01]
+                  - [BMS_0.01, BMS_0.05]
+                  - [BMS_0.05, BMS_0.1]
+                  - [BMS_0.1, BMS_0.5]
+                  - [BMS_0.5, BMS_1.0]
+          imperfect:
+              edges:
+                  - [Vehicle_1.0, BMS_0.001]
+                  - [BMS_0.001, BMS_0.005]
+                  # modified: wrong connection here
+                  - [BMS_0.005, BMS_0.05]
+                  - [BMS_0.05, BMS_0.1]
+                  - [BMS_0.1, BMS_0.5]
+                  - [BMS_0.5, BMS_1.0]
+      # In this test we assume that for error‐like metrics (e.g. frobenius, L1, etc.)
+      # a lower score is better.
+      expected_ordering:
+          lower_better: true
+
+    - name: "branching_vs_linear"
+      description: >
+          Test a branching scenario where the ground truth has a branch (two outgoing edges)
+          while an inferred trajectory is strictly linear.
+      ground_truth:
+          edges:
+              - [A, B]
+              - [B, C]
+              - [B, D]
+      trajectories:
+          branch:
+              edges:
+                  - [A, B]
+                  - [B, C]
+                  - [B, D]
+          linear:
+              edges:
+                  - [A, B]
+                  - [B, C]
+                  # missing the branch edge
+      expected_ordering:
+          lower_better: true

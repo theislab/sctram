@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 
+import pickle
+from typing import Any, Iterable, Optional, Union
+
 import networkx as nx
 
-from sctram._constants import key_trajectories
 from sctram.input._input_trajectory import InputTrajectory
+from sctram.input._read_trajectories import read_dict
+from sctram.utils._constants import InputGraphPossibleTypes, key_trajectories
 
 
 class InputTrajectories(nx.MultiDiGraph):
@@ -22,6 +26,27 @@ class InputTrajectories(nx.MultiDiGraph):
     Attributes:
         key_trajectories (str): The key used to store trajectory identifiers in graph attributes.
     """
+
+    def __init__(
+        self,
+        ground_truth_trajectories: Optional[InputGraphPossibleTypes] = None,
+        additional_nodes: Optional[Iterable[str]] = None,
+        node_attributes: Optional[dict[str, dict[str, Any]]] = None,
+    ):
+        # Initialize parent with all potential NetworkX arguments
+        super().__init__()
+
+        # Initialize mandatory attributes
+        self.graph.setdefault(key_trajectories, [])
+
+        # Process trajectories only if provided
+        if ground_truth_trajectories is not None:
+            new_gtt = read_dict(
+                ground_truth_trajectories=ground_truth_trajectories,
+                additional_nodes=additional_nodes,
+                node_attributes=node_attributes,
+            )
+            self.update_trajectory(new_gtt)
 
     def get_trajectory(self, trajectory: str, include_additional_nodes: bool) -> InputTrajectory:
         """Extracts a subgraph corresponding to a specific trajectory.
@@ -47,6 +72,9 @@ class InputTrajectories(nx.MultiDiGraph):
                 only the edges and nodes pertinent to that trajectory. This subgraph can be used
                 for further analysis, visualization, or processing specific to the trajectory.
         """
+        if trajectory not in self.graph[key_trajectories]:
+            raise ValueError(f"Trajectory is not found: {trajectory!r}.")
+
         # Initialize an empty directed graph for the subgraph
         trajectory_subgraph = InputTrajectory()
 
@@ -78,6 +106,86 @@ class InputTrajectories(nx.MultiDiGraph):
 
         return trajectory_subgraph
 
+    def get_complete_no_attributes_for_visualization(self):
+        trajectory_name = "complete"
+
+        trajectory_subgraph = InputTrajectory()
+        trajectory_subgraph.graph[key_trajectories] = trajectory_name
+
+        for u, v, _, _ in self.edges(keys=True, data=True):
+            if not trajectory_subgraph.has_edge(u, v):
+                edge_attrs = {key_trajectories: trajectory_name}
+                trajectory_subgraph.add_edge(u, v, **edge_attrs)
+
+        for n, attrs in self.nodes(data=True):
+            if attrs[key_trajectories] is None:
+                node_attrs = {key_trajectories: None}
+            else:
+                node_attrs = {key_trajectories: trajectory_name}
+            if n in trajectory_subgraph:
+                trajectory_subgraph.nodes[n].update(node_attrs)
+            else:
+                trajectory_subgraph.add_node(n, **node_attrs)
+
+        return trajectory_subgraph
+
+    def update_trajectory(self, new_gtt: Union[nx.MultiDiGraph, "InputTrajectories"]):
+        """Merges a new graph into the current instance, updating trajectories and attributes.
+
+        Args:
+            new_gtt: The new graph to merge, which must not share any trajectory keys with the current graph.
+
+        Raises:
+            ValueError: If there are overlapping trajectory keys or attribute conflicts in nodes.
+        """
+        if key_trajectories in self.graph:  # The method is updating
+            existing_trajs = set(self.graph[key_trajectories])
+        elif not (len(self.edges()) == len(self.nodes()) == 0):
+            raise ValueError(f"Unexpected error: {self.edges()}, {self.nodes()}")
+        else:  # The method is creating
+            existing_trajs = set()
+
+        new_trajs = set(new_gtt.graph[key_trajectories])
+        overlap = existing_trajs & new_trajs
+        if overlap:
+            raise ValueError(f"Trajectory keys {overlap} already exist in the current graph.")
+
+        # Add edges from the new graph
+        for u, v, data in new_gtt.edges(data=True):
+            self.add_edge(u, v, **data)
+
+        # Merge nodes and their attributes
+        for node in new_gtt.nodes():
+            new_data = new_gtt.nodes[node]
+            if node not in self.nodes:
+                self.add_node(node, **new_data)
+            else:
+                existing_data = self.nodes[node]
+                existing_traj = existing_data.get(key_trajectories)
+                new_traj = new_data.get(key_trajectories)
+
+                if existing_traj is None:
+                    existing_data[key_trajectories] = new_traj.copy() if isinstance(new_traj, list) else new_traj
+                elif new_traj is None:
+                    pass  # Keep existing trajectories
+                else:
+                    combined = sorted(set(existing_traj) | set(new_traj))
+                    existing_data[key_trajectories] = combined
+
+                # Check non-trajectory attributes for consistency
+                existing_attrs = {k: v for k, v in existing_data.items() if k != key_trajectories}
+                new_attrs = {k: v for k, v in new_data.items() if k != key_trajectories}
+                if existing_attrs != new_attrs:
+                    raise ValueError(f"Node {node} has conflicting attrs. Existing: {existing_attrs}, New: {new_attrs}")
+
+        # Update the graph's trajectory list
+        self.graph[key_trajectories] = sorted(existing_trajs.union(new_trajs))
+        # Update other graph attributes from the new graph
+        self.graph.update({k: j for k, j in new_gtt.graph.items() if k != key_trajectories})
+
+        # Verify the integrity of the merged graph
+        self.verify()
+
     def _check_individual_trajectories(self):
         """Validates the structural integrity of each individual trajectory within the graph.
 
@@ -106,6 +214,8 @@ class InputTrajectories(nx.MultiDiGraph):
                 raise ValueError(f"Trajectory {trajectory!r} is a multigraph, which is not allowed.")
             elif nx.number_of_selfloops(trajectory_subgraph) != 0:
                 raise ValueError(f"Trajectory {trajectory!r} contains self-loops.")
+            elif not nx.is_weakly_connected(trajectory_subgraph):
+                raise ValueError(f"Trajectory {trajectory!r} is not weakly connected.")
 
     def verify(self):
         """Performs comprehensive verification of all trajectories within the graph.
@@ -120,3 +230,27 @@ class InputTrajectories(nx.MultiDiGraph):
         potential errors or inconsistencies in downstream operations.
         """
         self._check_individual_trajectories()
+
+    # def save(self, path: str) -> None:
+    #     """Serialize the InputTrajectories instance to a file using pickle.
+
+    #     Args:
+    #         path: Path to the output file.
+    #     """
+    #     with open(path, 'wb') as f:
+    #         pickle.dump(self, f)
+
+    # @classmethod
+    # def load(cls, path: str) -> "InputTrajectories":
+    #     """Safe loading method with exact type checking"""
+    #     with open(path, "rb") as f:
+    #         obj = pickle.load(f)
+    #     if type(obj) is not cls:
+    #         raise TypeError(f"Loaded object is type {type(obj)}, expected {cls}")
+    #     return obj
+
+    def __repr__(self):
+        return (
+            f"InputTrajectories(trajectories={len(self.graph[key_trajectories])}, "
+            f"nodes={self.number_of_nodes()}, edges={self.number_of_edges()})"
+        )
