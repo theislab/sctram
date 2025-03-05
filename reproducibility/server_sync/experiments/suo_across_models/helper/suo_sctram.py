@@ -49,17 +49,17 @@ def main():
         dataset_dir, f"_metric_adata_suo_{lineage_part}_{args.use_rep}_{args.trajectory}_api.pickle"
     )
 
-    # For these ones only as the jobs are killed because of memory: 
+    # For these ones only as the jobs are killed because of memory:
     if args.trajectory in [
         "erythroid_megakaryocyte",
         "haematopoeitic_lineage",
         "macrophage_specialization",
         "stem_cells_and_lymphoid_differentiated_cells",
         "stem_cells_and_mem",
-        "stem_cells_and_myeloid_differentiated_cells"
+        "stem_cells_and_myeloid_differentiated_cells",
     ]:
         sc.pp.subsample(adata, n_obs=128000, random_state=0)
-        
+
     if not args.use_rep.startswith("tardis_"):
         adata = ad.AnnData(X=adata.obsm[args.use_rep].copy(), obs=adata.obs.copy())
     else:
