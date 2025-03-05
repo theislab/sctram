@@ -121,6 +121,7 @@ dependencies:
     - scikit-plot # Plotting utilities for scikit-learn
     - emoji # Add emoji support in Python applications
     - pydot # Graph visualization tool # scib dependency
+    - pygraphviz # Python interface to Graphviz
 
     # Machine Learning
     - scikit-learn # Machine learning library

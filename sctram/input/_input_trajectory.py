@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
 from functools import cached_property
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, FrozenSet, List, Set
 
 import networkx as nx
 from loguru import logger
+
+from sctram.utils._constants import key_trajectories
 
 _logger = logger.bind(name="InputTrajectory")
 
@@ -67,6 +69,370 @@ class InputTrajectory(nx.DiGraph):
             raise ValueError("No root found: the graph has no node with in-degree 0.")
         else:
             raise ValueError(f"Multiple roots found: {roots}")
+
+    def decompose_trajectory_method_1(self: nx.DiGraph, min_size: int = 3) -> List[nx.DiGraph]:
+        subgraphs = []
+
+        # Identify all branch points (nodes with out_degree >= 2)
+        branches = [n for n in self.nodes() if self.out_degree(n) >= 2]
+
+        # Process each branch point to extract subtrees and linear paths
+        for bp in branches:
+            # Add subtree rooted at the branch point if it meets size criteria
+            descendants = nx.descendants(self, bp)
+            subtree_nodes = descendants.union({bp})
+            if len(subtree_nodes) >= min_size:
+                subtree = self.subgraph(subtree_nodes).copy()
+                roots = [n for n in subtree.nodes() if subtree.in_degree(n) == 0]
+                if len(roots) == 1:
+                    subgraphs.append(subtree)
+
+            # Extract linear paths from each successor to the next critical node
+            for succ in self.successors(bp):
+                path = [bp]
+                current = succ
+                while True:
+                    path.append(current)
+                    if self.out_degree(current) != 1:  # Reached a branch point or leaf
+                        break
+                    next_nodes = list(self.successors(current))
+                    if not next_nodes:  # Leaf node
+                        break
+                    current = next_nodes[0]
+                if len(path) >= min_size:
+                    sg = self.subgraph(path).copy()
+                    sg_roots = [n for n in sg.nodes() if sg.in_degree(n) == 0]
+                    if len(sg_roots) == 1:
+                        subgraphs.append(sg)
+
+        # Add the longest path in the DAG
+        longest_path = nx.dag_longest_path(self)
+        if len(longest_path) >= min_size:
+            sg = self.subgraph(longest_path).copy()
+            sg_roots = [n for n in sg.nodes() if sg.in_degree(n) == 0]
+            if len(sg_roots) == 1:
+                subgraphs.append(sg)
+
+        # Handle root nodes that are not branch points
+        roots = [n for n in self.nodes() if self.in_degree(n) == 0]
+        for root in roots:
+            if root not in branches:
+                descendants = nx.descendants(self, root)
+                subtree_nodes = descendants.union({root})
+                if len(subtree_nodes) >= min_size:
+                    subtree = self.subgraph(subtree_nodes).copy()
+                    sg_roots = [n for n in subtree.nodes() if subtree.in_degree(n) == 0]
+                    if len(sg_roots) == 1:
+                        subgraphs.append(subtree)
+
+        for s in range(len(subgraphs)):
+            subgraphs[s].graph[key_trajectories] = subgraphs[s].graph[key_trajectories] + f"_subgraph_{s}"
+
+        return subgraphs
+
+    def decompose_trajectory_method_2(self, min_size: int = 3) -> List[nx.DiGraph]:
+
+        def _process_path(G: nx.DiGraph, path: list, processed: set, min_size: int) -> None:
+            """Handle path decomposition with overlapping chunks"""
+            # Add full path if valid
+            if len(path) >= min_size:
+                _add_valid_subgraph(G, path, processed, min_size)
+
+            # Add overlapping windowed chunks
+            for i in range(len(path) - min_size + 1):
+                chunk = path[i : i + min_size]
+                _add_valid_subgraph(G, chunk, processed, min_size)
+
+        def _trace_linear_path(G: nx.DiGraph, start_node: str) -> list:
+            """Follow linear chain until next branch point"""
+            path = []
+            current = start_node
+            while True:
+                path.append(current)
+                successors = list(G.successors(current))
+                if len(successors) != 1:
+                    break
+                current = successors[0]
+            return path
+
+        def _add_valid_subgraph(G: nx.DiGraph, nodes: list, processed: set, min_size: int) -> None:
+            """Validate and add unique subgraph configurations"""
+            if len(nodes) < min_size:
+                return
+
+            node_set = frozenset(nodes)
+            if node_set in processed:
+                return
+
+            # Validate subgraph properties
+            sg = G.subgraph(nodes)
+            roots = [n for n in sg.nodes if sg.in_degree(n) == 0]
+            if len(roots) == 1 and nx.is_weakly_connected(sg):
+                processed.add(node_set)
+
+        # Validation and initialization
+        if not nx.is_directed_acyclic_graph(self):
+            raise ValueError("Input graph must be a DAG")
+
+        roots = [n for n in self.nodes if self.in_degree(n) == 0]
+        if len(roots) != 1:
+            raise ValueError("Graph must have exactly one root")
+        root = roots[0]
+
+        processed: Set[FrozenSet] = set()
+
+        # 1. Hierarchical functional modules
+        branch_points = [n for n in self.nodes if self.out_degree(n) >= 2] + [root]
+        for node in branch_points:
+            descendants = nx.descendants(self, node).union({node})
+            _add_valid_subgraph(self, descendants, processed, min_size)
+
+        # 2. Longest path decomposition
+        longest_path = nx.dag_longest_path(self)
+        _process_path(self, longest_path, processed, min_size)
+
+        # 3. Branch-to-leaf trajectories
+        leaves = [n for n in self.nodes if self.out_degree(n) == 0]
+        for leaf in leaves:
+            path = nx.shortest_path(self, root, leaf)
+            _process_path(self, path, processed, min_size)
+
+        # 4. Stage-wise decomposition
+        for bp in branch_points:
+            for succ in self.successors(bp):
+                path = _trace_linear_path(self, succ)
+                if path:
+                    full_path = [bp] + path
+                    _process_path(self, full_path, processed, min_size)
+
+        # Convert frozen node sets to subgraphs
+
+        subgraphs = [self.subgraph(nodes).copy() for nodes in processed]
+        for s in range(len(subgraphs)):
+            subgraphs[s].graph[key_trajectories] = subgraphs[s].graph[key_trajectories] + f"_subgraph_{s}"
+
+        return subgraphs
+
+    def plot_trajectory(
+        self,
+        title="trajectory_name",
+        figsize=None,
+        font_size=10,
+        node_size=300,
+        node_color="#8DA0CB",  # Modern muted blue
+        cmap="viridis",
+        color_nodes_by_position=False,
+        # Edge styling parameters
+        edge_width=1,
+        edge_color="gray",
+        color_edges_by_weight=False,
+        edge_weight_attribute="weight",
+        edge_cmap="plasma",
+        edge_vmin=None,
+        edge_vmax=None,
+        edge_colorbar=True,
+        edge_labels=False,
+        edge_label_format=".2f",
+        edge_label_font_size=8,
+        edge_label_color="black",
+        edge_label_offset=None,
+        # Layout parameters
+        label_offset=None,
+        title_y=1.02,
+        layout_args="-Grankdir=LR -Gnodesep=0.25 -Granksep=0.25",
+    ):
+        """
+        Visualizes the graph with configurable styling and automatic layout adjustments.
+
+        Parameters
+        ----------
+        title : str
+            Title of the plot.
+        figsize : tuple, optional
+            Figure dimensions (width, height) in inches. If None, size is auto-calculated.
+        font_size : int, optional
+            Base font size for text elements.
+        node_size : int, optional
+            Size of the nodes.
+        node_color : str or array-like, optional
+            Node color or colormap values.
+        cmap : str, optional
+            Colormap for node coloring when using positional coloring.
+        color_nodes_by_position : bool, optional
+            Whether to color nodes based on their horizontal position.
+        edge_width : int, optional
+            Base width for edges.
+        edge_color : str or array-like, optional
+            Edge color or colormap values.
+        color_edges_by_weight : bool, optional
+            Whether to color edges by their weight attribute.
+        edge_weight_attribute : str, optional
+            Edge attribute key for weight values.
+        edge_cmap : str, optional
+            Colormap for edge coloring when using weight-based coloring.
+        edge_vmin : float, optional
+            Minimum value for edge colormap scaling.
+        edge_vmax : float, optional
+            Maximum value for edge colormap scaling.
+        edge_colorbar : bool, optional
+            Whether to show a colorbar for edge weights.
+        edge_labels : bool, optional
+            Whether to display edge weight labels.
+        edge_label_format : str, optional
+            Format string for edge weight labels.
+        edge_label_font_size : int, optional
+            Font size for edge labels.
+        edge_label_color : str, optional
+            Color for edge labels.
+        edge_label_offset : int, optional
+            Offset distance for edge labels from edges. If None, auto-calculated.
+        label_offset : int, optional
+            Vertical offset for node labels. If None, auto-calculated.
+        title_y : float, optional
+            Vertical position of the title.
+        layout_args : str, optional
+            Arguments for graphviz layout engine.
+        """
+        import matplotlib as mpl
+        import matplotlib.pyplot as plt
+
+        fig = plt.figure(figsize=figsize)  # Temporary figure to handle layout calculations
+        ax = fig.add_subplot(111)
+
+        # Calculate hierarchical layout using graphviz
+        pos = nx.nx_agraph.graphviz_layout(self, prog="dot", args=layout_args)
+
+        # Extract coordinate ranges for automatic parameter calculations
+        x_coords = [pos[node][0] for node in self.nodes()] if self.nodes() else []
+        y_coords = [pos[node][1] for node in self.nodes()] if self.nodes() else []
+
+        # Automatically determine figure size if not specified
+        if figsize is None:
+            if x_coords and y_coords:
+                min_x, max_x = min(x_coords), max(x_coords)
+                min_y, max_y = min(y_coords), max(y_coords)
+                width_points = max_x - min_x
+                height_points = max_y - min_y
+                # Add 20% padding to each side
+                padding_x = 0.2 * width_points if width_points != 0 else 100
+                padding_y = 0.2 * height_points if height_points != 0 else 100
+                # Convert points to inches (assuming 100dpi)
+                fig_width = max((width_points + 2 * padding_x) / 180, 8)  # Minimum width 8"
+                fig_height = max((height_points + 2 * padding_y) / 100, 4)  # Minimum height 4"
+                figsize = (fig_width, fig_height)
+            else:
+                figsize = (4, 3)  # Fallback for empty graphs
+        plt.close(fig)  # Close temporary figure
+
+        # Create actual figure with determined size
+        fig = plt.figure(figsize=figsize)
+        ax = fig.add_subplot(111)
+
+        # Node coloring logic
+        if color_nodes_by_position:
+            try:
+                min_x, max_x = min(x_coords), max(x_coords)
+                color_vals = [(x - min_x) / (max_x - min_x) if max_x != min_x else 0.5 for x in x_coords]
+                node_color = plt.get_cmap(cmap)(color_vals)
+            except Exception as e:
+                print(f"Warning: Positional node coloring failed - {e}. Using base color.")
+
+        # Edge coloring logic
+        if color_edges_by_weight:
+            weights = [self[u][v].get(edge_weight_attribute, 1.0) for u, v in self.edges]
+            edge_vmin = edge_vmin if edge_vmin is not None else (min(weights) if weights else 0)
+            edge_vmax = edge_vmax if edge_vmax is not None else (max(weights) if weights else 1)
+            norm = mpl.colors.Normalize(vmin=edge_vmin, vmax=edge_vmax)
+            cmap_edge = plt.get_cmap(edge_cmap)
+            edge_colors = [cmap_edge(norm(w)) for w in weights]
+            sm = plt.cm.ScalarMappable(norm=norm, cmap=cmap_edge)
+            sm.set_array(weights)
+        else:
+            edge_colors = edge_color
+            sm = None
+
+        # Label positioning offsets
+        if label_offset is None:
+            label_offset = 0
+
+        if edge_label_offset is None:
+            edge_label_offset = 0
+
+        # Calculate final label positions
+        label_pos = {n: (x, y + label_offset) for n, (x, y) in pos.items()}
+
+        # Draw nodes and edges
+        nx.draw_networkx_nodes(
+            self, pos, ax=ax, node_size=node_size, node_color=node_color, edgecolors="black", linewidths=0.8, alpha=1.0
+        )
+
+        nx.draw_networkx_edges(
+            self,
+            pos,
+            ax=ax,
+            arrowstyle="-|>",
+            arrowsize=15,
+            edge_color=edge_colors,
+            width=edge_width,
+            alpha=1.0,
+            connectionstyle="arc3",
+        )
+
+        # Edge label placement
+        if edge_labels:
+            for u, v in self.edges():
+                if edge_weight_attribute not in self[u][v]:
+                    continue
+                weight = self[u][v][edge_weight_attribute]
+                x1, y1 = pos[u]
+                x2, y2 = pos[v]
+                dx, dy = x2 - x1, y2 - y1
+                length = (dx**2 + dy**2) ** 0.5
+                if length == 0:
+                    continue  # Skip self-loops
+                # Calculate perpendicular offset position
+                mid_x = (x1 + x2) / 2 + (dy / length) * edge_label_offset
+                mid_y = (y1 + y2) / 2 - (dx / length) * edge_label_offset
+                ax.text(
+                    mid_x,
+                    mid_y,
+                    f"{weight:{edge_label_format}}",
+                    fontsize=edge_label_font_size,
+                    color=edge_label_color,
+                    ha="center",
+                    va="center",
+                    bbox=dict(boxstyle="round", facecolor="white", alpha=0.8, edgecolor="none"),
+                )
+
+        # Node labels
+        nx.draw_networkx_labels(
+            self,
+            label_pos,
+            ax=ax,
+            font_size=font_size,
+            font_weight="normal",
+            font_family=plt.rcParams["font.family"],
+            alpha=1.0,
+        )
+
+        # Edge weight colorbar
+        if color_edges_by_weight and edge_colorbar and sm:
+            cbar = plt.colorbar(sm, ax=ax, orientation="horizontal", shrink=0.3, aspect=40, pad=0.05)
+            cbar.set_label("Edge Weight", fontsize=font_size)
+            cbar.ax.tick_params(labelsize=font_size - 2)
+
+        # Title styling
+        if title == "trajectory_name":
+            title = self.graph[key_trajectories]
+
+        fig.suptitle(title, y=title_y, fontsize=font_size + 2, fontweight="bold", color="#333333")
+
+        # Final layout adjustments
+        plt.subplots_adjust(
+            left=0.03, right=0.97, top=0.97, bottom=0.15 if (color_edges_by_weight and edge_colorbar) else 0.03
+        )
+        ax.set_axis_off()
+        plt.show()
 
     @cached_property
     def identify(self) -> List[Dict[str, Any]]:

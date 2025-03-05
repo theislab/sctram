@@ -3,13 +3,15 @@
 import sys
 from typing import Any, Dict, List, Optional
 
+import gc
 import anndata as ad
 import pandas as pd
 from loguru import logger
 
 from sctram.api._class_mapping import *
 from sctram.api._defaults_read import get_metrics_by_class as default_metrics
-from sctram.utils._constants import labels_key, neighbors_key
+from sctram.input import InputTrajectories, InputTrajectory
+from sctram.utils._constants import labels_key, neighbors_key, key_trajectories
 
 
 class TrajectoryEvaluationAPI:
@@ -28,33 +30,24 @@ class TrajectoryEvaluationAPI:
     def __init__(
         self,
         adata: ad.AnnData,
-        input_trajectories: Any,
+        input_trajectory: InputTrajectory,
         labels_obs: str,
         root_label: str = None,
         logger_level: str = "INFO",
     ):
-        """
-        Parameters
-        ----------
-        adata : anndata.AnnData
-            The AnnData object containing your data.
-        trajectory_definition : Any
-            A representation of the ground truth trajectory. This could be
-            an edge list, a graph, or a custom trajectory object.
-        labels : np.ndarray, optional
-            Cell-level labels (e.g., cluster IDs, experimental conditions, etc.).
-        logger_level : int
-            Logging level (e.g., DEBUG, INFO, WARNING).
-        """
+        self.logger_level = logger_level
+        self.set_logger()
+
         self.adata = adata
-        self.input_trajectories = input_trajectories
+        self.input_trajectory = input_trajectory
         self.labels_obs = labels_obs
-        self.root_label = root_label
+        self.root_label = root_label  # TODO: depracete this and use only for pseudotime evaluation method.
 
         self.results: Dict[str, Any] = {}
 
+    def set_logger(self):
         logger.remove()  # Setup logger
-        logger.add(sys.stderr, level=logger_level)
+        logger.add(sys.stderr, level=self.logger_level)
         self.logger = logger.bind(name="TrajectoryEvaluationAPI")
 
     def get_all_results(self) -> Dict[str, Any]:
@@ -86,6 +79,8 @@ class TrajectoryEvaluationAPI:
         return metrics
 
     def evaluate_with_defaults(self):
+        # Main sctram running function, very simplified version api run.
+        # TODO: write advanced version of this.
         self.evaluate_embedding()
         adata = self.evaluate_adjacency(_return_inference_anndata=True)
         self.evaluate_pseudotime(_given_adata=adata)
@@ -108,17 +103,20 @@ class TrajectoryEvaluationAPI:
 
         # Subset anndata with only available nodes.
         if _given_adata is None:
-            _adata = self.adata[self.adata.obs[self.labels_obs].isin(self.input_trajectories.nodes())]
+            _adata = self.adata[self.adata.obs[self.labels_obs].isin(self.input_trajectory.nodes())]
         else:
             _adata = _given_adata
 
         if self.root_label is None or self.root_label not in _adata.obs[self.labels_obs].to_numpy():
-            raise ValueError("Root label is required for pseudotime based metrics.")
+            root_label = self.input_trajectory.get_unique_root()
+            self.logger.info("Root label is obtained from the InputTrajectory object.")
+        else:
+            root_label = self.root_label
 
         inference_params = inference_params or dict(
             random_state=42,
             neighbors_params={"n_neighbors": 50},
-            iroot_params=dict(label_key=labels_key, label=self.root_label, method="centroid", outlier_definition_z=3),
+            iroot_params=dict(label_key=labels_key, label=root_label, method="centroid", outlier_definition_z=3),
         )
 
         if _given_adata is None:
@@ -137,14 +135,14 @@ class TrajectoryEvaluationAPI:
                     method="diffusion_with_damping",
                     handle_disconnected="assign_max_plus_one",
                     alternative_distance=None,
-                    root_label=self.root_label,
+                    root_label=root_label,
                 )
             ),
             subset_params=None,
         )
         evaluation = EvaluateClass(method_params=dict(metrics=metrics), **evaluate_params)
         evaluation.evaluate(
-            given_trajectory=self.input_trajectories,
+            given_trajectory=self.input_trajectory,
             inferred_trajectory=inferred_trajectories,
             labels=_adata.obs[self.labels_obs].to_numpy(),
         )
@@ -176,7 +174,7 @@ class TrajectoryEvaluationAPI:
         )
         # Subset anndata with only available nodes.
         if _given_adata is None:
-            _adata = self.adata[self.adata.obs[self.labels_obs].isin(self.input_trajectories.nodes())]
+            _adata = self.adata[self.adata.obs[self.labels_obs].isin(self.input_trajectory.nodes())]
         else:
             _adata = _given_adata
 
@@ -194,7 +192,7 @@ class TrajectoryEvaluationAPI:
         evaluate_params = evaluate_params or dict(subset_params=None)
         evaluation = EvaluateClass(method_params=dict(metrics=metrics), **evaluate_params)
         evaluation.evaluate(
-            given_trajectory=self.input_trajectories,
+            given_trajectory=self.input_trajectory,
             inferred_trajectory=inferred_trajectories,
             labels=inferred_trajectories_labels,
         )
@@ -227,9 +225,44 @@ class TrajectoryEvaluationAPI:
         evaluate_params = evaluate_params or dict()
         evaluation = EvaluateClass(method_params=dict(metrics=metrics), **evaluate_params)
         evaluation.evaluate(
-            given_trajectory=self.input_trajectories,
+            given_trajectory=self.input_trajectory,
             inferred_trajectory=inferred_trajectories_anndata,
             labels=self.adata.obs[self.labels_obs].to_numpy(),
         )
 
         self.results["embedding"] = evaluation.get_result()
+
+
+class WithBootstrappedTrajectoryAPI:
+
+    def __init__(
+        self, input_trajectory: InputTrajectory, lower_level_api_kwargs: dict, bootstrap_kwargs: dict = dict(), logger_level: str = "INFO"
+    ):
+        self.logger_level = logger_level
+        self.set_logger()
+
+        if "logger_level" in lower_level_api_kwargs:
+            raise ValueError
+        if "input_trajectory" in lower_level_api_kwargs:
+            raise ValueError
+        self.lower_level_api_kwargs = lower_level_api_kwargs
+        self.input_trajectory = input_trajectory
+        self.input_trajectories_subgraphs = self.input_trajectory.decompose_trajectory_method_1(**bootstrap_kwargs)
+        self.results: Dict[str, Any] = {}
+
+    def evaluate_with_defaults(self):
+        for it in self.input_trajectories_subgraphs:
+            api = TrajectoryEvaluationAPI(logger_level=self.logger_level, input_trajectory=it, **self.lower_level_api_kwargs)
+            api.evaluate_with_defaults()
+            df = api.get_all_results()
+            self.results[it.graph[key_trajectories]] = dict(
+                df = df.copy(),
+                subgraph = it.copy()
+            )
+            del api
+            gc.collect()
+    
+    def set_logger(self):
+        logger.remove()
+        logger.add(sys.stderr, level=self.logger_level)
+        self.logger = logger.bind(name="TrajectoryEvaluationWithBootstrappedTrajectoryAPI")

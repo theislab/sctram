@@ -21,6 +21,8 @@ dependencies:
 
     - pytorch # gnn metric
     - pyg::pyg # gnn metric
+    - pygraphviz
+    - colorcet
     - gudhi
     - eagerpy
     - fastdtw
