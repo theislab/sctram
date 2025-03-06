@@ -25,14 +25,16 @@ def main():
     parser = argparse.ArgumentParser(description="blabla.")
     parser.add_argument("--lineage", type=str, required=True, help="Lineage (e.g., Haematopoeitic_lineage, Stromal)")
     parser.add_argument("--use_rep", type=str, required=True, help="Embedding key from obsm (e.g., X_pca, X_scvi)")
-    parser.add_argument("--trajectory_object_path", type=str, required=True)
+    parser.add_argument("--decompose_method", type=str, required=True)
     parser.add_argument("--trajectory", type=str, required=True)
     args = parser.parse_args()
 
     # Prepare input_trajectory
-    with open(args.trajectory_object_path, "rb") as _file:
-        lit = pickle.load(_file)
-    little = lit.get_trajectory(args.trajectory, include_additional_nodes=False)
+    input_trajectories_path_litc = os.path.join(dataset_dir, f"adata_suo_input_haematopoeitic_lineage_litc_{args.decompose_method}.pkl")
+    with open(input_trajectories_path_litc, "rb") as _file:
+        litc = pickle.load(_file)
+        
+    little = litc.get_trajectory(args.trajectory, include_additional_nodes=False)
     root_label = little.get_unique_root()
 
     # Load complete dataset
@@ -44,22 +46,13 @@ def main():
     # Generate output filename
     lineage_part = args.lineage.replace("_lineage", "").lower()
 
-    output_file = os.path.join(dataset_dir, f"_metric_adata_suo_{lineage_part}_{args.use_rep}_{args.trajectory}.pickle")
+    output_file = os.path.join(dataset_dir, f"_metric_adata_suo_bootstrap_method_{args.decompose_method}_{lineage_part}_{args.use_rep}_{args.trajectory}.pickle")
     output_file_api = os.path.join(
-        dataset_dir, f"_metric_adata_suo_{lineage_part}_{args.use_rep}_{args.trajectory}_api.pickle"
+        dataset_dir, f"_metric_adata_suo_bootstrap_method_{args.decompose_method}_{lineage_part}_{args.use_rep}_{args.trajectory}_api.pickle"
     )
 
-    # For these ones only as the jobs are killed because of memory: 
-    if args.trajectory in [
-        "erythroid_megakaryocyte",
-        "haematopoeitic_lineage",
-        "macrophage_specialization",
-        "stem_cells_and_lymphoid_differentiated_cells",
-        "stem_cells_and_mem",
-        "stem_cells_and_myeloid_differentiated_cells"
-    ]:
-        sc.pp.subsample(adata, n_obs=128000, random_state=0)
-        
+    sc.pp.subsample(adata, n_obs=128000, random_state=0)    
+    
     if not args.use_rep.startswith("tardis_"):
         adata = ad.AnnData(X=adata.obsm[args.use_rep].copy(), obs=adata.obs.copy())
     else:
@@ -80,7 +73,7 @@ def main():
     df = api.get_all_results()
     print(df)
     df.to_pickle(output_file)
-    print(f"Saved result for {args.lineage!r} with {args.use_rep!r} of group {args.trajectory!r} to {output_file!r}")
+    print(f"Saved result for {args.lineage!r} with {args.use_rep!r} of group {args.trajectory!r} to {output_file!r} for method {args.decompose_method!r}")
 
 
 if __name__ == "__main__":

@@ -151,6 +151,7 @@ def load_and_validate_metrics_config(config_path):
             referenced_base.add(metric_def["base_function"])
 
     all_python_modules = {os.path.splitext(os.path.basename(f))[0] for f in glob.glob(f"{directory}/_src/_*.py")}
+    all_python_modules = {i for i in all_python_modules if i not in ["__init__", "__init__.py"]}
     referenced_modules = {i for i, _ in referenced_pairs}
     unused_modules = all_python_modules - referenced_modules
     if unused_modules:

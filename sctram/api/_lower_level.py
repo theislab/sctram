@@ -236,7 +236,12 @@ class TrajectoryEvaluationAPI:
 class WithBootstrappedTrajectoryAPI:
 
     def __init__(
-        self, input_trajectory: InputTrajectory, lower_level_api_kwargs: dict, bootstrap_kwargs: dict = dict(), logger_level: str = "INFO"
+        self, 
+        input_trajectory: InputTrajectory, 
+        decomposition_method: str,
+        lower_level_api_kwargs: dict, 
+        bootstrap_kwargs: dict = dict(), 
+        logger_level: str = "INFO"
     ):
         self.logger_level = logger_level
         self.set_logger()
@@ -245,9 +250,18 @@ class WithBootstrappedTrajectoryAPI:
             raise ValueError
         if "input_trajectory" in lower_level_api_kwargs:
             raise ValueError
+        
         self.lower_level_api_kwargs = lower_level_api_kwargs
         self.input_trajectory = input_trajectory
-        self.input_trajectories_subgraphs = self.input_trajectory.decompose_trajectory_method_1(**bootstrap_kwargs)
+        self.decomposition_method = decomposition_method
+        
+        if decomposition_method == "method_1":
+            self.input_trajectories_subgraphs = self.input_trajectory.decompose_trajectory_method_1(**bootstrap_kwargs)
+        elif decomposition_method == "method_2":
+            self.input_trajectories_subgraphs = self.input_trajectory.decompose_trajectory_method_2(**bootstrap_kwargs)
+        else:
+            raise ValueError
+            
         self.results: Dict[str, Any] = {}
 
     def evaluate_with_defaults(self):

@@ -27,6 +27,12 @@ class InputTrajectory(nx.DiGraph):
         (Inherits all attributes from networkx.DiGraph)
     """
 
+    def __repr__(self):
+        return (
+            f"InputTrajectory (trajectory={self.graph[key_trajectories]!r}, "
+            f"nodes={self.number_of_nodes()}, edges={self.number_of_edges()})"
+        )
+
     def to_symetrical_multidigraph(self) -> nx.MultiDiGraph:
         # TODO: several places in the code, this should be used instead of manually doing it.
         """Create a nx.MultiDiGraph version by just making each edge two sided.
