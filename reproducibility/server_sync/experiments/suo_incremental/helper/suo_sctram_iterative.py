@@ -25,20 +25,30 @@ def main():
     parser = argparse.ArgumentParser(description="blabla.")
     parser.add_argument("--lineage", type=str, required=True, help="Lineage (e.g., Haematopoeitic_lineage, Stromal)")
     parser.add_argument("--use_rep", type=str, required=True, help="Embedding key from obsm (e.g., X_pca, X_scvi)")
-    parser.add_argument("--decompose_method", type=str, required=True)
+    parser.add_argument("--epoch", type=int, required=True)
     parser.add_argument("--trajectory", type=str, required=True)
+    parser.add_argument("--itpn_base", type=str, required=True)
     args = parser.parse_args()
 
+    print()
+    print("args.lineage", args.lineage)
+    print("args.use_rep", args.use_rep)
+    print("args.epoch", args.epoch)
+    print("args.trajectory", args.trajectory)
+    print("args.itpn_base", args.itpn_base)
+    print()
+
     # Prepare input_trajectory
-    input_trajectories_path_litc = os.path.join(dataset_dir, f"adata_suo_input_haematopoeitic_lineage_litc_{args.decompose_method}.pkl")
+    input_trajectories_path_name = args.itpn_base + ".pkl"
+    input_trajectories_path_litc = os.path.join(dataset_dir, input_trajectories_path_name)
     with open(input_trajectories_path_litc, "rb") as _file:
         litc = pickle.load(_file)
-        
     little = litc.get_trajectory(args.trajectory, include_additional_nodes=False)
     root_label = little.get_unique_root()
 
     # Load complete dataset
-    adata = sc_suo_developmental_complete(dataset_dir=dataset_dir)
+    adata_path = os.path.join(dataset_dir, f"adata_suo_incremental_training_{args.use_rep}_epoch_{args.epoch}.h5ad")
+    adata = ad.read_h5ad(adata_path)
 
     # Subset to the specified lineage
     adata = adata[adata.obs["LVL0"] == args.lineage]
@@ -46,21 +56,16 @@ def main():
     # Generate output filename
     lineage_part = args.lineage.replace("_lineage", "").lower()
 
-    output_file = os.path.join(dataset_dir, f"_metric_adata_suo_bootstrap_method_{args.decompose_method}_{lineage_part}_{args.use_rep}_{args.trajectory}.pickle")
-    output_file_api = os.path.join(
-        dataset_dir, f"_metric_adata_suo_bootstrap_method_{args.decompose_method}_{lineage_part}_{args.use_rep}_{args.trajectory}_api.pickle"
-    )
-
+    output_file = os.path.join(dataset_dir, f"_metric_adata_suo_iterative_{lineage_part}_{args.use_rep}_{args.epoch}_{args.itpn_base}_{args.trajectory}.pickle")
+    
     n_trajectory_cells = adata.obs["LVL3"].isin(set(little.nodes())).sum()
     n_max_trajectory_cells = 80000
     n_ratio = n_max_trajectory_cells/n_trajectory_cells
     if n_ratio<1:
         sc.pp.subsample(adata, fraction=n_ratio, random_state=0)    
     
-    if not args.use_rep.startswith("tardis_"):
-        adata = ad.AnnData(X=adata.obsm[args.use_rep].copy(), obs=adata.obs.copy())
-    else:
-        adata = ad.AnnData(X=adata.obsm[args.use_rep][:, -24:].copy(), obs=adata.obs.copy())
+    if args.use_rep.startswith("tardis_"):
+        raise ValueError
 
     gc.collect()
     print(adata)
@@ -77,7 +82,7 @@ def main():
     df = api.get_all_results()
     print(df)
     df.to_pickle(output_file)
-    print(f"Saved result for {args.lineage!r} with {args.use_rep!r} of group {args.trajectory!r} to {output_file!r} for method {args.decompose_method!r}")
+    print(f"Saved result to {output_file!r}")
 
 
 if __name__ == "__main__":
