@@ -38,8 +38,9 @@ def main():
     print("dataset loaded.")
 
     expected_size = 841922
+    step_per_epoch = 841922 * 0.25 * 0.8 / 512 # note that 512 batch_size, 0.25 limit_train_batches, 0.8 train_size
     assert len(adata) == expected_size, "step calculation should be dependent on adata size"
-    # step_per_epoch = 841922 * 0.25 / 512 # note that 512 batch_size, 0.25 limit_train_batches
+    # step_per_epoch = 841922 * 0.25 * 0.8  / 512
     
     model_params = dict(
         n_latent=24, 
@@ -52,10 +53,11 @@ def main():
         limit_train_batches=0.25, 
         limit_val_batches=0.25,
         plan_kwargs=dict(
-            n_epochs_kl_warmup=400    
+            n_steps_kl_warmup = 400 * step_per_epoch,
+            n_epochs_kl_warmup = None
         ),
         max_steps=int(args.epoch),
-        max_epochs=None
+        max_epochs=1000  # Explicitly set to a high value to rely on max_steps
     )
     
     if args.model_str == "scvi":
