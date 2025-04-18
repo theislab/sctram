@@ -47,8 +47,7 @@ def main():
     input_trajectories_path_litc = os.path.join(dataset_dir, input_trajectories_path_name)
     with open(input_trajectories_path_litc, "rb") as _file:
         litc = pickle.load(_file)
-    little = litc.get_trajectory(args.trajectory, include_additional_nodes=False)
-    root_label = little.get_unique_root()
+    
 
     # Load complete dataset
     adata_path = os.path.join(dataset_dir, f"adata_suo_incremental_training_{args.use_rep}_epoch_{args.epoch}.h5ad")
@@ -61,12 +60,14 @@ def main():
     lineage_part = args.lineage.replace("_lineage", "").lower()
 
     output_file = os.path.join(dataset_dir, f"_metric_adata_suo_iterative_{lineage_part}_{args.use_rep}_{args.epoch}_{args.itpn_base}_{args.trajectory}_scib.pickle")
-    
-    n_trajectory_cells = adata.obs["LVL3"].isin(set(little.nodes())).sum()
-    n_max_trajectory_cells = 80000
-    n_ratio = n_max_trajectory_cells/n_trajectory_cells
-    if n_ratio<1:
-        sc.pp.subsample(adata, fraction=n_ratio, random_state=0)    
+
+    if args.trajectory != "all_lineage_no_filter":
+        little = litc.get_trajectory(args.trajectory, include_additional_nodes=False)
+        n_trajectory_cells = adata.obs["LVL3"].isin(set(little.nodes())).sum()
+        n_max_trajectory_cells = 80000
+        n_ratio = n_max_trajectory_cells/n_trajectory_cells
+        if n_ratio<1:
+            sc.pp.subsample(adata, fraction=n_ratio, random_state=0)    
     
     if args.use_rep.startswith("tardis_"):
         raise ValueError
