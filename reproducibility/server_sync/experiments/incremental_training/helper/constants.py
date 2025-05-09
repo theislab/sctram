@@ -1,0 +1,72 @@
+metric_direction_dict = {
+    # (lower is better)
+    'frobenius': 'decreasing',
+    'l1_norm': 'decreasing',
+    'graph_edit_distance': 'decreasing',
+    'spectral_distance': 'decreasing',
+    'hamming_distance': 'decreasing',
+    'average_shortest_path_difference': 'decreasing',
+    'laplacian_spectral_emd': 'decreasing',
+    'clustering_coeff_diff': 'decreasing',
+    'weisfeiler_lehman_distance': 'decreasing',
+    'maximum_common_subgraph_distance': 'decreasing',
+    'random_walk_kernel_distance': 'decreasing',
+    'persistence_diagram_distance': 'decreasing',
+    'mse': 'decreasing',
+    'mae': 'decreasing',
+    'dtw_distance': 'decreasing',
+    'wasserstein_distance_pseudotime': 'decreasing',
+    'cdf_kolmogorov_smirnov': 'decreasing',
+    'cdf_cramer_von_mises': 'decreasing',
+    'sammons_stress': 'decreasing',
+    'wasserstein_distance_embedding': 'decreasing',
+    'gearys_c_embedding': 'decreasing',
+    'gearys_c_pseudotime': 'decreasing',
+
+    # (unsure)
+    'normalized_mean_curvature': 'decreasing',
+    
+    # (higher is better)
+    'accuracy': 'increasing',
+    'jaccard_similarity': 'increasing',
+    'recall': 'increasing',
+    'precision': 'increasing',
+    'f1_score': 'increasing',
+    'permutation_marginalized_ssim': 'increasing',
+    'mantel_correlation': 'increasing',
+    'gdv_similarity': 'increasing',
+    'gin_gnn_similarity': 'increasing',
+    'pearson_correlation': 'increasing',
+    'spearman_correlation': 'increasing',
+    'kendall_correlation': 'increasing',
+    'r_squared_with_spline': 'increasing',
+    'r_squared': 'increasing',
+    'concordance_index': 'increasing',
+    'normalized_mutual_information': 'increasing',
+    'mutual_information_kde': 'increasing',
+    'branch_silhouette_score': 'increasing',
+    'embedding_distance_correlation': 'increasing',
+    'graph_based_trustworthiness': 'increasing',
+    'neighborhood_preservation_score': 'increasing',
+    'directionality_preservation': 'increasing',
+    'trajectory_cardinality_validation': 'increasing',
+    'morans_i_embedding': 'increasing',
+    'morans_i_pseudotime': 'increasing'
+}
+
+metrics_scib = {
+    'isolated_labels': 'Bio conservation',
+    'nmi_ari_cluster_labels_kmeans_nmi': 'Bio conservation',
+    'nmi_ari_cluster_labels_kmeans_ari': 'Bio conservation',
+    'silhouette_label': 'Bio conservation',
+    'clisi_knn': 'Bio conservation',
+    'silhouette_batch': 'Batch correction',
+    'ilisi_knn': 'Batch correction',
+    'kbet_per_label': 'Batch correction',
+    'graph_connectivity': 'Batch correction',
+    'pcr_comparison': 'Batch correction',
+    'Batch correction': 'Aggregate score',
+    'Bio conservation': 'Aggregate score',
+    'Total scIB': 'Aggregate score'
+}
+
