@@ -46,6 +46,7 @@ dependencies:
 
     # Utilities and General Tools
     - requests # HTTP requests library
+    - yfinance # For fetching finance data
     - tqdm # Progress bars
     - memory_profiler # Memory usage profiling
     - gputil # GPU management utilities
@@ -122,6 +123,7 @@ dependencies:
     - emoji # Add emoji support in Python applications
     - pydot # Graph visualization tool # scib dependency
     - pygraphviz # Python interface to Graphviz
+    - graphviz # Open Source graph visualization software.
 
     # Machine Learning
     - scikit-learn # Machine learning library
@@ -155,6 +157,7 @@ dependencies:
     - pytorch-lightning # High-level interface for PyTorch
     - pytorch::torchvision # Computer vision utilities for PyTorch
     - pytorch::torchaudio # Audio utilities for PyTorch
+    - pytorch::torchtext # Data loaders and abstractions for text and NLP
     - pytorch::captum # Model interpretability for PyTorch
     - pyg::pyg # PyTorch Geometric, a library for deep learning on graphs and irregular structures
     - cuda-version=12.5 # Specific CUDA version # Should be commented out for MAC Silicon
