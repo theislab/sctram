@@ -70,3 +70,32 @@ metrics_scib = {
     'Total scIB': 'Aggregate score'
 }
 
+trajectory_classification_dict = {
+    'alternative_myeloid': 'myeloid',
+    'b_cell_specialization': 'lymphoid',
+    'b_cells': 'lymphoid',
+    'cd4': 'lymphoid',
+    'complete_stem_trajectory': 'other',
+    'dendritic': 'myeloid',
+    'early_b_cells': 'lymphoid',
+    'early_lymphoid': 'lymphoid',
+    'early_stem_trajectory': 'other',
+    'elp_branching': 'lymphoid',
+    'erythroid': 'mem',
+    'erythroid_megakaryocyte': 'mem',
+    'gmp_branching': 'myeloid',
+    'granulocyte_macrophage': 'myeloid',
+    'granulocyte_mast': 'myeloid',
+    'granulocyte_monocytes': 'myeloid',
+    'haematopoeitic_lineage': 'other',
+    'icl_nk': 'lymphoid',
+    'macrophage_specialization': 'myeloid',
+    'megakaryocyte': 'mem',
+    'neutrophil': 'myeloid',
+    'stem_cells_and_lymphoid_differentiated_cells': 'lymphoid',
+    'stem_cells_and_mem': 'mem',
+    'stem_cells_and_myeloid_differentiated_cells': 'myeloid',
+    't_cell_mid': 'lymphoid',
+    't_cell_nkt': 'lymphoid',
+    'tissue_macrophages': 'myeloid'
+}

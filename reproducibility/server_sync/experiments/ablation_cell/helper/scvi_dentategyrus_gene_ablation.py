@@ -87,15 +87,12 @@ def main():
 
     latent = ad.AnnData(X=vae.get_latent_representation())
     latent.obs = adata.obs.copy()
-    sc.pp.neighbors(latent)
+    sc.pp.neighbors(latent, n_neighbors=50)
     sc.tl.umap(latent)
 
     latent_dir_path = os.path.join(dataset_dir, f"scvi_dentategyrus_ablation_gene_fraction_{fraction}_seed{seed}.h5ad")
     latent.write_h5ad(latent_dir_path)
-
-    
-    
-    
+ 
 if __name__ == "__main__":
     main()
         
