@@ -1,11 +1,13 @@
 import gc
 import os
+import numpy as np
 import pandas as pd
 import math
 from typing import Mapping, Any
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import seaborn as sns
+from adjustText import adjust_text
 from matplotlib.ticker import FormatStrFormatter, AutoMinorLocator, MaxNLocator
 
 def normalize_and_align(df, metric_direction):
@@ -73,10 +75,10 @@ def plot_summary_ci(
     
     # ——— polished y-axis ———
     ax.set_ylabel(f"Performance\n(z-score, {int(ci*100)} % CI)", fontsize=8, labelpad=12)
-    ax.yaxis.set_major_formatter(FormatStrFormatter("%d"))
+    ax.yaxis.set_major_formatter(FormatStrFormatter("%.1f"))
 
-    ax.tick_params(axis="x", labelsize=9)
-    ax.tick_params(axis="y", labelsize=9)
+    ax.tick_params(axis="x", labelsize=8)
+    ax.tick_params(axis="y", labelsize=8)
 
     # Dashed horizontal grid – subtle
     ax.grid(axis="y", linestyle="--", alpha=0.4)
@@ -128,6 +130,89 @@ def plot_summary_ci(
     return fig, ax
 
 
+def annotate_points_on_line(
+    ax: plt.Axes,
+    x_points: list[float],
+    *,
+    label_fmt: str = "{:.2f}",
+    offset_frac: float | None = 0.04,   # ← choose ONE of these …
+    offset_abs : float | None = None,   # ← … leave the other as None
+    scatter_kwargs: dict | None = None,
+    text_kwargs   : dict | None = None,
+    arrowprops    : dict | None = None,
+):
+    """
+    Place labels a user-controlled distance to the RIGHT of each marker,
+    then draw arrows that touch both label and marker.
+    """
+    import numpy as np
+
+    if not ax.lines:
+        raise ValueError("No line was found on the supplied Axes.")
+
+    # ——— get line data ——————————————————————————
+    line        = ax.lines[0]
+    x_data, y_data = map(np.asarray, (line.get_xdata(), line.get_ydata()))
+    ord_idx     = np.argsort(x_data)
+    x_data, y_data = x_data[ord_idx], y_data[ord_idx]
+
+    # ——— y at requested x ——————————————————————
+    if ax.get_xscale() == "log":
+        y_points = np.interp(np.log10(x_points), np.log10(x_data), y_data)
+    else:
+        y_points = np.interp(x_points, x_data, y_data)
+
+    # ——— markers ——————————————————————————————
+    scatter_defaults = dict(s=40, facecolor="white", edgecolor="black", zorder=4)
+    scatter_defaults.update(scatter_kwargs or {})
+    ax.scatter(x_points, y_points, **scatter_defaults)
+
+    # ——— figure out the horizontal offset ————
+    if ax.get_xscale() == "log":
+        # multiplicative offset: x_out = x_in * 10**d
+        if offset_abs is not None:          # absolute multiplier
+            x_text = [xp * offset_abs       for xp in x_points]
+        else:                               # fractional multiplier
+            log_span = np.log10(ax.get_xlim()[1]) - np.log10(ax.get_xlim()[0])
+            factor   = 10 ** ( (offset_frac or 0) * log_span )
+            x_text = [xp * factor           for xp in x_points]
+    else:
+        # additive offset: x_out = x_in + d
+        if offset_abs is not None:
+            dx = offset_abs
+        else:
+            dx = (offset_frac or 0) * (ax.get_xlim()[1] - ax.get_xlim()[0])
+        x_text = [xp + dx                   for xp in x_points]
+
+    # ——— labels ——————————————————————————————
+    texts = []
+    text_defaults = dict(
+        ha="left", va="center", fontsize=8, zorder=5,
+        bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="black", lw=0.4, alpha=0.85)
+    )
+    text_defaults.update(text_kwargs or {})
+
+    for xt, xp, yp in zip(x_text, x_points, y_points):
+        txt = ax.text(xt, yp, label_fmt.format(xp), **text_defaults)
+        texts.append(txt)
+
+    # ——— arrow & collision-avoidance ——————————
+    arrow_defaults = dict(arrowstyle="->", color="black",
+                          lw=0.7, mutation_scale=10, shrinkA=0, shrinkB=0)
+    arrow_defaults.update(arrowprops or {})
+
+    adjust_text(
+        texts,
+        x=x_points,
+        y=y_points,
+        ax=ax,
+        expand_points=(1.15, 1.25),
+        arrowprops=arrow_defaults
+    )
+
+    return texts
+
+    
 def plot_umap_grid(
     definitions: Mapping[str, Any],
     dataset_key: str = "tardis_sciplex_dose",
