@@ -145,7 +145,6 @@ def annotate_points_on_line(
     Place labels a user-controlled distance to the RIGHT of each marker,
     then draw arrows that touch both label and marker.
     """
-    import numpy as np
 
     if not ax.lines:
         raise ValueError("No line was found on the supplied Axes.")
@@ -185,6 +184,9 @@ def annotate_points_on_line(
         x_text = [xp + dx                   for xp in x_points]
 
     # ——— labels ——————————————————————————————
+    if text_kwargs is False:
+        return []
+    
     texts = []
     text_defaults = dict(
         ha="left", va="center", fontsize=8, zorder=5,
