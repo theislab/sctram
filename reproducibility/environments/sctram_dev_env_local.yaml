@@ -21,6 +21,9 @@ dependencies:
 
     - pytorch # gnn metric
     - pyg::pyg # gnn metric
+    - pygraphviz
+    - graphviz # Open Source graph visualization software.
+    - colorcet
     - gudhi
     - eagerpy
     - fastdtw

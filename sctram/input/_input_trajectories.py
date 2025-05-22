@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 
-import pickle
+from loguru import logger
 from typing import Any, Iterable, Optional, Union
-
+import sys
 import networkx as nx
 
 from sctram.input._input_trajectory import InputTrajectory
 from sctram.input._read_trajectories import read_dict
 from sctram.utils._constants import InputGraphPossibleTypes, key_trajectories
+
+_logger = logger.bind(name="InputTrajectories")
 
 
 class InputTrajectories(nx.MultiDiGraph):
@@ -46,7 +48,7 @@ class InputTrajectories(nx.MultiDiGraph):
                 additional_nodes=additional_nodes,
                 node_attributes=node_attributes,
             )
-            self.update_trajectory(new_gtt)
+            self.update_trajectories(new_gtt)        
 
     def get_trajectory(self, trajectory: str, include_additional_nodes: bool) -> InputTrajectory:
         """Extracts a subgraph corresponding to a specific trajectory.
@@ -129,7 +131,7 @@ class InputTrajectories(nx.MultiDiGraph):
 
         return trajectory_subgraph
 
-    def update_trajectory(self, new_gtt: Union[nx.MultiDiGraph, "InputTrajectories"]):
+    def update_trajectories(self, new_gtt: Union[nx.MultiDiGraph, "InputTrajectories"]):
         """Merges a new graph into the current instance, updating trajectories and attributes.
 
         Args:
@@ -177,11 +179,69 @@ class InputTrajectories(nx.MultiDiGraph):
                 new_attrs = {k: v for k, v in new_data.items() if k != key_trajectories}
                 if existing_attrs != new_attrs:
                     raise ValueError(f"Node {node} has conflicting attrs. Existing: {existing_attrs}, New: {new_attrs}")
+                # nx.set_node_attributes(self, {node: existing_data.copy()})
 
         # Update the graph's trajectory list
         self.graph[key_trajectories] = sorted(existing_trajs.union(new_trajs))
         # Update other graph attributes from the new graph
         self.graph.update({k: j for k, j in new_gtt.graph.items() if k != key_trajectories})
+
+        # Verify the integrity of the merged graph
+        self.verify()
+        
+    def add_trajectory(self, input_trajectory: Union[nx.DiGraph, "InputTrajectory"]):
+        if key_trajectories in self.graph:  # The method is updating
+            existing_trajs = set(self.graph[key_trajectories])
+        elif not (len(self.edges()) == len(self.nodes()) == 0):
+            raise ValueError(f"Unexpected error: {self.edges()}, {self.nodes()}")
+        else:  # The method is creating
+            existing_trajs = set()
+        
+        nt = input_trajectory.graph[key_trajectories]
+        if nt in existing_trajs:
+            raise ValueError(f"Trajectory {nt!r} already exist in the current graph.")
+            
+        # Add edges from the new graph
+        for u, v, data in input_trajectory.edges(data=True):
+            if key_trajectories in data.keys():
+                raise ValueError(f"InputTrajectory object should not have {key_trajectories!r} in edge attributes.")
+            data[key_trajectories] = nt
+            self.add_edge(u, v, **data)
+            
+        # Merge nodes and their attributes
+        for node in input_trajectory.nodes():
+            new_data = input_trajectory.nodes[node]
+            if key_trajectories in new_data.keys():
+                raise ValueError(f"InputTrajectory object should not have {key_trajectories!r} in node attributes.")    
+            new_data[key_trajectories] = [nt]            
+            if node not in self.nodes:
+                self.add_node(node, **new_data)
+            else:
+                existing_data = self.nodes[node]
+                existing_traj = existing_data.get(key_trajectories)
+                new_traj = new_data[key_trajectories]
+
+                if existing_traj is None:
+                    existing_data[key_trajectories] = new_traj.copy()
+                else:
+                    combined = sorted(set(existing_traj) | set(new_traj))
+                    existing_data[key_trajectories] = combined
+
+                # Check non-trajectory attributes for consistency
+                existing_attrs = {k: v for k, v in existing_data.items() if k != key_trajectories}
+                new_attrs = {k: v for k, v in new_data.items() if k != key_trajectories}
+                if existing_attrs != new_attrs:
+                    raise ValueError(f"Node {node} has conflicting attrs. Existing: {existing_attrs}, New: {new_attrs}")
+                # nx.set_node_attributes(self, {node: existing_data.copy()})
+        
+        # Update the graph's trajectory list
+        existing_trajs.add(input_trajectory.graph[key_trajectories])
+        self.graph[key_trajectories] = sorted(existing_trajs)
+        # Update other graph attributes from the new graph
+        new_attributes = {k: j for k, j in input_trajectory.graph.items() if k != key_trajectories}
+        if len(new_attributes) > 0:
+            _logger.warning("There is additional graph attributes in the new trajectory.")
+            self.graph.update(new_attributes)
 
         # Verify the integrity of the merged graph
         self.verify()
@@ -251,6 +311,6 @@ class InputTrajectories(nx.MultiDiGraph):
 
     def __repr__(self):
         return (
-            f"InputTrajectories(trajectories={len(self.graph[key_trajectories])}, "
+            f"InputTrajectories (trajectories={len(self.graph[key_trajectories])}, "
             f"nodes={self.number_of_nodes()}, edges={self.number_of_edges()})"
         )

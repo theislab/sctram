@@ -150,3 +150,4 @@ __temp__/
 *slurm_out*.log
 *slurm_job*.sh
 *slurm-*.out
+sctram/evaluate/_metrics/candidates.py
