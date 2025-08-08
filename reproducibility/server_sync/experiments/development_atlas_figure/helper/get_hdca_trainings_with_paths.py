@@ -39,6 +39,8 @@ def get_hdca_trainings_with_paths():
             assert len(item) == 1
             run["n_epochs_kl_warmup"] = item["n_epochs_kl_warmup"].item()
             run["batch_strategy"] = item["batch_strategy"].item()
+        elif run["model"] in ["tardis", "scanoroma"]:
+            continue
         else:
             raise ValueError
         
