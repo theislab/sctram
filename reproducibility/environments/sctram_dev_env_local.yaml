@@ -23,6 +23,7 @@ dependencies:
     - pyg::pyg # gnn metric
     - pygraphviz
     - graphviz # Open Source graph visualization software.
+    - loguru
     - colorcet
     - gudhi
     - eagerpy
@@ -83,6 +84,7 @@ dependencies:
     - rich # scib-metrics dependency
     - chex # scib-metrics dependency
     - hypothesis
+    - cellrank>2.0.0 # Dynamics from multi-view single-cell data
     - pip:
           - scib-metrics==0.5.1
           - scib==1.1.5
