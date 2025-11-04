@@ -72,11 +72,12 @@ class TrajectoryEvaluationAPI:
         self.logger.info(f"Running pseudotime inference with method {inference_method!r}")
         return InferenceClass
 
-    def _get_metrics(self, metrics, inference_method, evaluate_method):
+    def _get_metrics(self, metrics, inference_method, evaluate_method, ignore_metrics):
         metrics = metrics or default_metrics(evaluate_class=evaluate_method, infer_class=inference_method)
         if metrics is None or not isinstance(metrics, list) or not len(metrics) > 0:
             raise ValueError
-        return metrics
+        res = [m for m in metrics if m not in ignore_metrics]
+        return res 
 
     def evaluate_with_defaults(self):
         # Main sctram running function, very simplified version api run.
@@ -92,6 +93,7 @@ class TrajectoryEvaluationAPI:
         inference_params: Optional[Dict[str, Any]] = None,
         evaluate_params: Optional[Dict[str, Any]] = None,
         metrics: Optional[List[str]] = None,
+        ignore_metrics: Optional[List[str]] = None,
         _given_adata: Optional[ad.AnnData] = None,
         _return_inference_anndata=False,
     ):
@@ -99,7 +101,8 @@ class TrajectoryEvaluationAPI:
         self.logger.info("Starting pseudotime evaluation.")
         InferenceClass = self._get_inference_method(inference_method, PSEUDOTIME_INFER_METHODS)
         EvaluateClass = self._get_evaluate_method(evaluate_method)
-        metrics = self._get_metrics(metrics, inference_method, evaluate_method)
+        ignore_metrics = [] if ignore_metrics is None else ignore_metrics
+        metrics = self._get_metrics(metrics, inference_method, evaluate_method, ignore_metrics)
 
         # Subset anndata with only available nodes.
         if _given_adata is None:
@@ -159,6 +162,7 @@ class TrajectoryEvaluationAPI:
         inference_params: Optional[Dict[str, Any]] = None,
         evaluate_params: Optional[Dict[str, Any]] = None,
         metrics: Optional[List[str]] = None,
+        ignore_metrics: Optional[List[str]] = None,
         _given_adata: Optional[ad.AnnData] = None,
         _return_inference_anndata=False,
     ):
@@ -166,7 +170,8 @@ class TrajectoryEvaluationAPI:
         self.logger.info("Starting adjacency evaluation.")
         InferenceClass = self._get_inference_method(inference_method, ADJACENCY_INFER_METHODS)
         EvaluateClass = self._get_evaluate_method(evaluate_method)
-        metrics = self._get_metrics(metrics, inference_method, evaluate_method)
+        ignore_metrics = [] if ignore_metrics is None else ignore_metrics
+        metrics = self._get_metrics(metrics, inference_method, evaluate_method, ignore_metrics)
 
         inference_params = inference_params or dict(
             random_state=42,
@@ -209,12 +214,14 @@ class TrajectoryEvaluationAPI:
         inference_params: Optional[Dict[str, Any]] = None,
         evaluate_params: Optional[Dict[str, Any]] = None,
         metrics: Optional[List[str]] = None,
+        ignore_metrics: Optional[List[str]] = None,
     ):
 
         self.logger.info("Starting embedding evaluation.")
         InferenceClass = self._get_inference_method(inference_method, EMBEDDING_INFER_METHODS)
         EvaluateClass = self._get_evaluate_method(evaluate_method)
-        metrics = self._get_metrics(metrics, inference_method, evaluate_method)
+        ignore_metrics = [] if ignore_metrics is None else ignore_metrics
+        metrics = self._get_metrics(metrics, inference_method, evaluate_method, ignore_metrics)
 
         inference_params = inference_params or dict(random_state=42, obsm_key="X")
         inference = InferenceClass(adata=self.adata, labels=self.adata.obs[self.labels_obs], **inference_params)

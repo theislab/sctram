@@ -246,6 +246,7 @@ class InputTrajectory(nx.DiGraph):
         label_offset=None,
         title_y=1.02,
         layout_args="-Grankdir=LR -Gnodesep=0.25 -Granksep=0.25",
+        return_ax=False,
     ):
         """
         Visualizes the graph with configurable styling and automatic layout adjustments.
@@ -297,6 +298,8 @@ class InputTrajectory(nx.DiGraph):
         title_y : float, optional
             Vertical position of the title.
         layout_args : str, optional
+            Arguments for graphviz layout engine.
+        return_ax : bool
             Arguments for graphviz layout engine.
         """
         import matplotlib as mpl
@@ -438,6 +441,8 @@ class InputTrajectory(nx.DiGraph):
             left=0.03, right=0.97, top=0.97, bottom=0.15 if (color_edges_by_weight and edge_colorbar) else 0.03
         )
         ax.set_axis_off()
+        if return_ax:
+            return fig, ax
         plt.show()
 
     @cached_property
