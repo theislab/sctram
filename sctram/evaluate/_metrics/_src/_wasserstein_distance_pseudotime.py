@@ -39,7 +39,7 @@ def wasserstein_distance_pseudotime(
     # Measure absolute distances. Normalization focuses on shape rather than magnitude.
     norm_given = prepare_pseudotime(given_pseudotime_array, method="minmax")
     norm_inferred = prepare_pseudotime(inferred_pseudotime_array, method="minmax")
-
+    # TODO: fix here.
     wd = scipy_wd(given_pseudotime_array, inferred_pseudotime_array)
 
     if validate_result:

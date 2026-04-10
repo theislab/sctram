@@ -18,7 +18,7 @@ except ImportError:
 
 _logger = logger.bind(name="MetricsBase")
 
-
+# TODO: name is wrong: it should be directed_trajectory_validation_score 
 def trajectory_cardinality_validation(
     given_graph: nx.DiGraph,
     labels_array: np.ndarray,
